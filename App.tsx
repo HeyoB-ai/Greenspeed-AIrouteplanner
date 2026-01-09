@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
@@ -78,7 +77,6 @@ const App: React.FC = () => {
   };
 
   const handleSwitchRole = (role: UserRole) => {
-    // Demo logic: set user to a matching mock role
     if (role === UserRole.COURIER) {
       setUser({ ...MOCK_COURIERS[0], role });
     } else if (role === UserRole.SUPERVISOR) {
@@ -94,16 +92,26 @@ const App: React.FC = () => {
       .map(p => ({ ...p.address, id: p.id }));
 
     if (activeRoutePackages.length > 1) {
-      const optimizedIds = await optimizeRoute(activeRoutePackages);
-      // Re-order packages in the list based on optimized IDs (demo visualization)
-      const sorted = [...packages].sort((a, b) => {
-        const idxA = optimizedIds.indexOf(a.id);
-        const idxB = optimizedIds.indexOf(b.id);
-        if (idxA === -1 || idxB === -1) return 0;
-        return idxA - idxB;
-      });
-      setPackages(sorted);
-      alert("Routes zijn succesvol geoptimaliseerd door de AI.");
+      try {
+        const optimizedIds = await optimizeRoute(activeRoutePackages);
+        
+        // Check if we actually got a different order
+        if (optimizedIds && optimizedIds.length > 0) {
+          const sorted = [...packages].sort((a, b) => {
+            const idxA = optimizedIds.indexOf(a.id);
+            const idxB = optimizedIds.indexOf(b.id);
+            if (idxA === -1 || idxB === -1) return 0;
+            return idxA - idxB;
+          });
+          setPackages(sorted);
+          alert("Routes zijn succesvol geoptimaliseerd door de AI.");
+        }
+      } catch (err) {
+        console.error("Optimization failed:", err);
+        alert("AI optimalisatie is momenteel niet beschikbaar.");
+      }
+    } else {
+      alert("Niet genoeg actieve zendingen om een route te optimaliseren.");
     }
   };
 
