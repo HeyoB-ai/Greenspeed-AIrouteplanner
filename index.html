@@ -7,8 +7,12 @@
   <title>MedRoute | Medicijnbezorging</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Voorkom 'process is not defined' fouten in de browser
-    window.process = { env: { API_KEY: "" } };
+    // Shim voor process.env om runtime errors te voorkomen
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    if (!window.process.env.API_KEY) {
+      window.process.env.API_KEY = "";
+    }
   </script>
   <script type="importmap">
 {
@@ -27,7 +31,6 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
   <div id="root"></div>
-  <!-- Expliciet laden van de entry point -->
   <script type="module" src="index.tsx"></script>
 </body>
 </html>

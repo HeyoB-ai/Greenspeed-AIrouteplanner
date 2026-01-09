@@ -2,14 +2,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Address } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 /**
  * Extracts address components from an image of a delivery label.
  * Specifically avoids PII like names or medication.
  */
 export async function extractAddressFromImage(base64Image: string): Promise<Address | null> {
   try {
+    // Initialize inside the function to prevent top-level crash if process.env.API_KEY is missing
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
@@ -53,6 +54,8 @@ export async function extractAddressFromImage(base64Image: string): Promise<Addr
  */
 export async function optimizeRoute(addresses: (Address & { id: string })[]): Promise<string[]> {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Given the following list of addresses (JSON format), determine the most efficient delivery sequence based on postal codes and street proximity. Return only a JSON array of the IDs in the optimized order.\n\n${JSON.stringify(addresses)}`,
