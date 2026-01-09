@@ -1,0 +1,8 @@
+{
+  "name": "MedRoute - Privacy-First Medicine Delivery",
+  "description": "A secure, privacy-by-design platform for local medicine delivery connecting pharmacies and couriers with AI-driven route optimization and automated OCR address extraction.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
