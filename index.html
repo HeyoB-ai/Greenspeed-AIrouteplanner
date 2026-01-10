@@ -4,14 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedRoute | Privacy-First Medicijnbezorging</title>
-  <!-- Voorkom 404 favicon error die het laden kan vertragen -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💊</text></svg>">
   
-  <!-- Tailwind CDN (Geeft waarschuwing in console op Netlify, maar werkt wel voor dit prototype) -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <script>
-    // Polyfill voor process.env die door SDK's verwacht wordt
+    // Polyfill voor process.env
     window.process = window.process || { env: { NODE_ENV: 'production' } };
   </script>
 
@@ -24,8 +22,8 @@
     "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react",
     "@google/genai": "https://esm.sh/@google/genai@1.35.0",
     "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
@@ -54,6 +52,10 @@
       justify-content: center;
       height: 100vh;
       background: #f8fafc;
+      z-index: 9999;
+      position: fixed;
+      inset: 0;
+      transition: opacity 0.5s ease-out;
     }
     .spinner {
       width: 40px;
@@ -67,13 +69,11 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
-  <div id="root">
-    <!-- Fallback loader die wordt vervangen zodra React start -->
-    <div id="loader-fallback">
-      <div class="spinner"></div>
-      <p style="margin-top: 20px; color: #64748b; font-weight: 600;">MedRoute wordt geladen...</p>
-    </div>
+  <div id="loader-fallback">
+    <div class="spinner"></div>
+    <p style="margin-top: 20px; color: #64748b; font-weight: 600; font-family: sans-serif;">MedRoute wordt geladen...</p>
   </div>
+  <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
 </body>
 </html>
