@@ -1,6 +1,5 @@
-
-import React, { useRef, useState, useCallback } from 'react';
-import { Camera, X, RefreshCw, CheckCircle2 } from 'lucide-react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { Camera, X, RefreshCw } from 'lucide-react';
 import { extractAddressFromImage } from '../services/geminiService';
 import { Address } from '../types';
 
@@ -12,130 +11,72 @@ interface ScannerProps {
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const startCamera = async () => {
-    try {
-      setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCapturing(true);
+  useEffect(() => {
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {
+        alert("Camera toegang geweigerd.");
+        onCancel();
       }
-    } catch (err) {
-      setError("Toegang tot camera geweigerd of niet beschikbaar.");
     }
-  };
+    setupCamera();
+    return () => {
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      }
+    };
+  }, [onCancel]);
 
-  const stopCamera = useCallback(() => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      setIsCapturing(false);
-    }
-  }, []);
-
-  const captureFrame = async () => {
+  const capture = async () => {
     if (!videoRef.current || !canvasRef.current) return;
-
     setIsProcessing(true);
-    const context = canvasRef.current.getContext('2d');
-    if (!context) return;
-
-    canvasRef.current.width = videoRef.current.videoWidth;
-    canvasRef.current.height = videoRef.current.videoHeight;
-    context.drawImage(videoRef.current, 0, 0);
-
-    const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.8);
-    const base64Data = dataUrl.split(',')[1];
-
-    try {
-      const address = await extractAddressFromImage(base64Data);
-      if (address) {
-        stopCamera();
-        onScanComplete(address);
-      } else {
-        setError("Geen adres herkend op het etiket. Probeer het opnieuw.");
-      }
-    } catch (err) {
-      setError("Er is een fout opgetreden bij het verwerken.");
-    } finally {
+    
+    const canvas = canvasRef.current;
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
+    
+    const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    const address = await extractAddressFromImage(base64);
+    
+    if (address) {
+      onScanComplete(address);
+    } else {
+      alert("Geen adres gevonden. Zorg dat het label goed verlicht is.");
       setIsProcessing(false);
     }
   };
 
-  React.useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-4">
-      <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          className="w-full h-full object-cover"
-        />
-        
-        {/* Overlay targeting area */}
-        <div className="absolute inset-0 border-[40px] border-black/50 pointer-events-none">
-          <div className="w-full h-full border-2 border-white/50 rounded-lg relative">
-            <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl"></div>
-            <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr"></div>
-            <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl"></div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br"></div>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      <div className="relative flex-1 bg-slate-900 overflow-hidden">
+        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        <div className="absolute inset-0 border-[3rem] border-black/40 pointer-events-none">
+          <div className="w-full h-full border-2 border-blue-400/50 rounded-xl relative">
+            <div className="scan-line" />
           </div>
         </div>
-
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-6 text-center">
-            <RefreshCw className="w-12 h-12 mb-4 animate-spin text-blue-400" />
-            <p className="text-xl font-bold">AI extraheert adres...</p>
-            <p className="text-sm text-slate-300 mt-2">Privacy-check: Namen en medische gegevens worden genegeerd.</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="absolute top-4 left-4 right-4 bg-red-500/90 text-white p-3 rounded-lg text-sm flex items-center space-x-2">
-            <X size={16} />
-            <span>{error}</span>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+            <RefreshCw className="animate-spin mb-4" size={48} />
+            <p className="font-bold text-lg">AI analyseert privacy-veilig...</p>
           </div>
         )}
       </div>
-
+      <div className="p-8 bg-slate-900 flex justify-around items-center">
+        <button onClick={onCancel} className="p-4 bg-slate-800 text-white rounded-full"><X /></button>
+        <button onClick={capture} disabled={isProcessing} className="w-20 h-20 bg-blue-600 border-4 border-white/20 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform">
+          <Camera size={32} />
+        </button>
+        <div className="w-12 h-12" />
+      </div>
       <canvas ref={canvasRef} className="hidden" />
-
-      <div className="mt-8 flex items-center space-x-6">
-        <button 
-          onClick={onCancel}
-          className="w-16 h-16 flex items-center justify-center rounded-full bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all shadow-lg"
-        >
-          <X size={28} />
-        </button>
-        
-        <button 
-          disabled={!isCapturing || isProcessing}
-          onClick={captureFrame}
-          className="w-20 h-20 flex items-center justify-center rounded-full bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 active:scale-95 transition-all shadow-xl border-4 border-white/10"
-        >
-          <Camera size={36} />
-        </button>
-
-        <div className="w-16 h-16 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-500">
-          <CheckCircle2 size={28} />
-        </div>
-      </div>
-      
-      <p className="text-slate-400 text-xs mt-6 px-8 text-center max-w-xs">
-        Richt de camera op het verzendetiket. Alleen adresgegevens worden opgeslagen.
-      </p>
     </div>
   );
 };

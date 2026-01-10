@@ -1,149 +1,87 @@
 import React, { useState, useEffect } from 'react';
+import { User, UserRole, Package, PackageStatus, Address, CourierStatus } from './types';
 import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
-import { User, UserRole, CourierStatus, Package, PackageStatus, Address } from './types';
-import { optimizeRoute } from './services/geminiService';
 
-const MOCK_COURIERS: User[] = [
-  { id: 'c1', name: 'Jan de Vries', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
-  { id: 'c2', name: 'Lisa Bakker', role: UserRole.COURIER, status: CourierStatus.OFFLINE },
-];
-
-const INITIAL_PACKAGES: Package[] = [
-  {
-    id: 'p1',
-    pharmacyId: 'ph1',
-    address: { street: 'Kinkerstraat', houseNumber: '45', postalCode: '1053 DL', city: 'Amsterdam' },
-    status: PackageStatus.ASSIGNED,
-    courierId: 'c1',
-    createdAt: new Date().toISOString(),
-    priority: 1
-  },
-  {
-    id: 'p2',
-    pharmacyId: 'ph1',
-    address: { street: 'Jan Evertsenstraat', houseNumber: '12', postalCode: '1057 BS', city: 'Amsterdam' },
-    status: PackageStatus.PENDING,
-    createdAt: new Date().toISOString(),
-    priority: 3
-  }
-];
+const STORAGE_KEY = 'medroute_packages_v1';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User>({ id: 'u1', name: 'Apotheek De Zorg', role: UserRole.PHARMACY });
-  const [packages, setPackages] = useState<Package[]>(INITIAL_PACKAGES);
-  const [couriers, setCouriers] = useState<User[]>(MOCK_COURIERS);
+  const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Auto-assign packages logic (Simplified for demo)
+  const [currentUser] = useState<User>({
+    id: 'u-1',
+    name: 'Apotheek de Kroon',
+    role: UserRole.PHARMACY
+  });
+
+  const [couriers] = useState<User[]>([
+    { id: 'k1', name: 'Marco Koerier', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
+    { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
+  ]);
+
+  // Load data from localStorage on mount
   useEffect(() => {
-    const unassigned = packages.filter(p => p.status === PackageStatus.PENDING);
-    if (unassigned.length > 0) {
-      const availableCourier = couriers.find(c => c.status === CourierStatus.AVAILABLE);
-      if (availableCourier) {
-        setPackages(prev => prev.map(p => 
-          p.status === PackageStatus.PENDING 
-            ? { ...p, status: PackageStatus.ASSIGNED, courierId: availableCourier.id } 
-            : p
-        ));
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        setPackages(JSON.parse(saved));
+      } catch (e) {
+        console.error("Fout bij laden lokale data", e);
       }
     }
-  }, [packages, couriers]);
+    setIsLoaded(true);
+  }, []);
 
-  const handleAddPackage = (address: Address) => {
-    const newPackage: Package = {
-      id: `p-${Date.now()}`,
-      pharmacyId: user.id,
+  // Save data to localStorage when packages change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
+    }
+  }, [packages, isLoaded]);
+
+  const addPackage = (address: Address) => {
+    const newPkg: Package = {
+      id: `pkg-${Math.random().toString(36).substr(2, 9)}`,
+      pharmacyId: 'ph-1',
       address,
       status: PackageStatus.PENDING,
       createdAt: new Date().toISOString(),
-      priority: 2
+      priority: 3
     };
-    setPackages(prev => [newPackage, ...prev]);
+    setPackages(prev => [newPkg, ...prev]);
   };
 
-  const handleUpdatePackageStatus = (id: string, status: PackageStatus) => {
-    setPackages(prev => prev.map(p => 
-      p.id === id ? { ...p, status, deliveredAt: status === PackageStatus.DELIVERED ? new Date().toISOString() : undefined } : p
-    ));
+  const updatePackage = (id: string, status: PackageStatus) => {
+    setPackages(prev => prev.map(p => p.id === id ? { ...p, status } : p));
   };
 
-  const handleCourierStatusChange = (status: CourierStatus) => {
-    setCouriers(prev => prev.map(c => 
-      c.id === user.id ? { ...c, status } : c
-    ));
-    setUser(prev => ({ ...prev, status }));
-  };
-
-  const handleSwitchRole = (role: UserRole) => {
-    if (role === UserRole.COURIER) {
-      setUser({ ...MOCK_COURIERS[0], role });
-    } else if (role === UserRole.SUPERVISOR) {
-      setUser({ id: 's1', name: 'Mark Planner', role });
-    } else {
-      setUser({ id: 'u1', name: 'Apotheek De Zorg', role });
+  const handleLogout = () => {
+    if (confirm("Weet je zeker dat je wilt uitloggen? Lokale sessiedata blijft behouden.")) {
+      window.location.reload();
     }
   };
 
-  const handleAIRequestOptimization = async () => {
-    const activeRoutePackages = packages
-      .filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP)
-      .map(p => ({ ...p.address, id: p.id }));
-
-    if (activeRoutePackages.length > 1) {
-      try {
-        const optimizedIds = await optimizeRoute(activeRoutePackages);
-        
-        // Check if we actually got a different order
-        if (optimizedIds && optimizedIds.length > 0) {
-          const sorted = [...packages].sort((a, b) => {
-            const idxA = optimizedIds.indexOf(a.id);
-            const idxB = optimizedIds.indexOf(b.id);
-            if (idxA === -1 || idxB === -1) return 0;
-            return idxA - idxB;
-          });
-          setPackages(sorted);
-          alert("Routes zijn succesvol geoptimaliseerd door de AI.");
-        }
-      } catch (err) {
-        console.error("Optimization failed:", err);
-        alert("AI optimalisatie is momenteel niet beschikbaar.");
-      }
-    } else {
-      alert("Niet genoeg actieve zendingen om een route te optimaliseren.");
-    }
-  };
+  if (!isLoaded) return null;
 
   return (
     <Layout 
-      activeRole={user.role} 
-      userName={user.name} 
-      onLogout={() => window.location.reload()}
-      onSwitchRole={handleSwitchRole}
+      activeRole={role} 
+      userName={currentUser.name} 
+      onLogout={handleLogout} 
+      onSwitchRole={setRole}
     >
-      {user.role === UserRole.PHARMACY && (
-        <PharmacyView 
-          packages={packages} 
-          onAddPackage={handleAddPackage} 
-        />
+      {role === UserRole.PHARMACY && (
+        <PharmacyView packages={packages} onAdd={addPackage} />
       )}
-      
-      {user.role === UserRole.COURIER && (
-        <CourierView 
-          user={user} 
-          packages={packages} 
-          onStatusChange={handleCourierStatusChange}
-          onUpdatePackage={handleUpdatePackageStatus}
-        />
+      {role === UserRole.COURIER && (
+        <CourierView packages={packages} onUpdate={updatePackage} />
       )}
-      
-      {user.role === UserRole.SUPERVISOR && (
-        <SupervisorView 
-          packages={packages} 
-          couriers={couriers} 
-          onOptimizeRoutes={handleAIRequestOptimization}
-        />
+      {role === UserRole.SUPERVISOR && (
+        <SupervisorView packages={packages} couriers={couriers} />
       )}
     </Layout>
   );
