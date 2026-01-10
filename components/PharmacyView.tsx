@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Scan, Plus, MapPin, Clock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Package, Scan, Plus, MapPin, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { Package as PackageType, Address, PackageStatus } from '../types';
 import Scanner from './Scanner';
 
@@ -12,87 +12,115 @@ const PharmacyView: React.FC<Props> = ({ packages, onAdd }) => {
   const [showScanner, setShowScanner] = useState(false);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-10">
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 sm:p-14 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full mb-6">
-            <ShieldCheck size={14} />
-            <span className="text-[10px] font-extrabold uppercase tracking-widest">Privacy AI Engine Actief</span>
-          </div>
-          <h2 className="text-4xl sm:text-5xl font-black mb-4 tracking-tight leading-tight">Nieuwe Zending</h2>
-          <p className="text-blue-50/80 text-lg max-w-lg mb-10 leading-relaxed font-medium">Scan een medisch etiket. Onze AI verwijdert automatisch patiëntnamen en BSN's voor een 100% anonieme route.</p>
-          
-          <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-            <button 
-              onClick={() => setShowScanner(true)}
-              className="bg-white text-blue-700 px-10 py-5 rounded-[1.5rem] font-extrabold flex items-center justify-center space-x-3 shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all group"
-            >
-              <Scan className="group-hover:rotate-12 transition-transform" />
-              <span>Label Scannen</span>
-            </button>
-            <button className="bg-blue-500/30 backdrop-blur-md text-white border border-white/20 px-10 py-5 rounded-[1.5rem] font-extrabold hover:bg-white/10 transition-all flex items-center justify-center space-x-2">
-              <Plus size={20} />
-              <span>Handmatig</span>
-            </button>
-          </div>
-        </div>
-        <Package className="absolute -right-16 -bottom-16 text-white/10 w-80 h-80 rotate-12" />
-      </div>
-
-      <div className="bg-white rounded-[2.5rem] border border-slate-200/60 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.03)]">
-        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="font-black text-2xl text-slate-900">Zendingen in Wachtrij</h3>
-            <p className="text-sm text-slate-400 font-bold uppercase tracking-wider mt-1">Status: Live Updates</p>
-          </div>
-          <div className="flex -space-x-2 overflow-hidden">
-             {[1,2,3].map(i => (
-               <div key={i} className="inline-block h-8 w-8 rounded-full ring-4 ring-white bg-slate-200"></div>
-             ))}
-          </div>
-        </div>
+    <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <div className="divide-y divide-slate-100">
-          {packages.length === 0 ? (
-            <div className="p-20 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Package className="text-slate-300" size={32} />
+        {/* Action Column */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-blue-600 rounded-4xl p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="bg-white/20 w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <Scan size={24} />
               </div>
-              <p className="text-slate-400 font-bold text-lg">Geen actieve zendingen</p>
-              <p className="text-slate-400 text-sm mt-1">Scan je eerste label om te beginnen.</p>
+              <h2 className="text-3xl font-black tracking-tight mb-2">Nieuwe Zending</h2>
+              <p className="text-blue-100 text-sm font-medium mb-8 leading-relaxed">
+                Scan een patiëntlabel. Onze AI verwijdert automatisch gevoelige data en extraheert alleen het adres.
+              </p>
+              <button 
+                onClick={() => setShowScanner(true)}
+                className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
+              >
+                <span>Nu Scannen</span>
+                <ArrowRight size={20} />
+              </button>
             </div>
-          ) : (
-            packages.map(p => (
-              <div key={p.id} className="p-8 flex items-center justify-between hover:bg-blue-50/30 transition-all group">
-                <div className="flex items-center space-x-6">
-                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-blue-600 group-hover:shadow-md transition-all">
-                    <MapPin size={24} />
+            <Package className="absolute -bottom-10 -right-10 w-48 h-48 text-white/10 rotate-12 group-hover:rotate-45 transition-transform duration-1000" />
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-4xl p-8 shadow-sm">
+            <h3 className="text-slate-900 font-extrabold text-lg mb-4 flex items-center space-x-2">
+              <ShieldCheck className="text-green-500" size={20} />
+              <span>Privacy Status</span>
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
+                <CheckCircle2 size={16} className="text-blue-500" />
+                <span>AI OCR Filter Actief</span>
+              </div>
+              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
+                <CheckCircle2 size={16} className="text-blue-500" />
+                <span>Geen Patiëntdata Opslag</span>
+              </div>
+              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
+                <CheckCircle2 size={16} className="text-blue-500" />
+                <span>Lokaal Geëncrypteerd</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* List Column */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden h-full flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">Actieve Zendingen</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  Totaal: {packages.length} in verwerking
+                </p>
+              </div>
+              <div className="flex -space-x-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 ring-2 ring-slate-100"></div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {packages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <Package className="text-slate-300" size={32} />
                   </div>
-                  <div>
-                    <p className="font-black text-xl text-slate-900 tracking-tight">{p.address.street} {p.address.houseNumber}</p>
-                    <div className="flex items-center space-x-2 text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">
-                      <span>{p.address.postalCode} {p.address.city}</span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                      <span className="text-blue-500">ID: {p.id.split('-')[1]}</span>
+                  <p className="text-slate-900 font-black text-lg">Geen actieve ritten</p>
+                  <p className="text-slate-400 text-sm max-w-[200px] mt-2">Begin met het scannen van een medisch etiket.</p>
+                </div>
+              ) : (
+                packages.map(p => (
+                  <div key={p.id} className="group bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between hover:border-blue-200 hover:shadow-md transition-all cursor-default">
+                    <div className="flex items-center space-x-5">
+                      <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                        <MapPin size={24} />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 text-lg tracking-tight">{p.address.street} {p.address.houseNumber}</h4>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        p.status === PackageStatus.PENDING ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {p.status}
+                      </span>
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
+                        <ArrowRight size={18} />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-6">
-                  <span className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm ${
-                    p.status === PackageStatus.PENDING 
-                      ? 'bg-amber-100 text-amber-700' 
-                      : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {p.status}
-                  </span>
-                  <ArrowRight className="text-slate-200 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" size={20} />
-                </div>
-              </div>
-            ))
-          )}
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
-      {showScanner && <Scanner onScanComplete={(addr) => { onAdd(addr); setShowScanner(false); }} onCancel={() => setShowScanner(false)} />}
+
+      {showScanner && (
+        <Scanner 
+          onScanComplete={(addr) => { onAdd(addr); setShowScanner(false); }} 
+          onCancel={() => setShowScanner(false)} 
+        />
+      )}
     </div>
   );
 };

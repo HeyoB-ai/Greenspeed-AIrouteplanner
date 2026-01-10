@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole, Package, PackageStatus, Address, CourierStatus } from './types.ts';
-import Layout from './components/Layout.tsx';
-import PharmacyView from './components/PharmacyView.tsx';
-import CourierView from './components/CourierView.tsx';
-import SupervisorView from './components/SupervisorView.tsx';
+import { UserRole, Package, PackageStatus, Address, CourierStatus } from './types';
+import Layout from './components/Layout';
+import PharmacyView from './components/PharmacyView';
+import CourierView from './components/CourierView';
+import SupervisorView from './components/SupervisorView';
 
 const STORAGE_KEY = 'medroute_data_v2';
 

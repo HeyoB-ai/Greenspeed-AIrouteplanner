@@ -1,36 +1,28 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 
-const mountApp = () => {
-  const container = document.getElementById('root');
-  if (!container) return;
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 
-  try {
-    const root = createRoot(container);
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
-    );
-    
-    // Verwijder loader pas als React echt "landt"
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const loader = document.getElementById('loader-fallback');
-        if (loader) {
-          loader.style.opacity = '0';
-          setTimeout(() => { loader.style.display = 'none'; }, 500);
-        }
-      }, 200);
-    });
+  // Verwijder loader na render
+  const removeLoader = () => {
+    const loader = document.getElementById('loader-fallback');
+    if (loader) {
+      loader.style.opacity = '0';
+      setTimeout(() => loader.remove(), 400);
+    }
+  };
 
-    console.log("MedRoute v2.1: React 18.3.1 stabiel.");
-  } catch (err) {
-    console.error("Mount error:", err);
-    container.innerHTML = `<div style="padding:20px; color:red;">Kritieke fout: ${err.message}</div>`;
+  if (document.readyState === 'complete') {
+    setTimeout(removeLoader, 500);
+  } else {
+    window.addEventListener('load', () => setTimeout(removeLoader, 500));
   }
-};
-
-// Start de app
-mountApp();
+}

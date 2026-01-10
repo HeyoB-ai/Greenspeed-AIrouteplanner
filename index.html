@@ -3,60 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MedRoute | Privacy-First</title>
+  <title>MedRoute | Privacy-First Medicijnlogistiek</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            medical: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#0f172a',
+            },
+          },
+          borderRadius: {
+            '4xl': '2rem',
+          }
+        }
+      }
+    }
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
     body { 
-      margin: 0; 
-      background: #f8fafc; 
-      font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; 
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+      margin: 0;
     }
-    
-    #loader-fallback {
-      position: fixed; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; background: white; z-index: 9999;
-      transition: opacity 0.5s ease;
-    }
-    
-    .spinner {
-      width: 48px; height: 48px; border: 5px solid #f1f5f9;
-      border-top: 5px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    
     .glass {
-      background: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.8);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+    #loader-fallback {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: white; z-index: 10000; transition: opacity 0.4s;
+    }
+    .scan-line {
+      width: 100%;
+      height: 2px;
+      background: rgba(59, 130, 246, 0.5);
+      position: absolute;
+      top: 0;
+      left: 0;
+      animation: scan_line_anim 2s linear infinite;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+    }
+    @keyframes scan_line_anim {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
   </style>
-<script type="importmap">
+</head>
+<body>
+  <div id="loader-fallback">
+    <div class="flex flex-col items-center">
+      <div class="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+      <p class="mt-4 font-bold text-slate-400 animate-pulse">MedRoute Beveiligd Laden...</p>
+    </div>
+  </div>
+  <div id="root"></div>
+  <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
-</head>
-<body>
-  <div id="loader-fallback">
-    <div class="spinner"></div>
-    <div style="margin-top: 24px; text-align: center;">
-      <p style="font-weight: 800; font-size: 1.5rem; color: #1e293b; margin: 0; letter-spacing: -0.025em;">MedRoute</p>
-      <p style="color: #64748b; font-size: 0.875rem; margin-top: 4px; font-weight: 500;">Beveiligde omgeving laden...</p>
-    </div>
-  </div>
-  <div id="root"></div>
-  <script type="module" src="/main.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
