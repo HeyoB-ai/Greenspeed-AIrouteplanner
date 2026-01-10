@@ -10,8 +10,7 @@ const STORAGE_KEY = 'medroute_packages_v1';
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const [currentUser] = useState<User>({
     id: 'u-1',
@@ -24,6 +23,7 @@ const App: React.FC = () => {
     { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
   ]);
 
+  // Initialisatie logica
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -31,21 +31,25 @@ const App: React.FC = () => {
         setPackages(JSON.parse(saved));
       }
     } catch (e) {
-      console.error("Fout bij laden lokale data", e);
+      console.error("Data load error:", e);
     } finally {
-      setIsLoaded(true);
+      setIsInitialized(true);
+      
+      // Verwijder de zandloper zodra de App gemount is
+      const loader = document.getElementById('loader-fallback');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 400);
+      }
     }
   }, []);
 
+  // Opslaan bij wijzigingen
   useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
-      } catch (e) {
-        console.error("Kon data niet opslaan", e);
-      }
+    if (isInitialized) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
     }
-  }, [packages, isLoaded]);
+  }, [packages, isInitialized]);
 
   const addPackage = (address: Address) => {
     const newPkg: Package = {
@@ -64,24 +68,12 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (confirm("Weet je zeker dat je wilt uitloggen? Lokale sessiedata blijft behouden.")) {
+    if (confirm("Sessie beëindigen?")) {
       window.location.reload();
     }
   };
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-red-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <h1 className="text-2xl font-black text-red-600 mb-4">Er is iets misgegaan</h1>
-          <p className="text-slate-600 mb-6">{error}</p>
-          <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Opnieuw proberen</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoaded) return null;
+  if (!isInitialized) return null;
 
   return (
     <Layout 

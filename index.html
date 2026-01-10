@@ -9,15 +9,20 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <script>
-    // Ensure process.env exists without overwriting existing keys like API_KEY
-    window.process = window.process || { env: {} };
-    window.process.env = window.process.env || {};
-    window.process.env.NODE_ENV = 'production';
+    // Failsafe voor process.env
+    window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
     
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-      console.error('Global Error: ' + msg + ' at ' + url + ':' + lineNo);
-      return false;
-    };
+    // Globale error catcher voor witte schermen
+    window.addEventListener('error', function(event) {
+      console.error("Global Error Caught:", event.message);
+      const loaderStatus = document.getElementById('loader-status');
+      if (loaderStatus) {
+        loaderStatus.style.color = '#ef4444';
+        loaderStatus.innerHTML = '<strong>Systeemfout:</strong> ' + (event.message || 'Onbekende fout');
+      }
+      const debugInfo = document.getElementById('debug-info');
+      if (debugInfo) debugInfo.innerText = (event.filename || 'script') + ' line ' + (event.lineno || '?');
+    });
   </script>
 
   <script type="importmap">
@@ -35,7 +40,7 @@
 </script>
   <script src="https://esm.sh/run" type="module"></script>
   <style>
-    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
+    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
     #loader-fallback {
       position: fixed;
       inset: 0;
@@ -45,28 +50,49 @@
       justify-content: center;
       background: #ffffff;
       z-index: 9999;
-      transition: opacity 0.5s ease-out;
+      transition: opacity 0.4s ease;
     }
     .spinner {
-      width: 48px;
-      height: 48px;
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid #2563eb;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3b82f6;
       border-radius: 50%;
-      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      animation: spin 1s linear infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .btn-rescue {
+      margin-top: 20px;
+      padding: 8px 16px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div id="loader-fallback">
     <div class="spinner"></div>
-    <div style="margin-top: 24px; text-align: center;">
-        <p style="color: #1e293b; font-weight: 800; font-size: 1.1rem; margin-bottom: 4px;">MedRoute</p>
-        <p id="loader-status" style="color: #64748b; font-size: 0.875rem; font-weight: 500;">Bezig met initialiseren...</p>
+    <div style="margin-top: 20px; text-align: center; max-width: 80%;">
+        <p style="color: #0f172a; font-weight: 800; font-size: 1.25rem;">MedRoute</p>
+        <p id="loader-status" style="color: #64748b; font-size: 0.875rem;">Bezig met opstarten...</p>
+        <p id="debug-info" style="color: #cbd5e1; font-size: 0.7rem; margin-top: 8px; font-family: monospace;"></p>
+        <button id="rescue-btn" class="btn-rescue" onclick="localStorage.clear(); location.reload();">
+          Sessie herstellen (Wis Cache)
+        </button>
     </div>
   </div>
   <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
+  <script>
+    // Toon rescue-knop na 5 seconden bij vertraging
+    setTimeout(() => {
+      const btn = document.getElementById('rescue-btn');
+      if (btn) btn.style.display = 'block';
+    }, 5000);
+  </script>
 </body>
 </html>
