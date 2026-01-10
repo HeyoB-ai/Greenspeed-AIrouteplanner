@@ -6,7 +6,7 @@
   <title>MedRoute | Privacy-First Medicijnbezorging</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Polyfill voor process.env die door sommige SDK's wordt verwacht
+    // Polyfill voor process.env die door @google/genai wordt verwacht
     window.process = window.process || { env: { NODE_ENV: 'production' } };
   </script>
   <script type="importmap">
@@ -40,11 +40,6 @@
       -webkit-tap-highlight-color: transparent;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
     }
-    .glass-morphism {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
     .no-select {
       user-select: none;
       -webkit-user-select: none;
@@ -52,7 +47,14 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen selection:bg-blue-100">
-  <div id="root"></div>
+  <div id="root">
+    <!-- Fallback content in case React fails to mount -->
+    <div id="loader-fallback" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+      <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 20px; color: #64748b;">MedRoute wordt geladen...</p>
+      <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    </div>
+  </div>
   <script type="text/tsx" src="index.tsx"></script>
 </body>
 </html>
