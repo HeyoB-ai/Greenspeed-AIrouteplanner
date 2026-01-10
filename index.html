@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedRoute | Privacy-First Medicijnbezorging</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Polyfill for process.env which is expected by some ESM modules and SDKs
+    window.process = window.process || { env: { NODE_ENV: 'production' } };
+  </script>
   <script type="importmap">
 {
   "imports": {
@@ -14,8 +18,8 @@
     "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react",
     "@google/genai": "https://esm.sh/@google/genai@1.35.0",
     "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
