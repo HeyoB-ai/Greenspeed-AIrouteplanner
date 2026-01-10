@@ -5,56 +5,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedRoute | Privacy-First</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
-    
-    window.onerror = function(msg, url, line, col, error) {
-      console.error("Systeemfout:", msg, error);
-      const status = document.getElementById('loader-status');
-      if (status) {
-        status.innerHTML = '<span style="color:#ef4444; font-weight:bold;">Opstartfout: ' + msg + '</span>';
-      }
-      return false;
-    };
-  </script>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-    "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
-  <script src="https://esm.sh/run" type="module"></script>
   <style>
-    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    body { 
+      margin: 0; 
+      background: #f8fafc; 
+      font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif; 
+    }
+    
     #loader-fallback {
       position: fixed; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; background: white; z-index: 9999;
       transition: opacity 0.5s ease;
     }
+    
     .spinner {
-      width: 40px; height: 40px; border: 4px solid #f1f5f9;
-      border-top: 4px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;
+      width: 48px; height: 48px; border: 5px solid #f1f5f9;
+      border-top: 5px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;
     }
+    
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .glass {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
   </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
 </head>
 <body>
   <div id="loader-fallback">
     <div class="spinner"></div>
-    <div id="loader-text" style="margin-top: 24px; text-align: center;">
-      <p style="font-weight: 800; font-size: 1.25rem; color: #1e293b; margin: 0;">MedRoute</p>
-      <p id="loader-status" style="color: #64748b; font-size: 0.875rem; margin-top: 4px;">Systeem initialiseren...</p>
+    <div style="margin-top: 24px; text-align: center;">
+      <p style="font-weight: 800; font-size: 1.5rem; color: #1e293b; margin: 0; letter-spacing: -0.025em;">MedRoute</p>
+      <p style="color: #64748b; font-size: 0.875rem; margin-top: 4px; font-weight: 500;">Beveiligde omgeving laden...</p>
     </div>
   </div>
   <div id="root"></div>
-  <script type="text/tsx" src="index.tsx"></script>
+  <script type="module" src="/main.tsx"></script>
 </body>
 </html>

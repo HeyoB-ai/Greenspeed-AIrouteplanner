@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.no-select {
+  user-select: none;
+}
+
+.scan-line {
+  width: 100%;
+  height: 2px;
+  background: rgba(59, 130, 246, 0.5);
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: scan 2s linear infinite;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
