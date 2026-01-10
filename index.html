@@ -15,12 +15,11 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react,react-dom",
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
     "@google/genai": "https://esm.sh/@google/genai@1.35.0",
-    "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
@@ -28,7 +27,7 @@
 </script>
   <script src="https://esm.sh/run" type="module"></script>
   <style>
-    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
     #loader-fallback {
       position: fixed;
       inset: 0;
@@ -36,17 +35,16 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #f8fafc;
+      background: #ffffff;
       z-index: 9999;
-      transition: opacity 0.5s ease-out;
     }
     .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #e2e8f0;
-      border-top: 4px solid #2563eb;
+      width: 48px;
+      height: 48px;
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #2563eb;
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .scan-line {
@@ -62,7 +60,10 @@
 <body>
   <div id="loader-fallback">
     <div class="spinner"></div>
-    <p style="margin-top: 20px; color: #64748b; font-weight: 600;">MedRoute wordt geladen...</p>
+    <div style="margin-top: 24px; text-align: center;">
+        <p style="color: #1e293b; font-weight: 800; font-size: 1.1rem; margin-bottom: 4px;">MedRoute</p>
+        <p style="color: #64748b; font-size: 0.875rem; font-weight: 500;">Bezig met veilig opstarten...</p>
+    </div>
   </div>
   <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
