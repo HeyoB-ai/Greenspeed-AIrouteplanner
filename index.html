@@ -6,15 +6,13 @@
   <title>MedRoute | Privacy-First</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Cruciaal: process.env moet beschikbaar zijn voordat scripts laden
     window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
     
-    // Globale foutafhandeling om te zien wat er misgaat als het scherm wit blijft
     window.onerror = function(msg, url, line, col, error) {
       console.error("Systeemfout:", msg, error);
       const status = document.getElementById('loader-status');
       if (status) {
-        status.innerHTML = '<span style="color:#ef4444; font-weight:bold;">Systeemfout: ' + msg + '</span><br/><small style="color:#94a3b8">Probeer de pagina te herladen.</small>';
+        status.innerHTML = '<span style="color:#ef4444; font-weight:bold;">Opstartfout: ' + msg + '</span>';
       }
       return false;
     };
