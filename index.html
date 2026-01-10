@@ -9,7 +9,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <script>
-    window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
+    // Ensure process.env exists without overwriting existing keys like API_KEY
+    window.process = window.process || { env: {} };
+    window.process.env = window.process.env || {};
+    window.process.env.NODE_ENV = 'production';
+    
     window.onerror = function(msg, url, lineNo, columnNo, error) {
       console.error('Global Error: ' + msg + ' at ' + url + ':' + lineNo);
       return false;
@@ -22,10 +26,10 @@
     "react": "https://esm.sh/react@18.3.1",
     "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
     "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0"
   }
 }
 </script>

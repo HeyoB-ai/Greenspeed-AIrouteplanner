@@ -2,32 +2,25 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-const init = () => {
-  const container = document.getElementById('root');
-  if (!container) return;
+const container = document.getElementById('root');
 
+if (container) {
+  const root = createRoot(container);
+  
   try {
-    const root = createRoot(container);
     root.render(<App />);
     
-    // Verwijder loader
+    // Hide loader once rendering starts
     const loader = document.getElementById('loader-fallback');
     if (loader) {
       setTimeout(() => {
         loader.style.opacity = '0';
         setTimeout(() => loader.remove(), 500);
-      }, 500);
+      }, 300);
     }
   } catch (err) {
-    console.error("Render Error:", err);
+    console.error("Critical Render Error:", err);
     const status = document.getElementById('loader-status');
-    if (status) status.innerText = "Systeemfout bij laden.";
+    if (status) status.innerText = "Fout bij het opstarten van de interface.";
   }
-};
-
-// Start de app zodra het document klaar is
-if (document.readyState === 'complete') {
-  init();
-} else {
-  window.addEventListener('load', init);
 }
