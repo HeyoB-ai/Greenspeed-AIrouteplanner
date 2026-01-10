@@ -2,39 +2,30 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-console.log("MedRoute: Starten van applicatie-initialisatie...");
+console.log("MedRoute: Systeem start...");
 
-const mountApp = () => {
-  const rootElement = document.getElementById('root');
-  if (!rootElement) {
-    console.error("MedRoute Fout: 'root' element niet gevonden.");
-    return;
-  }
+const container = document.getElementById('root');
 
+if (container) {
   try {
-    const root = createRoot(rootElement);
+    const root = createRoot(container);
     root.render(
       <React.StrictMode>
         <App />
       </React.StrictMode>
     );
-    console.log("MedRoute: React boom succesvol gerenderd.");
+    console.log("MedRoute: React succesvol gekoppeld.");
   } catch (error) {
     console.error("MedRoute Kritieke Fout:", error);
-    rootElement.innerHTML = `
-      <div style="padding: 40px; text-align: center; font-family: sans-serif;">
-        <h2 style="color: #ef4444;">Applicatie Fout</h2>
-        <p>Er is een probleem opgetreden bij het laden van de modules.</p>
-        <pre style="background: #f1f5f9; padding: 10px; border-radius: 8px; font-size: 12px; overflow: auto;">${error instanceof Error ? error.message : String(error)}</pre>
-        <button onclick="location.reload()" style="background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;">Opnieuw proberen</button>
+    container.innerHTML = `
+      <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
+        <h1 style="color: #ef4444;">Fout bij opstarten</h1>
+        <p style="color: #64748b;">De applicatie kon niet worden geïnitialiseerd.</p>
+        <pre style="background: #f1f5f9; padding: 1rem; border-radius: 0.5rem; text-align: left; font-size: 12px; margin-top: 1rem;">${String(error)}</pre>
+        <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">Probeer Opnieuw</button>
       </div>
     `;
   }
-};
-
-// Start de app
-if (document.readyState === 'complete') {
-  mountApp();
 } else {
-  window.addEventListener('load', mountApp);
+  console.error("MedRoute: Kon de root container niet vinden.");
 }
