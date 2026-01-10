@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, Package, PackageStatus, Address, CourierStatus } from './types.ts';
+import { UserRole, Package, PackageStatus, Address, CourierStatus } from './types.ts';
 import Layout from './components/Layout.tsx';
 import PharmacyView from './components/PharmacyView.tsx';
 import CourierView from './components/CourierView.tsx';
@@ -11,23 +11,23 @@ const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
 
+  // Laad data éénmalig bij opstart
   useEffect(() => {
-    // Direct de loader weg zodra we hier zijn
-    const loader = document.getElementById('loader-fallback');
-    if (loader) loader.style.display = 'none';
-
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         setPackages(JSON.parse(saved));
       }
     } catch (e) {
-      console.warn("Storage load error:", e);
+      console.warn("Kon lokale opslag niet laden:", e);
     }
   }, []);
 
+  // Sla data op bij wijzigingen
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
+    if (packages.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
+    }
   }, [packages]);
 
   const addPackage = (address: Address) => {
@@ -53,7 +53,7 @@ const App: React.FC = () => {
       onLogout={() => { localStorage.clear(); window.location.reload(); }} 
       onSwitchRole={setRole}
     >
-      <div className="animate-in fade-in duration-500">
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {role === UserRole.PHARMACY && (
           <PharmacyView packages={packages} onAdd={addPackage} />
         )}
