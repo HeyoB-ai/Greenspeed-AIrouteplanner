@@ -2,22 +2,22 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-const container = document.getElementById('root');
+const startApp = () => {
+  const container = document.getElementById('root');
+  if (!container) return;
 
-if (container) {
   try {
     const root = createRoot(container);
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
-    );
+    root.render(<App />);
+    console.log("MedRoute: React render aangeroepen.");
   } catch (err) {
-    console.error("Render catch:", err);
-    const status = document.getElementById('loader-status');
-    if (status) {
-      status.style.color = '#ef4444';
-      status.innerText = "Fout bij laden van de interface.";
-    }
+    console.error("Render error:", err);
   }
+};
+
+// Zorg dat we pas renderen als de DOM er is en de scripts geladen zijn
+if (document.readyState === 'complete') {
+  startApp();
+} else {
+  window.addEventListener('load', startApp);
 }

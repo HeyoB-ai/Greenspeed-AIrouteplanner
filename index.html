@@ -3,96 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MedRoute | Privacy-First Medicijnbezorging</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💊</text></svg>">
-  
+  <title>MedRoute | Privacy-First</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script>
-    // Failsafe voor process.env
     window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
-    
-    // Globale error catcher voor witte schermen
-    window.addEventListener('error', function(event) {
-      console.error("Global Error Caught:", event.message);
-      const loaderStatus = document.getElementById('loader-status');
-      if (loaderStatus) {
-        loaderStatus.style.color = '#ef4444';
-        loaderStatus.innerHTML = '<strong>Systeemfout:</strong> ' + (event.message || 'Onbekende fout');
-      }
-      const debugInfo = document.getElementById('debug-info');
-      if (debugInfo) debugInfo.innerText = (event.filename || 'script') + ' line ' + (event.lineno || '?');
-    });
+    window.onerror = function(msg) {
+      const s = document.getElementById('loader-status');
+      if (s) s.innerHTML = '<span style="color:#ef4444">Fout: ' + msg + '</span>';
+      return false;
+    };
   </script>
-
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "react/": "https://esm.sh/react@18.3.1/",
-    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
     "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@1.35.0"
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
   <script src="https://esm.sh/run" type="module"></script>
   <style>
-    body { margin: 0; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; background: #f8fafc; font-family: sans-serif; }
     #loader-fallback {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #ffffff;
-      z-index: 9999;
-      transition: opacity 0.4s ease;
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; background: white; z-index: 9999;
     }
     .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #3b82f6;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+      width: 40px; height: 40px; border: 4px solid #f1f5f9;
+      border-top: 4px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .btn-rescue {
-      margin-top: 20px;
-      padding: 8px 16px;
-      background: #f1f5f9;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #64748b;
-      display: none;
-    }
   </style>
 </head>
 <body>
   <div id="loader-fallback">
     <div class="spinner"></div>
-    <div style="margin-top: 20px; text-align: center; max-width: 80%;">
-        <p style="color: #0f172a; font-weight: 800; font-size: 1.25rem;">MedRoute</p>
-        <p id="loader-status" style="color: #64748b; font-size: 0.875rem;">Bezig met opstarten...</p>
-        <p id="debug-info" style="color: #cbd5e1; font-size: 0.7rem; margin-top: 8px; font-family: monospace;"></p>
-        <button id="rescue-btn" class="btn-rescue" onclick="localStorage.clear(); location.reload();">
-          Sessie herstellen (Wis Cache)
-        </button>
-    </div>
+    <p id="loader-status" style="margin-top: 20px; color: #64748b; font-weight: 600;">Systeem laden...</p>
   </div>
   <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
-  <script>
-    // Toon rescue-knop na 5 seconden bij vertraging
-    setTimeout(() => {
-      const btn = document.getElementById('rescue-btn');
-      if (btn) btn.style.display = 'block';
-    }, 5000);
-  </script>
 </body>
 </html>

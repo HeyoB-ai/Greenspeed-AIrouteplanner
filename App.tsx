@@ -5,46 +5,33 @@ import PharmacyView from './components/PharmacyView.tsx';
 import CourierView from './components/CourierView.tsx';
 import SupervisorView from './components/SupervisorView.tsx';
 
-const STORAGE_KEY = 'medroute_packages_v1';
+const STORAGE_KEY = 'medroute_data_v2';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const [currentUser] = useState<User>({
-    id: 'u-1',
-    name: 'Apotheek de Kroon',
-    role: UserRole.PHARMACY
-  });
-
-  const [couriers] = useState<User[]>([
-    { id: 'k1', name: 'Marco Koerier', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
-    { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
-  ]);
-
-  // Initialisatie logica
   useEffect(() => {
+    // Verwijder de loader zodra React de regie overneemt
+    const hideLoader = () => {
+      const loader = document.getElementById('loader-fallback');
+      if (loader) loader.style.display = 'none';
+    };
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         setPackages(JSON.parse(saved));
       }
     } catch (e) {
-      console.error("Data load error:", e);
-    } finally {
-      setIsInitialized(true);
-      
-      // Verwijder de zandloper zodra de App gemount is
-      const loader = document.getElementById('loader-fallback');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(() => loader.remove(), 400);
-      }
+      console.warn("Kon lokale data niet laden:", e);
     }
+    
+    setIsInitialized(true);
+    hideLoader();
   }, []);
 
-  // Opslaan bij wijzigingen
   useEffect(() => {
     if (isInitialized) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
@@ -53,7 +40,7 @@ const App: React.FC = () => {
 
   const addPackage = (address: Address) => {
     const newPkg: Package = {
-      id: `pkg-${Math.random().toString(36).substr(2, 9)}`,
+      id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       pharmacyId: 'ph-1',
       address,
       status: PackageStatus.PENDING,
@@ -67,30 +54,32 @@ const App: React.FC = () => {
     setPackages(prev => prev.map(p => p.id === id ? { ...p, status } : p));
   };
 
-  const handleLogout = () => {
-    if (confirm("Sessie beëindigen?")) {
-      window.location.reload();
-    }
-  };
-
   if (!isInitialized) return null;
 
   return (
     <Layout 
       activeRole={role} 
-      userName={currentUser.name} 
-      onLogout={handleLogout} 
+      userName="Apotheek de Kroon" 
+      onLogout={() => { localStorage.clear(); window.location.reload(); }} 
       onSwitchRole={setRole}
     >
-      {role === UserRole.PHARMACY && (
-        <PharmacyView packages={packages} onAdd={addPackage} />
-      )}
-      {role === UserRole.COURIER && (
-        <CourierView packages={packages} onUpdate={updatePackage} />
-      )}
-      {role === UserRole.SUPERVISOR && (
-        <SupervisorView packages={packages} couriers={couriers} />
-      )}
+      <div className="animate-in fade-in duration-500">
+        {role === UserRole.PHARMACY && (
+          <PharmacyView packages={packages} onAdd={addPackage} />
+        )}
+        {role === UserRole.COURIER && (
+          <CourierView packages={packages} onUpdate={updatePackage} />
+        )}
+        {role === UserRole.SUPERVISOR && (
+          <SupervisorView 
+            packages={packages} 
+            couriers={[
+              { id: 'k1', name: 'Marco Koerier', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
+              { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
+            ]} 
+          />
+        )}
+      </div>
     </Layout>
   );
 };
