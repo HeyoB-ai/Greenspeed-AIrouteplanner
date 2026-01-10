@@ -7,26 +7,20 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     window.process = { env: { NODE_ENV: 'production', API_KEY: '' } };
-    
-    // Fout-logging direct naar de console en het scherm
     window.onerror = function(msg, url, line, col, error) {
-      console.error("Systeemfout:", msg, error);
-      const status = document.getElementById('loader-status');
-      if (status) {
-        status.innerHTML = '<span style="color:#ef4444; font-weight:bold;">Systeemfout: ' + msg + '</span><br/><small style="color:#94a3b8">Herlaad de pagina of controleer de verbinding.</small>';
-      }
+      console.error("Critical Error:", msg, error);
       return false;
     };
   </script>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
-    "react/": "https://esm.sh/react@18.2.0/",
-    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
     "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
     "@google/genai": "https://esm.sh/@google/genai@1.35.0"
   }
@@ -34,11 +28,10 @@
 </script>
   <script src="https://esm.sh/run" type="module"></script>
   <style>
-    body { margin: 0; background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { margin: 0; background: #f8fafc; font-family: sans-serif; }
     #loader-fallback {
       position: fixed; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; background: white; z-index: 9999;
-      transition: opacity 0.5s ease;
     }
     .spinner {
       width: 40px; height: 40px; border: 4px solid #f1f5f9;
@@ -50,23 +43,9 @@
 <body>
   <div id="loader-fallback">
     <div class="spinner"></div>
-    <div id="loader-text" style="margin-top: 24px; text-align: center;">
-      <p style="font-weight: 800; font-size: 1.25rem; color: #1e293b; margin: 0;">MedRoute</p>
-      <p id="loader-status" style="color: #64748b; font-size: 0.875rem; margin-top: 4px;">Systeem initialiseren...</p>
-    </div>
+    <p id="loader-status" style="margin-top: 20px; color: #64748b; font-weight: 600;">Systeem initialiseren...</p>
   </div>
   <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
-  <script>
-    // Failsafe: Verberg de loader sowieso na 6 seconden om te voorkomen dat de gebruiker op een leeg scherm blijft staren
-    setTimeout(() => {
-      const loader = document.getElementById('loader-fallback');
-      if (loader && loader.style.display !== 'none') {
-        console.warn("Failsafe loader removal geactiveerd.");
-        loader.style.opacity = '0';
-        setTimeout(() => { loader.style.display = 'none'; }, 500);
-      }
-    }, 6000);
-  </script>
 </body>
 </html>

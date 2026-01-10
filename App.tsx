@@ -10,14 +10,11 @@ const STORAGE_KEY = 'medroute_data_v2';
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Verwijder de loader zodra React de regie overneemt
-    const hideLoader = () => {
-      const loader = document.getElementById('loader-fallback');
-      if (loader) loader.style.display = 'none';
-    };
+    // Direct de loader weg zodra we hier zijn
+    const loader = document.getElementById('loader-fallback');
+    if (loader) loader.style.display = 'none';
 
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -25,18 +22,13 @@ const App: React.FC = () => {
         setPackages(JSON.parse(saved));
       }
     } catch (e) {
-      console.warn("Kon lokale data niet laden:", e);
+      console.warn("Storage load error:", e);
     }
-    
-    setIsInitialized(true);
-    hideLoader();
   }, []);
 
   useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
-    }
-  }, [packages, isInitialized]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
+  }, [packages]);
 
   const addPackage = (address: Address) => {
     const newPkg: Package = {
@@ -53,8 +45,6 @@ const App: React.FC = () => {
   const updatePackage = (id: string, status: PackageStatus) => {
     setPackages(prev => prev.map(p => p.id === id ? { ...p, status } : p));
   };
-
-  if (!isInitialized) return null;
 
   return (
     <Layout 

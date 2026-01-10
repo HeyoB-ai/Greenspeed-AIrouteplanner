@@ -2,18 +2,15 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-const container = document.getElementById('root');
-
-if (container) {
+const rootElement = document.getElementById('root');
+if (rootElement) {
   try {
-    const root = createRoot(container);
+    const root = createRoot(rootElement);
     root.render(<App />);
-    console.log("MedRoute: React applicatie gestart.");
+    console.log("React Render Initiated");
   } catch (err) {
-    console.error("Kritieke fout tijdens renderen:", err);
-    const status = document.getElementById('loader-status');
-    if (status) status.innerText = "Fout bij opstarten. Zie console.";
+    console.error("Mounting error:", err);
   }
 } else {
-  console.error("Root element niet gevonden.");
+  console.error("Root element not found");
 }
