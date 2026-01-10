@@ -2,22 +2,18 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 
-const startApp = () => {
-  const container = document.getElementById('root');
-  if (!container) return;
+const container = document.getElementById('root');
 
+if (container) {
   try {
     const root = createRoot(container);
     root.render(<App />);
-    console.log("MedRoute: React render aangeroepen.");
+    console.log("MedRoute: React applicatie gestart.");
   } catch (err) {
-    console.error("Render error:", err);
+    console.error("Kritieke fout tijdens renderen:", err);
+    const status = document.getElementById('loader-status');
+    if (status) status.innerText = "Fout bij opstarten. Zie console.";
   }
-};
-
-// Zorg dat we pas renderen als de DOM er is en de scripts geladen zijn
-if (document.readyState === 'complete') {
-  startApp();
 } else {
-  window.addEventListener('load', startApp);
+  console.error("Root element niet gevonden.");
 }
