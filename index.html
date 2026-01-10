@@ -18,10 +18,10 @@
     "react": "https://esm.sh/react@18.3.1",
     "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
     "lucide-react": "https://esm.sh/lucide-react@0.446.0?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0"
   }
 }
 </script>
@@ -37,6 +37,7 @@
       justify-content: center;
       background: #ffffff;
       z-index: 9999;
+      transition: opacity 0.5s ease-out;
     }
     .spinner {
       width: 48px;
@@ -62,10 +63,20 @@
     <div class="spinner"></div>
     <div style="margin-top: 24px; text-align: center;">
         <p style="color: #1e293b; font-weight: 800; font-size: 1.1rem; margin-bottom: 4px;">MedRoute</p>
-        <p style="color: #64748b; font-size: 0.875rem; font-weight: 500;">Bezig met veilig opstarten...</p>
+        <p style="color: #64748b; font-size: 0.875rem; font-weight: 500;">Systeem wordt geladen...</p>
     </div>
   </div>
   <div id="root"></div>
   <script type="text/tsx" src="index.tsx"></script>
+  <script>
+    // Failsafe: Zorg dat de loader altijd verdwijnt na max 2.5 seconden
+    setTimeout(() => {
+      const loader = document.getElementById('loader-fallback');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 500);
+      }
+    }, 2500);
+  </script>
 </body>
 </html>
