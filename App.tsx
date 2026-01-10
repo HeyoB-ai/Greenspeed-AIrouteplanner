@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, Package, PackageStatus, Address, CourierStatus } from './types';
-import Layout from './components/Layout';
-import PharmacyView from './components/PharmacyView';
-import CourierView from './components/CourierView';
-import SupervisorView from './components/SupervisorView';
+import { User, UserRole, Package, PackageStatus, Address, CourierStatus } from './types.ts';
+import Layout from './components/Layout.tsx';
+import PharmacyView from './components/PharmacyView.tsx';
+import CourierView from './components/CourierView.tsx';
+import SupervisorView from './components/SupervisorView.tsx';
 
 const STORAGE_KEY = 'medroute_packages_v1';
 
@@ -23,7 +23,6 @@ const App: React.FC = () => {
     { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
   ]);
 
-  // Load data from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -36,7 +35,6 @@ const App: React.FC = () => {
     setIsLoaded(true);
   }, []);
 
-  // Save data to localStorage when packages change
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
