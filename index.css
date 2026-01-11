@@ -6,6 +6,8 @@
   body {
     @apply font-sans bg-slate-50 m-0;
     font-family: 'Plus Jakarta Sans', sans-serif;
+    /* Voorkom 'bounce' scroll op mobiel */
+    overscroll-behavior: none;
   }
 }
 
@@ -21,6 +23,11 @@
     background: rgba(59, 130, 246, 0.5);
     animation: scan_line_anim 2s linear infinite;
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+  }
+
+  /* Safe area utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
