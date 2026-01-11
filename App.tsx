@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole, Package, PackageStatus, Address, CourierStatus } from './types';
+import { UserRole, Package, PackageStatus, Address, CourierStatus, DeliveryEvidence } from './types';
 import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
+import { optimizeRoute } from './services/geminiService';
 
-const STORAGE_KEY = 'medroute_data_v2';
+const STORAGE_KEY = 'medroute_data_v3';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
   const [showScanner, setShowScanner] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // Laad data éénmalig bij opstart
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -25,11 +26,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Sla data op bij wijzigingen
   useEffect(() => {
-    if (packages.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
   }, [packages]);
 
   const addPackage = (address: Address) => {
@@ -45,8 +43,38 @@ const App: React.FC = () => {
     setShowScanner(false);
   };
 
-  const updatePackage = (id: string, status: PackageStatus) => {
-    setPackages(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+  const handleOptimizeRoute = async (selectedIds: string[]) => {
+    setIsOptimizing(true);
+    const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
+    
+    try {
+      const optimizedIds = await optimizeRoute(selectedPackages.map(p => ({ ...p.address, id: p.id })));
+      
+      setPackages(prev => {
+        const updated = [...prev];
+        optimizedIds.forEach((id, index) => {
+          const pkgIndex = updated.findIndex(p => p.id === id);
+          if (pkgIndex !== -1) {
+            updated[pkgIndex] = { 
+              ...updated[pkgIndex], 
+              status: PackageStatus.ASSIGNED,
+              orderIndex: index 
+            };
+          }
+        });
+        return updated;
+      });
+    } catch (err) {
+      console.error("Route optimalisatie mislukt:", err);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const updatePackageStatus = (id: string, status: PackageStatus, evidence?: DeliveryEvidence) => {
+    setPackages(prev => prev.map(p => 
+      p.id === id ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp } : p
+    ));
   };
 
   return (
@@ -62,10 +90,12 @@ const App: React.FC = () => {
           <PharmacyView 
             packages={packages} 
             onScanStart={() => setShowScanner(true)} 
+            onOptimize={handleOptimizeRoute}
+            isOptimizing={isOptimizing}
           />
         )}
         {role === UserRole.COURIER && (
-          <CourierView packages={packages} onUpdate={updatePackage} />
+          <CourierView packages={packages} onUpdate={updatePackageStatus} />
         )}
         {role === UserRole.SUPERVISOR && (
           <SupervisorView 

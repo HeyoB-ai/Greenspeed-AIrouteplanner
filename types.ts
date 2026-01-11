@@ -26,6 +26,12 @@ export interface Address {
   city: string;
 }
 
+export interface DeliveryEvidence {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+}
+
 export interface Package {
   id: string;
   pharmacyId: string;
@@ -34,7 +40,9 @@ export interface Package {
   courierId?: string;
   createdAt: string;
   deliveredAt?: string;
+  deliveryEvidence?: DeliveryEvidence;
   priority: number;
+  orderIndex?: number; // Voor routevolgorde
 }
 
 export interface User {

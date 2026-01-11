@@ -1,13 +1,25 @@
-import React from 'react';
-import { Package, Scan, MapPin, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Package, Scan, MapPin, ArrowRight, ShieldCheck, CheckCircle2, ListChecks, Map, Loader2 } from 'lucide-react';
 import { Package as PackageType, PackageStatus } from '../types';
 
 interface Props {
   packages: PackageType[];
   onScanStart: () => void;
+  onOptimize: (selectedIds: string[]) => void;
+  isOptimizing: boolean;
 }
 
-const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
+const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOptimizing }) => {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const pendingPackages = packages.filter(p => p.status === PackageStatus.PENDING);
+
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -34,6 +46,25 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
             <Package className="absolute -bottom-10 -right-10 w-48 h-48 text-white/10 rotate-12 group-hover:rotate-45 transition-transform duration-1000" />
           </div>
 
+          {selectedIds.length > 0 && (
+            <div className="bg-indigo-900 rounded-4xl p-8 text-white shadow-xl animate-in slide-in-from-left duration-500">
+              <div className="flex items-center justify-between mb-6">
+                <ListChecks size={28} />
+                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-black">{selectedIds.length} geselecteerd</span>
+              </div>
+              <h3 className="text-xl font-black mb-2">Route Optimaliseren</h3>
+              <p className="text-indigo-200 text-xs mb-6 font-medium">De AI berekent de meest efficiënte volgorde voor deze zendingen.</p>
+              <button 
+                onClick={() => onOptimize(selectedIds)}
+                disabled={isOptimizing}
+                className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-400 disabled:opacity-50 flex items-center justify-center space-x-3 transition-all"
+              >
+                {isOptimizing ? <Loader2 className="animate-spin" size={20} /> : <Map size={20} />}
+                <span>{isOptimizing ? 'Berekenen...' : 'Plan Route'}</span>
+              </button>
+            </div>
+          )}
+
           <div className="bg-white border border-slate-200 rounded-4xl p-8 shadow-sm">
             <h3 className="text-slate-900 font-extrabold text-lg mb-4 flex items-center space-x-2">
               <ShieldCheck className="text-green-500" size={20} />
@@ -42,15 +73,11 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
             <div className="space-y-4">
               <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
                 <CheckCircle2 size={16} className="text-blue-500" />
-                <span>AI OCR Filter Actief</span>
+                <span>GPS Tracking bij Aflevering</span>
               </div>
               <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
                 <CheckCircle2 size={16} className="text-blue-500" />
                 <span>Geen Patiëntdata Opslag</span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
-                <CheckCircle2 size={16} className="text-blue-500" />
-                <span>Lokaal Geëncrypteerd</span>
               </div>
             </div>
           </div>
@@ -61,16 +88,19 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
           <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden h-full flex flex-col">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Actieve Zendingen</h3>
+                <h3 className="text-xl font-black text-slate-900">Magazijn Voorraad</h3>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  Totaal: {packages.length} in verwerking
+                  {pendingPackages.length} pakketten wachten op routeplanning
                 </p>
               </div>
-              <div className="flex -space-x-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 ring-2 ring-slate-100"></div>
-                ))}
-              </div>
+              {pendingPackages.length > 0 && (
+                <button 
+                  onClick={() => setSelectedIds(pendingPackages.map(p => p.id))}
+                  className="text-xs font-black text-blue-600 uppercase tracking-tighter"
+                >
+                  Selecteer Alles
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -83,26 +113,45 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
                   <p className="text-slate-400 text-sm max-w-[200px] mt-2">Begin met het scannen van een medisch etiket.</p>
                 </div>
               ) : (
-                packages.map(p => (
-                  <div key={p.id} className="group bg-white border border-slate-100 rounded-3xl p-6 flex items-center justify-between hover:border-blue-200 hover:shadow-md transition-all cursor-default">
+                [...packages].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map(p => (
+                  <div 
+                    key={p.id} 
+                    onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
+                    className={`group bg-white border rounded-3xl p-6 flex items-center justify-between transition-all cursor-pointer ${
+                      selectedIds.includes(p.id) ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:border-blue-200'
+                    } ${p.status !== PackageStatus.PENDING ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                  >
                     <div className="flex items-center space-x-5">
-                      <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                        <MapPin size={24} />
+                      {p.status === PackageStatus.PENDING && (
+                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                          selectedIds.includes(p.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'
+                        }`}>
+                          {selectedIds.includes(p.id) && <CheckCircle2 size={14} />}
+                        </div>
+                      )}
+                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                        <MapPin size={20} />
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-slate-900 text-lg tracking-tight">{p.address.street} {p.address.houseNumber}</h4>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
+                        <div className="flex items-center space-x-2">
+                           <h4 className="font-extrabold text-slate-900 text-base tracking-tight">{p.address.street} {p.address.houseNumber}</h4>
+                           {p.orderIndex !== undefined && (
+                             <span className="bg-slate-900 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                               {p.orderIndex + 1}
+                             </span>
+                           )}
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        p.status === PackageStatus.PENDING ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                        p.status === PackageStatus.PENDING ? 'bg-amber-100 text-amber-700' : 
+                        p.status === PackageStatus.ASSIGNED ? 'bg-blue-100 text-blue-700' :
+                        'bg-emerald-100 text-emerald-700'
                       }`}>
                         {p.status}
                       </span>
-                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
-                        <ArrowRight size={18} />
-                      </div>
                     </div>
                   </div>
                 ))
