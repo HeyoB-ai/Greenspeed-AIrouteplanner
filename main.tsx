@@ -1,1 +1,1 @@
-// Niet in gebruik, zie index.tsx
+// Verplaatst naar index.tsx voor Vite standaard
