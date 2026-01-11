@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event: any) => {
-  // Alleen POST verzoeken toestaan
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -22,7 +21,7 @@ export const handler = async (event: any) => {
               },
             },
             {
-              text: "Extraheer UITSLUITEND het afleveradres van dit medisch etiket. Velden: street, houseNumber, postalCode, city. PRIVACY REGEL: Negeer alle patiëntnamen, BSN-nummers of medicijnnamen. Geef alleen de adresgegevens terug in JSON formaat.",
+              text: "Analyseer dit Nederlandse apotheek-etiket. Er staan vaak twee adressen op: 1. Het adres van de apotheek (afzender, vaak bovenaan bij een logo of kleine letters). 2. Het afleveradres van de patiënt (ontvanger, meestal centraal en in groter lettertype). TAAK: Extraheer UITSLUITEND het afleveradres van de patiënt. Velden: street, houseNumber, postalCode, city. PRIVACY REGEL: Negeer namen, BSN, telefoonnummers en medicijnnamen. Geef alleen het adres van de patiënt terug in JSON formaat.",
             },
           ],
         },
@@ -41,17 +40,20 @@ export const handler = async (event: any) => {
         },
       });
 
+      const result = JSON.parse(response.text || "{}");
+      console.log("Extracted Address:", result);
+
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(JSON.parse(response.text || "{}")),
+        body: JSON.stringify(result),
       };
     }
 
     if (action === "optimizeRoute") {
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
-        contents: `Optimaliseer de meest efficiënte bezorgroute. Geef alleen een gesorteerde lijst van IDs terug: ${JSON.stringify(payload.addresses)}`,
+        contents: `Optimaliseer de meest efficiënte bezorgroute voor deze adressen. Geef alleen een JSON lijst van IDs terug: ${JSON.stringify(payload.addresses)}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
