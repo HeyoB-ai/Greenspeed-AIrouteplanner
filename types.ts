@@ -12,6 +12,7 @@ export enum CourierStatus {
 }
 
 export enum PackageStatus {
+  SCANNING = 'ANALYSEREN...', // Nieuw: voor achtergrondverwerking
   PENDING = 'WACHTEN',
   ASSIGNED = 'TOEGEWEZEN',
   PICKED_UP = 'OPGEHAALD',
@@ -42,7 +43,7 @@ export interface Package {
   deliveredAt?: string;
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
-  orderIndex?: number; // Voor routevolgorde
+  orderIndex?: number;
 }
 
 export interface User {

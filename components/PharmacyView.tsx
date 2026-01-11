@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Scan, MapPin, ArrowRight, ShieldCheck, CheckCircle2, ListChecks, Map, Loader2 } from 'lucide-react';
+import { Package, Scan, MapPin, ArrowRight, ShieldCheck, CheckCircle2, ListChecks, Map, Loader2, RefreshCw } from 'lucide-react';
 import { Package as PackageType, PackageStatus } from '../types';
 
 interface Props {
@@ -19,6 +19,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
   };
 
   const pendingPackages = packages.filter(p => p.status === PackageStatus.PENDING);
+  const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -33,18 +34,30 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
               </div>
               <h2 className="text-3xl font-black tracking-tight mb-2">Nieuwe Zending</h2>
               <p className="text-blue-100 text-sm font-medium mb-8 leading-relaxed">
-                Scan een patiëntlabel. Onze AI verwijdert automatisch gevoelige data en extraheert alleen het adres.
+                Gebruik de <b>Burst Mode</b> om snel achter elkaar meerdere labels te scannen.
               </p>
               <button 
                 onClick={onScanStart}
                 className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
               >
-                <span>Nu Scannen</span>
+                <span>Start Burst Scan</span>
                 <ArrowRight size={20} />
               </button>
             </div>
             <Package className="absolute -bottom-10 -right-10 w-48 h-48 text-white/10 rotate-12 group-hover:rotate-45 transition-transform duration-1000" />
           </div>
+
+          {activeScansCount > 0 && (
+            <div className="bg-slate-900 rounded-4xl p-6 text-white animate-pulse border border-blue-500/30">
+              <div className="flex items-center space-x-4">
+                <RefreshCw className="animate-spin text-blue-400" size={24} />
+                <div>
+                  <p className="text-sm font-black tracking-tight">{activeScansCount} scans in verwerking...</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">AI Analyseert op de achtergrond</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {selectedIds.length > 0 && (
             <div className="bg-indigo-900 rounded-4xl p-8 text-white shadow-xl animate-in slide-in-from-left duration-500">
@@ -53,7 +66,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                 <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-black">{selectedIds.length} geselecteerd</span>
               </div>
               <h3 className="text-xl font-black mb-2">Route Optimaliseren</h3>
-              <p className="text-indigo-200 text-xs mb-6 font-medium">De AI berekent de meest efficiënte volgorde voor deze zendingen.</p>
+              <p className="text-indigo-200 text-xs mb-6 font-medium">Bereken de meest efficiënte volgorde voor de geselecteerde zendingen.</p>
               <button 
                 onClick={() => onOptimize(selectedIds)}
                 disabled={isOptimizing}
@@ -64,23 +77,6 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
               </button>
             </div>
           )}
-
-          <div className="bg-white border border-slate-200 rounded-4xl p-8 shadow-sm">
-            <h3 className="text-slate-900 font-extrabold text-lg mb-4 flex items-center space-x-2">
-              <ShieldCheck className="text-green-500" size={20} />
-              <span>Privacy Status</span>
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
-                <CheckCircle2 size={16} className="text-blue-500" />
-                <span>GPS Tracking bij Aflevering</span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm text-slate-500 font-bold">
-                <CheckCircle2 size={16} className="text-blue-500" />
-                <span>Geen Patiëntdata Opslag</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* List Column */}
@@ -88,19 +84,11 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
           <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden h-full flex flex-col">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Magazijn Voorraad</h3>
+                <h3 className="text-xl font-black text-slate-900">Zendingen</h3>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  {pendingPackages.length} pakketten wachten op routeplanning
+                  {pendingPackages.length} klaar voor planning
                 </p>
               </div>
-              {pendingPackages.length > 0 && (
-                <button 
-                  onClick={() => setSelectedIds(pendingPackages.map(p => p.id))}
-                  className="text-xs font-black text-blue-600 uppercase tracking-tighter"
-                >
-                  Selecteer Alles
-                </button>
-              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -109,8 +97,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                     <Package className="text-slate-300" size={32} />
                   </div>
-                  <p className="text-slate-900 font-black text-lg">Geen actieve ritten</p>
-                  <p className="text-slate-400 text-sm max-w-[200px] mt-2">Begin met het scannen van een medisch etiket.</p>
+                  <p className="text-slate-900 font-black text-lg">Nog geen scans</p>
                 </div>
               ) : (
                 [...packages].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map(p => (
@@ -119,35 +106,34 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                     onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
                     className={`group bg-white border rounded-3xl p-6 flex items-center justify-between transition-all cursor-pointer ${
                       selectedIds.includes(p.id) ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:border-blue-200'
-                    } ${p.status !== PackageStatus.PENDING ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                    } ${p.status === PackageStatus.SCANNING ? 'animate-pulse bg-slate-50 border-blue-200' : ''}`}
                   >
                     <div className="flex items-center space-x-5">
-                      {p.status === PackageStatus.PENDING && (
+                      {p.status === PackageStatus.PENDING ? (
                         <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
                           selectedIds.includes(p.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'
                         }`}>
                           {selectedIds.includes(p.id) && <CheckCircle2 size={14} />}
                         </div>
-                      )}
-                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      ) : p.status === PackageStatus.SCANNING ? (
+                        <RefreshCw className="animate-spin text-blue-400" size={24} />
+                      ) : null}
+                      
+                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
                         <MapPin size={20} />
                       </div>
                       <div>
-                        <div className="flex items-center space-x-2">
-                           <h4 className="font-extrabold text-slate-900 text-base tracking-tight">{p.address.street} {p.address.houseNumber}</h4>
-                           {p.orderIndex !== undefined && (
-                             <span className="bg-slate-900 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
-                               {p.orderIndex + 1}
-                             </span>
-                           )}
-                        </div>
+                        <h4 className={`font-extrabold text-base tracking-tight ${p.status === PackageStatus.SCANNING ? 'text-blue-400 italic' : 'text-slate-900'}`}>
+                          {p.address.street} {p.address.houseNumber}
+                        </h4>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        p.status === PackageStatus.SCANNING ? 'bg-blue-50 text-blue-600' :
                         p.status === PackageStatus.PENDING ? 'bg-amber-100 text-amber-700' : 
-                        p.status === PackageStatus.ASSIGNED ? 'bg-blue-100 text-blue-700' :
+                        p.status === PackageStatus.ASSIGNED ? 'bg-indigo-100 text-indigo-700' :
                         'bg-emerald-100 text-emerald-700'
                       }`}>
                         {p.status}

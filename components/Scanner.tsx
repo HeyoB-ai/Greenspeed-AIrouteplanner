@@ -1,18 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, X, RefreshCw, AlertCircle } from 'lucide-react';
-import { extractAddressFromImage } from '../services/geminiService';
-import { Address } from '../types';
+import { Camera, X, Check, Zap, AlertCircle } from 'lucide-react';
 
 interface ScannerProps {
-  onScanComplete: (address: Address) => void;
-  onCancel: () => void;
+  onCapture: (base64: string) => void;
+  onClose: () => void;
 }
 
-const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
+const Scanner: React.FC<ScannerProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanCount, setScanCount] = useState(0);
+  const [showFlash, setShowFlash] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -32,7 +31,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         }
       } catch (err) {
         console.error("Camera error:", err);
-        setError("Kan de camera niet starten. Controleer je rechten.");
+        setError("Kan de camera niet starten.");
       }
     }
 
@@ -45,39 +44,32 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     };
   }, []);
 
-  const capture = async () => {
+  const capture = () => {
     if (!videoRef.current || !canvasRef.current) return;
     
-    setIsProcessing(true);
-    setError(null);
-    
+    // Visuele feedback: Flash effect
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 100);
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
     if (!context) return;
 
-    const maxWidth = 1280;
+    // Snelle capture op medium resolutie voor snelheid
+    const maxWidth = 1024;
     const scale = Math.min(1, maxWidth / video.videoWidth);
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    try {
-      const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-      const address = await extractAddressFromImage(base64);
-      
-      if (address && address.street && address.houseNumber) {
-        onScanComplete(address);
-      } else {
-        setError("Geen adres gevonden. Breng het label scherper in beeld.");
-        setIsProcessing(false);
-      }
-    } catch (err) {
-      setError("Analyse mislukt. Probeer het opnieuw.");
-      setIsProcessing(false);
-    }
+    const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+    
+    // Stuur naar App.tsx maar blijf HIER in de scanner!
+    onCapture(base64);
+    setScanCount(prev => prev + 1);
   };
 
   return (
@@ -91,61 +83,79 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           className="w-full h-full object-cover" 
         />
         
-        {/* Richtkruis / Scan Frame */}
+        {/* Flash Overlay */}
+        {showFlash && <div className="absolute inset-0 bg-white z-50 animate-out fade-out duration-100" />}
+
+        {/* Richtkruis */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
-          <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_1000px_rgba(0,0,0,0.7)]">
+          <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.7)]">
             <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
             <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
             <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
             <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
             <div className="scan-line" />
-            <div className="absolute inset-0 flex items-center justify-center">
-               <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest text-center px-4">
-                 Plaats patiënt-adres hier
-               </p>
+            
+            {/* Real-time feedback in kader */}
+            <div className="absolute top-4 left-0 right-0 flex justify-center">
+               <span className="bg-blue-600/90 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter flex items-center space-x-2">
+                 <Zap size={10} fill="currentColor" />
+                 <span>Burst Mode Actief</span>
+               </span>
             </div>
           </div>
         </div>
 
-        {isProcessing && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center text-white z-[10000]">
-            <div className="bg-slate-800/50 p-8 rounded-4xl flex flex-col items-center border border-white/10">
-              <RefreshCw className="animate-spin mb-4 text-blue-400" size={48} />
-              <p className="font-black text-xl tracking-tight">AI Analyseert...</p>
-              <p className="text-sm text-slate-400 mt-2 font-medium">Privacy filter is actief</p>
+        {/* Scan Counter Bubble */}
+        {scanCount > 0 && (
+          <div className="absolute top-12 right-6 animate-in zoom-in duration-300">
+            <div className="bg-blue-600 text-white w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xl border-4 border-white/20">
+              <span className="text-xl font-black leading-none">{scanCount}</span>
+              <span className="text-[8px] font-bold uppercase tracking-tighter">Items</span>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="absolute top-12 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-[10001] animate-in slide-in-from-top duration-300">
+          <div className="absolute top-12 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-[10001]">
             <AlertCircle size={20} className="shrink-0" />
             <p className="text-sm font-black">{error}</p>
           </div>
         )}
       </div>
 
-      {/* Bottom Controls - Forser uitgevoerd en vrij van Safari balken */}
-      <div className="px-10 pt-10 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+      {/* Burst Mode Controls */}
+      <div className="px-8 pt-8 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5 relative">
+        {/* Cancel/Dismiss */}
         <button 
-          onClick={onCancel} 
-          className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/10"
+          onClick={onClose} 
+          className="w-14 h-14 bg-slate-900 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/5"
         >
-          <X size={28} />
+          <X size={24} />
         </button>
         
+        {/* MAIN CAPTURE BUTTON */}
         <button 
           onClick={capture} 
-          disabled={isProcessing} 
           className="relative group outline-none"
         >
-          <div className="absolute inset-[-12px] bg-blue-600/30 rounded-full blur-2xl group-active:scale-150 transition-transform duration-500" />
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-slate-900 shadow-2xl active:scale-90 transition-all relative z-10 border-[8px] border-slate-950">
-             <Camera size={40} />
+          <div className="absolute inset-[-12px] bg-blue-600/40 rounded-full blur-2xl group-active:scale-150 transition-transform duration-300" />
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-slate-900 shadow-2xl active:scale-90 transition-all relative z-10 border-[10px] border-slate-950">
+             <Camera size={44} />
+          </div>
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
+            Klik om te scannen
           </div>
         </button>
-        
-        <div className="w-16 h-16 opacity-0 pointer-events-none" />
+
+        {/* FINISH BUTTON */}
+        <button 
+          onClick={onClose}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+            scanCount > 0 ? 'bg-green-600 text-white shadow-lg shadow-green-500/20' : 'bg-slate-900 text-slate-700 pointer-events-none'
+          }`}
+        >
+          <Check size={28} />
+        </button>
       </div>
       <canvas ref={canvasRef} className="hidden" />
     </div>

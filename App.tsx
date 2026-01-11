@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserRole, Package, PackageStatus, Address, CourierStatus, DeliveryEvidence } from './types';
 import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
-import { optimizeRoute } from './services/geminiService';
+import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 
 const STORAGE_KEY = 'medroute_data_v3';
 
@@ -30,18 +30,37 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
   }, [packages]);
 
-  const addPackage = (address: Address) => {
-    const newPkg: Package = {
-      id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+  // Nieuwe snelle scan functie (non-blocking)
+  const handleNewScan = useCallback(async (base64: string) => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    
+    // Voeg direct een 'placeholder' toe in de lijst
+    const placeholderPkg: Package = {
+      id: tempId,
       pharmacyId: 'ph-1',
-      address,
-      status: PackageStatus.PENDING,
+      address: { street: 'Bezig met analyseren...', houseNumber: '', postalCode: '', city: '' },
+      status: PackageStatus.SCANNING,
       createdAt: new Date().toISOString(),
       priority: 3
     };
-    setPackages(prev => [newPkg, ...prev]);
-    setShowScanner(false);
-  };
+    
+    setPackages(prev => [placeholderPkg, ...prev]);
+
+    // Start AI analyse op de achtergrond
+    try {
+      const address = await extractAddressFromImage(base64);
+      if (address && address.street) {
+        setPackages(prev => prev.map(p => 
+          p.id === tempId ? { ...p, address, status: PackageStatus.PENDING, id: `pkg-${Date.now()}` } : p
+        ));
+      } else {
+        // Verwijder placeholder als scan mislukt
+        setPackages(prev => prev.filter(p => p.id !== tempId));
+      }
+    } catch (err) {
+      setPackages(prev => prev.filter(p => p.id !== tempId));
+    }
+  }, []);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
@@ -110,8 +129,8 @@ const App: React.FC = () => {
 
       {showScanner && (
         <Scanner 
-          onScanComplete={addPackage} 
-          onCancel={() => setShowScanner(false)} 
+          onCapture={handleNewScan} 
+          onClose={() => setShowScanner(false)} 
         />
       )}
     </Layout>
