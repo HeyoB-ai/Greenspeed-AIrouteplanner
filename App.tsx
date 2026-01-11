@@ -4,12 +4,14 @@ import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
+import Scanner from './components/Scanner';
 
 const STORAGE_KEY = 'medroute_data_v2';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Laad data éénmalig bij opstart
   useEffect(() => {
@@ -40,6 +42,7 @@ const App: React.FC = () => {
       priority: 3
     };
     setPackages(prev => [newPkg, ...prev]);
+    setShowScanner(false);
   };
 
   const updatePackage = (id: string, status: PackageStatus) => {
@@ -52,10 +55,14 @@ const App: React.FC = () => {
       userName="Apotheek de Kroon" 
       onLogout={() => { localStorage.clear(); window.location.reload(); }} 
       onSwitchRole={setRole}
+      hideMobileNav={showScanner}
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {role === UserRole.PHARMACY && (
-          <PharmacyView packages={packages} onAdd={addPackage} />
+          <PharmacyView 
+            packages={packages} 
+            onScanStart={() => setShowScanner(true)} 
+          />
         )}
         {role === UserRole.COURIER && (
           <CourierView packages={packages} onUpdate={updatePackage} />
@@ -70,6 +77,13 @@ const App: React.FC = () => {
           />
         )}
       </div>
+
+      {showScanner && (
+        <Scanner 
+          onScanComplete={addPackage} 
+          onCancel={() => setShowScanner(false)} 
+        />
+      )}
     </Layout>
   );
 };

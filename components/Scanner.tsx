@@ -19,7 +19,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     
     async function setupCamera() {
       try {
-        // Forceer een hogere resolutie voor betere OCR
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
@@ -29,7 +28,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          // Belangrijk voor iOS: play() expliciet aanroepen
           videoRef.current.play().catch(e => console.error("Video play failed:", e));
         }
       } catch (err) {
@@ -59,7 +57,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
     if (!context) return;
 
-    // Schaal het beeld naar een werkbaar formaat (max 1280px breed)
     const maxWidth = 1280;
     const scale = Math.min(1, maxWidth / video.videoWidth);
     canvas.width = video.videoWidth * scale;
@@ -68,24 +65,23 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     try {
-      // Gebruik iets lagere kwaliteit om de payload klein te houden (sneller)
-      const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+      const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
       const address = await extractAddressFromImage(base64);
       
       if (address && address.street && address.houseNumber) {
         onScanComplete(address);
       } else {
-        setError("Geen geldig afleveradres gevonden. Probeer het label recht van voren te fotograferen.");
+        setError("Geen adres gevonden. Breng het label scherper in beeld.");
         setIsProcessing(false);
       }
     } catch (err) {
-      setError("Er ging iets mis tijdens het analyseren. Probeer het opnieuw.");
+      setError("Analyse mislukt. Probeer het opnieuw.");
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
       <div className="relative flex-1 bg-slate-900 overflow-hidden flex items-center justify-center">
         <video 
           ref={videoRef} 
@@ -96,53 +92,60 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         />
         
         {/* Richtkruis / Scan Frame */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[85%] h-[40%] border-2 border-white/50 rounded-2xl relative shadow-[0_0_0_1000px_rgba(0,0,0,0.5)]">
-            <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-lg" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-right-4 border-blue-500 rounded-tr-lg" style={{borderRightWidth: '4px', borderRightStyle: 'solid'}} />
-            <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-lg" />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-right-4 border-blue-500 rounded-br-lg" style={{borderRightWidth: '4px', borderRightStyle: 'solid'}} />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+          <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_1000px_rgba(0,0,0,0.7)]">
+            <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
+            <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
+            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
             <div className="scan-line" />
+            <div className="absolute inset-0 flex items-center justify-center">
+               <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest text-center px-4">
+                 Plaats patiënt-adres hier
+               </p>
+            </div>
           </div>
         </div>
 
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white z-20">
-            <div className="bg-white/10 p-6 rounded-3xl flex flex-col items-center">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center text-white z-[10000]">
+            <div className="bg-slate-800/50 p-8 rounded-4xl flex flex-col items-center border border-white/10">
               <RefreshCw className="animate-spin mb-4 text-blue-400" size={48} />
-              <p className="font-bold text-lg">AI filtert privacy-data...</p>
-              <p className="text-xs text-slate-400 mt-2">Alleen adresgegevens worden verwerkt</p>
+              <p className="font-black text-xl tracking-tight">AI Analyseert...</p>
+              <p className="text-sm text-slate-400 mt-2 font-medium">Privacy filter is actief</p>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="absolute top-10 left-4 right-4 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-30 animate-in slide-in-from-top duration-300">
+          <div className="absolute top-12 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-[10001] animate-in slide-in-from-top duration-300">
             <AlertCircle size={20} className="shrink-0" />
-            <p className="text-sm font-bold">{error}</p>
+            <p className="text-sm font-black">{error}</p>
           </div>
         )}
       </div>
 
-      <div className="p-8 pb-12 bg-slate-900 flex justify-around items-center">
+      {/* Bottom Controls - Forser uitgevoerd en vrij van Safari balken */}
+      <div className="px-10 pt-10 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
         <button 
           onClick={onCancel} 
-          className="p-4 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-colors"
+          className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/10"
         >
-          <X size={24} />
+          <X size={28} />
         </button>
         
         <button 
           onClick={capture} 
           disabled={isProcessing} 
-          className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-slate-900 shadow-[0_0_20px_rgba(255,255,255,0.3)] active:scale-90 transition-transform disabled:opacity-50"
+          className="relative group outline-none"
         >
-          <div className="w-16 h-16 border-4 border-slate-900 rounded-full flex items-center justify-center">
-             <Camera size={32} />
+          <div className="absolute inset-[-12px] bg-blue-600/30 rounded-full blur-2xl group-active:scale-150 transition-transform duration-500" />
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-slate-900 shadow-2xl active:scale-90 transition-all relative z-10 border-[8px] border-slate-950">
+             <Camera size={40} />
           </div>
         </button>
         
-        <div className="w-12 h-12" />
+        <div className="w-16 h-16 opacity-0 pointer-events-none" />
       </div>
       <canvas ref={canvasRef} className="hidden" />
     </div>

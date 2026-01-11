@@ -1,16 +1,13 @@
-import React, { useState } from 'react';
-import { Package, Scan, Plus, MapPin, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { Package as PackageType, Address, PackageStatus } from '../types';
-import Scanner from './Scanner';
+import React from 'react';
+import { Package, Scan, MapPin, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Package as PackageType, PackageStatus } from '../types';
 
 interface Props {
   packages: PackageType[];
-  onAdd: (address: Address) => void;
+  onScanStart: () => void;
 }
 
-const PharmacyView: React.FC<Props> = ({ packages, onAdd }) => {
-  const [showScanner, setShowScanner] = useState(false);
-
+const PharmacyView: React.FC<Props> = ({ packages, onScanStart }) => {
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -27,7 +24,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onAdd }) => {
                 Scan een patiëntlabel. Onze AI verwijdert automatisch gevoelige data en extraheert alleen het adres.
               </p>
               <button 
-                onClick={() => setShowScanner(true)}
+                onClick={onScanStart}
                 className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
               >
                 <span>Nu Scannen</span>
@@ -114,13 +111,6 @@ const PharmacyView: React.FC<Props> = ({ packages, onAdd }) => {
           </div>
         </div>
       </div>
-
-      {showScanner && (
-        <Scanner 
-          onScanComplete={(addr) => { onAdd(addr); setShowScanner(false); }} 
-          onCancel={() => setShowScanner(false)} 
-        />
-      )}
     </div>
   );
 };
