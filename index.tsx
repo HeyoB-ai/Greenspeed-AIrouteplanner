@@ -1,1 +1,1 @@
-// Deprecated: Gebruik main.tsx als entry point.
+// Bestand verwijderd. Gebruik main.tsx.
