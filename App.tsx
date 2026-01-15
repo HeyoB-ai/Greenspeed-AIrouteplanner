@@ -7,7 +7,7 @@ import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 
-const STORAGE_KEY = 'medroute_data_v3';
+const STORAGE_KEY = 'medroute_data_v4';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
@@ -62,7 +62,7 @@ const App: React.FC = () => {
     setIsOptimizing(true);
     const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
     
-    // Stap 1: Groepeer op adres om dubbele stops te voorkomen
+    // Stap 1: Groepeer op adres voor unieke stops
     const stopsMap = new Map<string, string[]>(); 
     selectedPackages.forEach(p => {
       const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
@@ -85,14 +85,15 @@ const App: React.FC = () => {
       setPackages(prev => {
         const updated = [...prev];
         
-        // Reset oude indexes voor de geselecteerde pakketten
+        // Reset indexes voor geselecteerde items
         selectedIds.forEach(id => {
           const idx = updated.findIndex(p => p.id === id);
           if (idx !== -1) {
-             updated[idx] = { ...updated[idx], orderIndex: undefined, displayIndex: undefined };
+            updated[idx] = { ...updated[idx], orderIndex: undefined, displayIndex: undefined };
           }
         });
 
+        // Ken permanente displayIndex en orderIndex toe
         optimizedReferenceIds.forEach((refId, index) => {
           const key = Array.from(stopsMap.entries()).find(([k, ids]) => ids.includes(refId))?.[0];
           if (key) {
@@ -104,7 +105,7 @@ const App: React.FC = () => {
                   ...updated[pkgIndex], 
                   status: PackageStatus.ASSIGNED,
                   orderIndex: index,
-                  displayIndex: index + 1 // Permanent stopnummer (1-based)
+                  displayIndex: index + 1 // Permanent stopnummer
                 };
               }
             });
@@ -149,7 +150,11 @@ const App: React.FC = () => {
           />
         )}
         {role === UserRole.COURIER && (
-          <CourierView packages={packages} onUpdate={updatePackageStatus} onUpdateMany={updateMultipleStatus} />
+          <CourierView 
+            packages={packages} 
+            onUpdate={updatePackageStatus} 
+            onUpdateMany={updateMultipleStatus} 
+          />
         )}
         {role === UserRole.SUPERVISOR && (
           <SupervisorView 

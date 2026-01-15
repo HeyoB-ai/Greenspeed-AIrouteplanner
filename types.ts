@@ -44,7 +44,7 @@ export interface Package {
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
-  displayIndex?: number; // Nieuw: permanent stopnummer voor op de doos
+  displayIndex?: number; // Permanent stopnummer voor op de doos
 }
 
 export interface User {
