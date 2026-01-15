@@ -8,7 +8,7 @@ import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
-import { Cloud, CloudOff, CloudSync, AlertTriangle } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
@@ -164,7 +164,7 @@ const App: React.FC = () => {
   const syncIndicator = (
     <div className={`flex items-center space-x-2 px-3 py-1 border rounded-full transition-colors ${hasCloudConfig ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-100'}`}>
       {isSyncing ? (
-        <CloudSync size={14} className="text-blue-500 animate-spin" />
+        <RefreshCw size={14} className="text-blue-500 animate-spin" />
       ) : hasCloudConfig ? (
         <Cloud size={14} className="text-emerald-500" />
       ) : (
