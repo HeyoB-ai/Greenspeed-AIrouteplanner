@@ -17,6 +17,7 @@ export enum PackageStatus {
   ASSIGNED = 'TOEGEWEZEN',
   PICKED_UP = 'OPGEHAALD',
   DELIVERED = 'BEZORGD',
+  BILLED = 'GEFACTUREERD',
   FAILED = 'MISLUKT'
 }
 
@@ -36,6 +37,7 @@ export interface DeliveryEvidence {
 export interface Package {
   id: string;
   pharmacyId: string;
+  pharmacyName: string; // Voor financiële rapportage
   address: Address;
   status: PackageStatus;
   courierId?: string;
@@ -44,7 +46,7 @@ export interface Package {
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
-  displayIndex?: number; // Permanent stopnummer voor op de doos
+  displayIndex?: number; // Permanent stopnummer
 }
 
 export interface User {

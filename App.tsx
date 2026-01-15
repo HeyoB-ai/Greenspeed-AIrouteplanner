@@ -7,13 +7,16 @@ import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 
-const STORAGE_KEY = 'medroute_data_v4';
+const STORAGE_KEY = 'medroute_data_v6';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
   const [packages, setPackages] = useState<Package[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  
+  // Demo Mock: Wissel tussen apotheken om tracing te laten zien
+  const [currentPharmacy, setCurrentPharmacy] = useState({ id: 'ph-1', name: 'Apotheek de Kroon' });
 
   useEffect(() => {
     try {
@@ -35,7 +38,8 @@ const App: React.FC = () => {
     
     const placeholderPkg: Package = {
       id: tempId,
-      pharmacyId: 'ph-1',
+      pharmacyId: currentPharmacy.id,
+      pharmacyName: currentPharmacy.name,
       address: { street: 'Bezig met analyseren...', houseNumber: '', postalCode: '', city: '' },
       status: PackageStatus.SCANNING,
       createdAt: new Date().toISOString(),
@@ -56,13 +60,12 @@ const App: React.FC = () => {
     } catch (err) {
       setPackages(prev => prev.filter(p => p.id !== tempId));
     }
-  }, []);
+  }, [currentPharmacy]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
     const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
     
-    // Stap 1: Groepeer op adres voor unieke stops
     const stopsMap = new Map<string, string[]>(); 
     selectedPackages.forEach(p => {
       const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
@@ -85,7 +88,6 @@ const App: React.FC = () => {
       setPackages(prev => {
         const updated = [...prev];
         
-        // Reset indexes voor geselecteerde items
         selectedIds.forEach(id => {
           const idx = updated.findIndex(p => p.id === id);
           if (idx !== -1) {
@@ -93,7 +95,6 @@ const App: React.FC = () => {
           }
         });
 
-        // Ken permanente displayIndex en orderIndex toe
         optimizedReferenceIds.forEach((refId, index) => {
           const key = Array.from(stopsMap.entries()).find(([k, ids]) => ids.includes(refId))?.[0];
           if (key) {
@@ -105,7 +106,7 @@ const App: React.FC = () => {
                   ...updated[pkgIndex], 
                   status: PackageStatus.ASSIGNED,
                   orderIndex: index,
-                  displayIndex: index + 1 // Permanent stopnummer
+                  displayIndex: index + 1
                 };
               }
             });
@@ -120,45 +121,57 @@ const App: React.FC = () => {
     }
   };
 
-  const updatePackageStatus = (id: string, status: PackageStatus, evidence?: DeliveryEvidence) => {
+  const updateMultipleStatus = (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => {
     setPackages(prev => prev.map(p => 
-      p.id === id ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp } : p
+      ids.includes(p.id) ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp || p.deliveredAt } : p
     ));
   };
 
-  const updateMultipleStatus = (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => {
-    setPackages(prev => prev.map(p => 
-      ids.includes(p.id) ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp } : p
-    ));
+  const togglePharmacy = () => {
+    setCurrentPharmacy(prev => prev.id === 'ph-1' 
+      ? { id: 'ph-2', name: 'Apotheek Hilversum Noord' } 
+      : { id: 'ph-1', name: 'Apotheek de Kroon' }
+    );
   };
 
   return (
     <Layout 
       activeRole={role} 
-      userName="Apotheek de Kroon" 
-      onLogout={() => { localStorage.clear(); window.location.reload(); }} 
+      userName={currentPharmacy.name} 
+      onLogout={() => { if(confirm("Data wissen?")) { localStorage.clear(); window.location.reload(); } }} 
       onSwitchRole={setRole}
       hideMobileNav={showScanner}
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {role === UserRole.PHARMACY && (
-          <PharmacyView 
-            packages={packages} 
-            onScanStart={() => setShowScanner(true)} 
-            onOptimize={handleOptimizeRoute}
-            isOptimizing={isOptimizing}
-          />
+          <>
+            <div className="mb-6 flex justify-end">
+              <button 
+                onClick={togglePharmacy}
+                className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100 transition-all"
+              >
+                Wissel van Apotheek (Demo Context: {currentPharmacy.name})
+              </button>
+            </div>
+            <PharmacyView 
+              packages={packages} 
+              onScanStart={() => setShowScanner(true)} 
+              onOptimize={handleOptimizeRoute}
+              isOptimizing={isOptimizing}
+            />
+          </>
         )}
         {role === UserRole.COURIER && (
           <CourierView 
             packages={packages} 
-            onUpdate={updatePackageStatus} 
+            onUpdate={() => {}} 
             onUpdateMany={updateMultipleStatus} 
           />
         )}
         {role === UserRole.SUPERVISOR && (
           <SupervisorView 
             packages={packages} 
+            onUpdateStatus={updateMultipleStatus}
             couriers={[
               { id: 'k1', name: 'Marco Koerier', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
               { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
