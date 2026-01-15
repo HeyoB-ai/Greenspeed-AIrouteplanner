@@ -8,7 +8,7 @@ import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
@@ -16,6 +16,8 @@ const App: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showSetupHelp, setShowSetupHelp] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const [currentPharmacy, setCurrentPharmacy] = useState({ id: 'ph-1', name: 'Apotheek de Kroon' });
 
@@ -161,6 +163,30 @@ const App: React.FC = () => {
     }
   };
 
+  const copySQL = () => {
+    const sql = `CREATE TABLE packages (
+  id TEXT PRIMARY KEY,
+  "pharmacyId" TEXT,
+  "pharmacyName" TEXT,
+  address JSONB,
+  status TEXT,
+  "courierId" TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "deliveredAt" TIMESTAMPTZ,
+  "deliveryEvidence" JSONB,
+  priority INTEGER,
+  "orderIndex" INTEGER,
+  "displayIndex" INTEGER
+);
+
+ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
+    
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const syncIndicator = (
     <div className={`flex items-center space-x-2 px-3 py-1 border rounded-full transition-colors ${hasCloudConfig ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-100'}`}>
       {isSyncing ? (
@@ -187,15 +213,55 @@ const App: React.FC = () => {
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {!hasCloudConfig && role === UserRole.PHARMACY && (
-          <div className="mb-6 bg-amber-50 border border-amber-100 p-4 rounded-3xl flex items-center space-x-4">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-              <AlertTriangle size={20} />
-            </div>
-            <div>
-              <p className="text-sm font-black text-amber-900 leading-tight">Database niet geconfigureerd</p>
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mt-1">
-                Data wordt momenteel uitsluitend op dit apparaat bewaard.
-              </p>
+          <div className="mb-6 bg-amber-50 border border-amber-100 p-5 rounded-4xl">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-black text-amber-900 leading-tight">Cloud Database niet geconfigureerd</p>
+                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mt-1">
+                  Data wordt momenteel uitsluitend op dit apparaat bewaard.
+                </p>
+                <button 
+                  onClick={() => setShowSetupHelp(!showSetupHelp)}
+                  className="mt-3 flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-amber-800 bg-amber-200/50 px-3 py-1.5 rounded-full hover:bg-amber-200 transition-colors"
+                >
+                  <span>{showSetupHelp ? 'Verberg Setup Hulp' : 'Hoe configureer ik dit?'}</span>
+                  {showSetupHelp ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+
+                {showSetupHelp && (
+                  <div className="mt-4 p-4 bg-white/50 border border-amber-200/50 rounded-2xl animate-in slide-in-from-top-2 duration-300">
+                    <p className="text-xs font-bold text-amber-900 mb-2">1. Maak tabel in Supabase SQL Editor:</p>
+                    <div className="relative group">
+                      <pre className="text-[10px] font-mono bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto leading-relaxed">
+                        {`CREATE TABLE packages (
+  id TEXT PRIMARY KEY,
+  "pharmacyId" TEXT,
+  "pharmacyName" TEXT,
+  address JSONB,
+  status TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  ... (klik copy voor volledig schema)
+);`}
+                      </pre>
+                      <button 
+                        onClick={copySQL}
+                        className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all flex items-center space-x-2"
+                      >
+                        {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                        <span className="text-[8px] font-black uppercase">{copied ? 'Gekopieerd' : 'Copy SQL'}</span>
+                      </button>
+                    </div>
+                    <p className="text-xs font-bold text-amber-900 mt-4 mb-2">2. Stel env vars in je host (Netlify):</p>
+                    <ul className="text-[10px] font-bold text-amber-700 space-y-1 list-disc list-inside uppercase">
+                      <li>SUPABASE_URL</li>
+                      <li>SUPABASE_ANON_KEY</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
