@@ -30,11 +30,9 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
   }, [packages]);
 
-  // Nieuwe snelle scan functie (non-blocking)
   const handleNewScan = useCallback(async (base64: string) => {
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     
-    // Voeg direct een 'placeholder' toe in de lijst
     const placeholderPkg: Package = {
       id: tempId,
       pharmacyId: 'ph-1',
@@ -46,15 +44,13 @@ const App: React.FC = () => {
     
     setPackages(prev => [placeholderPkg, ...prev]);
 
-    // Start AI analyse op de achtergrond
     try {
       const address = await extractAddressFromImage(base64);
       if (address && address.street) {
         setPackages(prev => prev.map(p => 
-          p.id === tempId ? { ...p, address, status: PackageStatus.PENDING, id: `pkg-${Date.now()}` } : p
+          p.id === tempId ? { ...p, address, status: PackageStatus.PENDING, id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 2)}` } : p
         ));
       } else {
-        // Verwijder placeholder als scan mislukt
         setPackages(prev => prev.filter(p => p.id !== tempId));
       }
     } catch (err) {
@@ -66,19 +62,48 @@ const App: React.FC = () => {
     setIsOptimizing(true);
     const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
     
+    // Stap 1: Groepeer op adres om dubbele stops te voorkomen
+    const stopsMap = new Map<string, string[]>(); // key: adres-string, value: array van pakket IDs
+    selectedPackages.forEach(p => {
+      const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
+      const existing = stopsMap.get(key) || [];
+      stopsMap.set(key, [...existing, p.id]);
+    });
+
+    const uniqueStops = Array.from(stopsMap.entries()).map(([key, ids]) => {
+      const firstPkg = selectedPackages.find(p => p.id === ids[0])!;
+      return {
+        id: ids[0], // Gebruik eerste ID als referentie voor de AI
+        ...firstPkg.address,
+        packageCount: ids.length
+      };
+    });
+    
     try {
-      const optimizedIds = await optimizeRoute(selectedPackages.map(p => ({ ...p.address, id: p.id })));
+      // Stap 2: Laat Gemini de volgorde van de UNIEKE adressen bepalen
+      const optimizedReferenceIds = await optimizeRoute(uniqueStops);
       
       setPackages(prev => {
         const updated = [...prev];
-        optimizedIds.forEach((id, index) => {
-          const pkgIndex = updated.findIndex(p => p.id === id);
-          if (pkgIndex !== -1) {
-            updated[pkgIndex] = { 
-              ...updated[pkgIndex], 
-              status: PackageStatus.ASSIGNED,
-              orderIndex: index 
-            };
+        
+        // Reset alle orderIndexes eerst
+        updated.forEach((p, i) => { updated[i] = { ...p, orderIndex: undefined } });
+
+        optimizedReferenceIds.forEach((refId, index) => {
+          // Vind welk uniek adres bij dit referentie ID hoorde
+          const key = Array.from(stopsMap.entries()).find(([k, ids]) => ids.includes(refId))?.[0];
+          if (key) {
+            const allIdsForThisStop = stopsMap.get(key) || [];
+            allIdsForThisStop.forEach(id => {
+              const pkgIndex = updated.findIndex(p => p.id === id);
+              if (pkgIndex !== -1) {
+                updated[pkgIndex] = { 
+                  ...updated[pkgIndex], 
+                  status: PackageStatus.ASSIGNED,
+                  orderIndex: index 
+                };
+              }
+            });
           }
         });
         return updated;
@@ -93,6 +118,12 @@ const App: React.FC = () => {
   const updatePackageStatus = (id: string, status: PackageStatus, evidence?: DeliveryEvidence) => {
     setPackages(prev => prev.map(p => 
       p.id === id ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp } : p
+    ));
+  };
+
+  const updateMultipleStatus = (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => {
+    setPackages(prev => prev.map(p => 
+      ids.includes(p.id) ? { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp } : p
     ));
   };
 
@@ -114,7 +145,7 @@ const App: React.FC = () => {
           />
         )}
         {role === UserRole.COURIER && (
-          <CourierView packages={packages} onUpdate={updatePackageStatus} />
+          <CourierView packages={packages} onUpdate={updatePackageStatus} onUpdateMany={updateMultipleStatus} />
         )}
         {role === UserRole.SUPERVISOR && (
           <SupervisorView 

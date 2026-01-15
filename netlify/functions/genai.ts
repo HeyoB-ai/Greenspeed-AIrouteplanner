@@ -41,8 +41,6 @@ export const handler = async (event: any) => {
       });
 
       const result = JSON.parse(response.text || "{}");
-      console.log("Extracted Address:", result);
-
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
@@ -53,7 +51,11 @@ export const handler = async (event: any) => {
     if (action === "optimizeRoute") {
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
-        contents: `Optimaliseer de meest efficiënte bezorgroute voor deze adressen. Geef alleen een JSON lijst van IDs terug: ${JSON.stringify(payload.addresses)}`,
+        contents: `Je bent een logistiek expert. Optimaliseer de meest efficiënte route voor een fietser die medicijnen bezorgt. 
+        STARTPUNT: De apotheek (Lamberts Hilversum).
+        OPDRACHT: Sorteer de onderstaande adressen in de meest logische geografische volgorde (Traveling Salesman Problem). 
+        BELANGRIJK: Groepeer adressen die dicht bij elkaar liggen. Geef ALLEEN de IDs terug in een platte JSON array in de nieuwe volgorde.
+        ADRESSEN: ${JSON.stringify(payload.addresses)}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
