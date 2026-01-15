@@ -13,14 +13,14 @@ interface Stop {
   address: PackageType['address'];
   packages: PackageType[];
   orderIndex: number;
+  displayIndex: number;
 }
 
 const CourierView: React.FC<Props> = ({ packages, onUpdate, onUpdateMany }) => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [isCapturingGPS, setIsCapturingGPS] = useState(false);
-  const [expandedStop, setExpandedStop] = useState<string | null>(null);
 
-  // Groepeer pakketten naar Stops
+  // Groepeer pakketten naar Stops op basis van orderIndex en displayIndex
   const stops = useMemo(() => {
     const active = packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP);
     const stopsMap = new Map<string, Stop>();
@@ -35,7 +35,8 @@ const CourierView: React.FC<Props> = ({ packages, onUpdate, onUpdateMany }) => {
           addressKey: key,
           address: p.address,
           packages: [p],
-          orderIndex: p.orderIndex ?? 999
+          orderIndex: p.orderIndex ?? 999,
+          displayIndex: p.displayIndex ?? 0
         });
       }
     });
@@ -122,7 +123,7 @@ const CourierView: React.FC<Props> = ({ packages, onUpdate, onUpdateMany }) => {
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner ${
                     i === 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
                   }`}>
-                    {i + 1}
+                    {stop.displayIndex}
                   </div>
                   <div>
                     <h3 className="font-black text-xl leading-tight text-slate-900">{stop.address.street} {stop.address.houseNumber}</h3>
@@ -188,7 +189,6 @@ const CourierView: React.FC<Props> = ({ packages, onUpdate, onUpdateMany }) => {
         </div>
       )}
 
-      {/* Map Modal remains largely same but uses stops */}
       {showMapModal && (
         <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex flex-col animate-in fade-in duration-300">
           <div className="p-6 flex items-center justify-between text-white">

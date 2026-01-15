@@ -12,7 +12,7 @@ export enum CourierStatus {
 }
 
 export enum PackageStatus {
-  SCANNING = 'ANALYSEREN...', // Nieuw: voor achtergrondverwerking
+  SCANNING = 'ANALYSEREN...',
   PENDING = 'WACHTEN',
   ASSIGNED = 'TOEGEWEZEN',
   PICKED_UP = 'OPGEHAALD',
@@ -44,6 +44,7 @@ export interface Package {
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
+  displayIndex?: number; // Nieuw: permanent stopnummer voor op de doos
 }
 
 export interface User {

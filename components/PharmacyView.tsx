@@ -86,7 +86,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
               <div>
                 <h3 className="text-xl font-black text-slate-900">Zendingen</h3>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  {pendingPackages.length} klaar voor planning
+                  {packages.filter(p => p.status === PackageStatus.PENDING).length} klaar voor planning
                 </p>
               </div>
             </div>
@@ -100,7 +100,14 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                   <p className="text-slate-900 font-black text-lg">Nog geen scans</p>
                 </div>
               ) : (
-                [...packages].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map(p => (
+                [...packages]
+                  .sort((a, b) => {
+                    if (a.orderIndex !== undefined && b.orderIndex !== undefined) return a.orderIndex - b.orderIndex;
+                    if (a.orderIndex !== undefined) return -1;
+                    if (b.orderIndex !== undefined) return 1;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  })
+                  .map(p => (
                   <div 
                     key={p.id} 
                     onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
@@ -114,6 +121,10 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                           selectedIds.includes(p.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'
                         }`}>
                           {selectedIds.includes(p.id) && <CheckCircle2 size={14} />}
+                        </div>
+                      ) : p.displayIndex ? (
+                        <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-black text-sm shadow-md animate-in zoom-in duration-300">
+                          {p.displayIndex}
                         </div>
                       ) : p.status === PackageStatus.SCANNING ? (
                         <RefreshCw className="animate-spin text-blue-400" size={24} />

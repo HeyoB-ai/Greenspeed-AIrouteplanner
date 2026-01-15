@@ -63,7 +63,7 @@ const App: React.FC = () => {
     const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
     
     // Stap 1: Groepeer op adres om dubbele stops te voorkomen
-    const stopsMap = new Map<string, string[]>(); // key: adres-string, value: array van pakket IDs
+    const stopsMap = new Map<string, string[]>(); 
     selectedPackages.forEach(p => {
       const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
       const existing = stopsMap.get(key) || [];
@@ -73,24 +73,27 @@ const App: React.FC = () => {
     const uniqueStops = Array.from(stopsMap.entries()).map(([key, ids]) => {
       const firstPkg = selectedPackages.find(p => p.id === ids[0])!;
       return {
-        id: ids[0], // Gebruik eerste ID als referentie voor de AI
+        id: ids[0],
         ...firstPkg.address,
         packageCount: ids.length
       };
     });
     
     try {
-      // Stap 2: Laat Gemini de volgorde van de UNIEKE adressen bepalen
       const optimizedReferenceIds = await optimizeRoute(uniqueStops);
       
       setPackages(prev => {
         const updated = [...prev];
         
-        // Reset alle orderIndexes eerst
-        updated.forEach((p, i) => { updated[i] = { ...p, orderIndex: undefined } });
+        // Reset oude indexes voor de geselecteerde pakketten
+        selectedIds.forEach(id => {
+          const idx = updated.findIndex(p => p.id === id);
+          if (idx !== -1) {
+             updated[idx] = { ...updated[idx], orderIndex: undefined, displayIndex: undefined };
+          }
+        });
 
         optimizedReferenceIds.forEach((refId, index) => {
-          // Vind welk uniek adres bij dit referentie ID hoorde
           const key = Array.from(stopsMap.entries()).find(([k, ids]) => ids.includes(refId))?.[0];
           if (key) {
             const allIdsForThisStop = stopsMap.get(key) || [];
@@ -100,7 +103,8 @@ const App: React.FC = () => {
                 updated[pkgIndex] = { 
                   ...updated[pkgIndex], 
                   status: PackageStatus.ASSIGNED,
-                  orderIndex: index 
+                  orderIndex: index,
+                  displayIndex: index + 1 // Permanent stopnummer (1-based)
                 };
               }
             });
