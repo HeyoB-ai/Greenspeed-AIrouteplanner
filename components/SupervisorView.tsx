@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Package as PackageType, User, PackageStatus } from '../types';
 import { Users, Package, ChevronRight, TrendingUp, MapPin, ShieldCheck, CreditCard, Download, Building2, ExternalLink, Archive } from 'lucide-react';
@@ -9,19 +10,23 @@ interface Props {
   onUpdateStatus: (ids: string[], status: PackageStatus) => void;
 }
 
+interface BillingEntry {
+  count: number;
+  packages: PackageType[];
+}
+
 const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus }) => {
   const [activeTab, setActiveTab] = useState<'log' | 'billing'>('log');
   const delivered = packages.filter(p => p.status === PackageStatus.DELIVERED);
   const billed = packages.filter(p => p.status === PackageStatus.BILLED);
   
-  // Groepeer bezorgde pakketten per apotheek voor facturatie
   const billingData = delivered.reduce((acc, pkg) => {
     const name = pkg.pharmacyName || pkg.pharmacyId;
     if (!acc[name]) acc[name] = { count: 0, packages: [] };
     acc[name].count += 1;
     acc[name].packages.push(pkg);
     return acc;
-  }, {} as Record<string, { count: number, packages: PackageType[] }>);
+  }, {} as Record<string, BillingEntry>);
 
   const stats = [
     { label: 'Totaal', val: packages.length, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -133,56 +138,52 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                   ))
                 )
               ) : (
-                /* BILLING VIEW */
                 Object.keys(billingData).length === 0 ? (
                   <div className="p-20 text-center text-slate-400 font-bold">
                     <CreditCard className="mx-auto mb-4 opacity-20" size={48} />
                     <p>Geen openstaande bezorgingen voor facturatie.</p>
                   </div>
                 ) : (
-                  // Fix: Explicitly type 'data' to resolve 'unknown' property access errors
-                  Object.entries(billingData).map(([pharmacy, entry]) => {
-                    const data = entry as { count: number; packages: PackageType[] };
-                    return (
-                      <div key={pharmacy} className="p-8 hover:bg-slate-50 transition-colors">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                          <div className="flex items-center space-x-5">
-                            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-                              <Building2 size={24} />
-                            </div>
-                            <div>
-                              <h4 className="font-black text-slate-900 text-xl tracking-tight">{pharmacy}</h4>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                {data.count} bezorgde pakketten
-                              </p>
-                            </div>
+                  // Explicitly casting Object.entries to fix property access on 'unknown' types for 'count' and 'packages'
+                  (Object.entries(billingData) as [string, BillingEntry][]).map(([pharmacy, data]) => (
+                    <div key={pharmacy} className="p-8 hover:bg-slate-50 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex items-center space-x-5">
+                          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                            <Building2 size={24} />
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <div className="text-right px-4 border-r border-slate-100">
-                              <p className="text-xl font-black text-slate-900">€{(data.count * 4.5).toFixed(2)}</p>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Openstaand</p>
-                            </div>
-                            <div className="flex space-x-2">
-                              <button 
-                                onClick={() => exportToCSV(pharmacy, data.packages)}
-                                title="Download CSV"
-                                className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all"
-                              >
-                                <Download size={20} />
-                              </button>
-                              <button 
-                                onClick={() => handleBillPharmacy(pharmacy, data.packages)}
-                                title="Markeer als gefactureerd"
-                                className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
-                              >
-                                <Archive size={20} />
-                              </button>
-                            </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 text-xl tracking-tight">{pharmacy}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                              {data.count} bezorgde pakketten
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right px-4 border-r border-slate-100">
+                            <p className="text-xl font-black text-slate-900">€{(data.count * 4.5).toFixed(2)}</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Openstaand</p>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => exportToCSV(pharmacy, data.packages)}
+                              title="Download CSV"
+                              className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all"
+                            >
+                              <Download size={20} />
+                            </button>
+                            <button 
+                              onClick={() => handleBillPharmacy(pharmacy, data.packages)}
+                              title="Markeer als gefactureerd"
+                              className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+                            >
+                              <Archive size={20} />
+                            </button>
                           </div>
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )
               )}
             </div>
