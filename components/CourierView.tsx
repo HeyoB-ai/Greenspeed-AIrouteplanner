@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
-import { MapPin, Navigation, CheckCircle, Truck, Map as MapIcon, X, Clock, MapPinned, Package, ChevronRight, Zap } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle, Truck, Map as MapIcon, X, Clock, MapPinned, Package, ChevronRight, Zap, Building2 } from 'lucide-react';
 
 interface Props {
   packages: PackageType[];
@@ -114,7 +114,7 @@ const CourierView: React.FC<Props> = ({ packages, onUpdateMany }) => {
                 i === 0 ? 'border-blue-600 ring-4 ring-blue-50' : 'border-slate-100'
               }`}
             >
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${
                     i === 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
@@ -130,12 +130,20 @@ const CourierView: React.FC<Props> = ({ packages, onUpdateMany }) => {
                 </div>
               </div>
 
-              {stop.packages.length > 1 && (
-                <div className="mb-6 flex items-center space-x-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 w-fit">
-                  <Package size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">{stop.packages.length} Pakketten</span>
-                </div>
-              )}
+              {/* Pakket-details per apotheek */}
+              <div className="mb-6 space-y-2">
+                {stop.packages.map(p => (
+                  <div key={p.id} className="flex items-center space-x-3 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100">
+                    <div className="w-8 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-blue-600">
+                      <Building2 size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-slate-900 leading-none">{p.pharmacyName}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">ID: {p.id.split('-').pop()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <button 

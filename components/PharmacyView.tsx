@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map, Loader2, RefreshCw } from 'lucide-react';
+import { Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map, Loader2, RefreshCw, Building2 } from 'lucide-react';
 import { Package as PackageType, PackageStatus } from '../types';
 
 interface Props {
@@ -134,7 +134,14 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                         <h4 className={`font-extrabold text-base tracking-tight ${p.status === PackageStatus.SCANNING ? 'text-blue-400 italic' : 'text-slate-900'}`}>
                           {p.address.street} {p.address.houseNumber}
                         </h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>
+                          <span className="text-slate-300">•</span>
+                          <div className="flex items-center space-x-1 text-[9px] font-black text-blue-500 uppercase">
+                            <Building2 size={10} />
+                            <span>{p.pharmacyName}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     
