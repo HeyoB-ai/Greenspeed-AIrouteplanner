@@ -2,14 +2,36 @@
 import { createClient } from '@supabase/supabase-js';
 import { Package } from '../types';
 
-// Haal variabelen op uit process.env
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
 /**
- * Maak de client alleen aan als de configuratie daadwerkelijk aanwezig is.
- * Dit voorkomt de "supabaseUrl is required" fout tijdens runtime.
+ * Veilige helper om omgevingsvariabelen op te halen.
+ * Voorkomt 'undefined' crashes in verschillende JS runtimes.
  */
+const getEnvVar = (key: string): string | undefined => {
+  try {
+    // Probeer Vite's import.meta.env
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      return (import.meta as any).env[key];
+    }
+  } catch (e) {
+    // Fallback/negeer fouten bij toegang tot import.meta
+  }
+  
+  try {
+    // Fallback voor omgevingen die process.env gebruiken
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[key];
+    }
+  } catch (e) {
+    // Fallback/negeer fouten bij toegang tot process.env
+  }
+
+  return undefined;
+};
+
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+
+// Initialiseer Supabase alleen als beide variabelen aanwezig zijn
 export const supabase = (typeof supabaseUrl === 'string' && supabaseUrl.length > 0 && typeof supabaseAnonKey === 'string') 
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
@@ -18,63 +40,63 @@ const LOCAL_STORAGE_KEY = 'medroute_backup_packages';
 
 export const db = {
   async fetchPackages(): Promise<Package[]> {
-    const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const localPackages: Package[] = localData ? JSON.parse(localData) : [];
-
-    if (!supabase) {
-      return localPackages;
-    }
-
     try {
-      const { data, error } = await supabase
-        .from('packages')
-        .select('*')
-        .order('createdAt', { ascending: false });
-      
-      if (error) {
-        console.error('Database fetch error:', error);
-        return localPackages;
-      }
-      
-      if (data) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-      }
-      
-      return (data || []) as Package[];
+      const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      return localData ? JSON.parse(localData) : [];
     } catch (err) {
-      console.error('Connection error:', err);
-      return localPackages;
+      console.error('Fout bij ophalen pakketten:', err);
+      return [];
     }
   },
 
+  /**
+   * Slaat een pakket op. De localStorage acties zijn synchroon (blocking)
+   * om race-conditions tussen snelle opeenvolgende scans te voorkomen.
+   */
   async syncPackage(pkg: Package) {
+    // 1. Lees huidige stand (Synchroon)
     const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    let localPackages: Package[] = localData ? JSON.parse(localData) : [];
-    localPackages = [pkg, ...localPackages.filter(p => p.id !== pkg.id)];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localPackages));
+    const localPackages: Package[] = localData ? JSON.parse(localData) : [];
+    
+    // 2. Update of voeg toe
+    const exists = localPackages.findIndex(p => p.id === pkg.id);
+    let updated;
+    if (exists !== -1) {
+      updated = [...localPackages];
+      updated[exists] = pkg;
+    } else {
+      updated = [pkg, ...localPackages];
+    }
+    
+    // 3. Schrijf direct terug (Synchroon)
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
 
-    if (!supabase) return;
-
-    try {
-      await supabase.from('packages').upsert(pkg);
-    } catch (err) {
-      console.error('Cloud sync error:', err);
+    // 4. Update cloud op de achtergrond (Asynchroon)
+    if (supabase) {
+      try {
+        await supabase.from('packages').upsert(pkg);
+      } catch (err) {
+        console.warn('Cloud sync tijdelijk niet beschikbaar:', err);
+      }
     }
   },
 
   async syncMultiplePackages(packages: Package[]) {
     const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
     let localPackages: Package[] = localData ? JSON.parse(localData) : [];
+    
     const pkgMap = new Map(localPackages.map(p => [p.id, p]));
     packages.forEach(p => pkgMap.set(p.id, p));
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(Array.from(pkgMap.values())));
+    
+    const finalData = Array.from(pkgMap.values());
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalData));
 
-    if (!supabase) return;
-
-    try {
-      await supabase.from('packages').upsert(packages);
-    } catch (err) {
-      console.error('Cloud bulk sync error:', err);
+    if (supabase) {
+      try {
+        await supabase.from('packages').upsert(packages);
+      } catch (err) {
+        console.warn('Cloud bulk sync mislukt:', err);
+      }
     }
   },
 

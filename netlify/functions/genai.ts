@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event: any) => {
@@ -21,7 +22,7 @@ export const handler = async (event: any) => {
               },
             },
             {
-              text: "Analyseer dit Nederlandse apotheek-etiket. Er staan vaak twee adressen op: 1. Het adres van de apotheek (afzender, vaak bovenaan bij een logo of kleine letters). 2. Het afleveradres van de patiënt (ontvanger, meestal centraal en in groter lettertype). TAAK: Extraheer UITSLUITEND het afleveradres van de patiënt. Velden: street, houseNumber, postalCode, city. PRIVACY REGEL: Negeer namen, BSN, telefoonnummers en medicijnnamen. Geef alleen het adres van de patiënt terug in JSON formaat.",
+              text: "Analyseer dit Nederlandse apotheek-etiket. Zoek het afleveradres van de patiënt (meestal het grootste adres in het midden). Als velden ontbreken, doe een best-guess op basis van de context (bijv. stad op basis van postcode). TAAK: Extraheer street, houseNumber, postalCode, city. Geef GEEN namen of medicatie. Antwoord in JSON.",
             },
           ],
         },
@@ -51,11 +52,7 @@ export const handler = async (event: any) => {
     if (action === "optimizeRoute") {
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
-        contents: `Je bent een logistiek expert. Optimaliseer de meest efficiënte route voor een fietser die medicijnen bezorgt. 
-        STARTPUNT: De apotheek (Lamberts Hilversum).
-        OPDRACHT: Sorteer de onderstaande adressen in de meest logische geografische volgorde (Traveling Salesman Problem). 
-        BELANGRIJK: Groepeer adressen die dicht bij elkaar liggen. Geef ALLEEN de IDs terug in een platte JSON array in de nieuwe volgorde.
-        ADRESSEN: ${JSON.stringify(payload.addresses)}`,
+        contents: `Optimaliseer de meest logische fietsroute langs deze adressen, beginnend in het centrum van de stad. Geef ALLE IDs terug in de nieuwe volgorde. INPUT: ${JSON.stringify(payload.addresses)}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {

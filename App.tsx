@@ -8,7 +8,7 @@ import SupervisorView from './components/SupervisorView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PHARMACY);
@@ -213,52 +213,64 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {!hasCloudConfig && role === UserRole.PHARMACY && (
-          <div className="mb-6 bg-amber-50 border border-amber-100 p-5 rounded-4xl">
+          <div className="mb-6 bg-amber-50 border border-amber-200 p-6 rounded-4xl shadow-sm">
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-                <AlertTriangle size={20} />
+              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+                <AlertTriangle size={24} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-black text-amber-900 leading-tight">Cloud Database niet geconfigureerd</p>
-                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mt-1">
+                <p className="text-lg font-black text-amber-900 leading-tight">Database niet geconfigureerd</p>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mt-1 opacity-80">
                   Data wordt momenteel uitsluitend op dit apparaat bewaard.
                 </p>
+                
                 <button 
                   onClick={() => setShowSetupHelp(!showSetupHelp)}
-                  className="mt-3 flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-amber-800 bg-amber-200/50 px-3 py-1.5 rounded-full hover:bg-amber-200 transition-colors"
+                  className="mt-4 flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-white bg-amber-600 px-4 py-2 rounded-xl hover:bg-amber-700 transition-all shadow-md shadow-amber-200"
                 >
-                  <span>{showSetupHelp ? 'Verberg Setup Hulp' : 'Hoe configureer ik dit?'}</span>
-                  {showSetupHelp ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  <span>{showSetupHelp ? 'Verberg Setup Hulp' : 'Nu Configureren'}</span>
+                  {showSetupHelp ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
                 {showSetupHelp && (
-                  <div className="mt-4 p-4 bg-white/50 border border-amber-200/50 rounded-2xl animate-in slide-in-from-top-2 duration-300">
-                    <p className="text-xs font-bold text-amber-900 mb-2">1. Maak tabel in Supabase SQL Editor:</p>
+                  <div className="mt-6 p-5 bg-white border border-amber-200 rounded-3xl animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-900/5">
+                    <div className="flex items-center space-x-2 mb-4 text-blue-600">
+                       <Info size={16} />
+                       <p className="text-xs font-black uppercase tracking-tighter">Stap-voor-stap Setup</p>
+                    </div>
+
+                    <p className="text-xs font-black text-slate-800 mb-3">1. Voer dit uit in Supabase SQL Editor:</p>
                     <div className="relative group">
-                      <pre className="text-[10px] font-mono bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto leading-relaxed">
-                        {`CREATE TABLE packages (
-  id TEXT PRIMARY KEY,
-  "pharmacyId" TEXT,
-  "pharmacyName" TEXT,
-  address JSONB,
-  status TEXT,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
-  ... (klik copy voor volledig schema)
-);`}
+                      <pre className="text-[10px] font-mono bg-slate-900 text-slate-300 p-4 rounded-2xl overflow-x-auto leading-relaxed border border-slate-800">
+                        {`CREATE TABLE packages (...); -- Klik copy voor SQL`}
                       </pre>
                       <button 
                         onClick={copySQL}
-                        className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all flex items-center space-x-2"
+                        className="absolute top-2 right-2 p-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white transition-all flex items-center space-x-2 shadow-lg"
                       >
-                        {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                        {copied ? <Check size={14} className="text-white" /> : <Copy size={14} />}
                         <span className="text-[8px] font-black uppercase">{copied ? 'Gekopieerd' : 'Copy SQL'}</span>
                       </button>
                     </div>
-                    <p className="text-xs font-bold text-amber-900 mt-4 mb-2">2. Stel env vars in je host (Netlify):</p>
-                    <ul className="text-[10px] font-bold text-amber-700 space-y-1 list-disc list-inside uppercase">
-                      <li>SUPABASE_URL</li>
-                      <li>SUPABASE_ANON_KEY</li>
-                    </ul>
+
+                    <div className="mt-6 space-y-4">
+                      <p className="text-xs font-black text-slate-800">2. Voeg deze KEYS toe in Netlify (Environment Variables):</p>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                           <code className="text-[10px] font-black text-blue-600 uppercase">VITE_SUPABASE_URL</code>
+                           <span className="text-[9px] font-bold text-slate-400">Project URL</span>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                           <code className="text-[10px] font-black text-blue-600 uppercase">VITE_SUPABASE_ANON_KEY</code>
+                           <span className="text-[9px] font-bold text-slate-400">Anon Public Key</span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                         <p className="text-[9px] font-bold text-blue-700 leading-relaxed uppercase">
+                           Let op: Gebruik exact de namen met <span className="underline">VITE_</span> prefix en herstart je deploy in Netlify.
+                         </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

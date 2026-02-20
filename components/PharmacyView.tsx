@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map, Loader2, RefreshCw, Building2 } from 'lucide-react';
+import { Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map, Loader2, RefreshCw, Building2, MousePointerClick } from 'lucide-react';
 import { Package as PackageType, PackageStatus } from '../types';
 
 interface Props {
@@ -12,13 +13,22 @@ interface Props {
 const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOptimizing }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  const pendingPackages = packages.filter(p => p.status === PackageStatus.PENDING);
+  const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
-  const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
+  const selectAll = () => {
+    if (selectedIds.length === pendingPackages.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(pendingPackages.map(p => p.id));
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -31,7 +41,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
               <div className="bg-white/20 w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
                 <Scan size={24} />
               </div>
-              <h2 className="text-3xl font-black tracking-tight mb-2 text-white">Zendingen Scannen</h2>
+              <h2 className="text-3xl font-black tracking-tight mb-2 text-white">Scannen</h2>
               <p className="text-blue-100 text-sm font-medium mb-8 leading-relaxed">
                 Scan labels snel achter elkaar. De AI haalt adressen er automatisch uit.
               </p>
@@ -58,22 +68,33 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
             </div>
           )}
 
-          {selectedIds.length > 0 && (
+          {pendingPackages.length > 0 && (
             <div className="bg-indigo-900 rounded-4xl p-8 text-white shadow-xl animate-in slide-in-from-left duration-500">
               <div className="flex items-center justify-between mb-6">
                 <ListChecks size={28} />
                 <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-black">{selectedIds.length} geselecteerd</span>
               </div>
               <h3 className="text-xl font-black mb-2">Route Plannen</h3>
-              <p className="text-indigo-200 text-xs mb-6 font-medium">Bereken de beste volgorde voor deze selectie.</p>
-              <button 
-                onClick={() => onOptimize(selectedIds)}
-                disabled={isOptimizing}
-                className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-400 disabled:opacity-50 flex items-center justify-center space-x-3 transition-all"
-              >
-                {isOptimizing ? <Loader2 className="animate-spin" size={20} /> : <Map size={20} />}
-                <span>{isOptimizing ? 'Berekenen...' : 'Route Optimaliseren'}</span>
-              </button>
+              <p className="text-indigo-200 text-xs mb-6 font-medium">Selecteer adressen om de route te berekenen.</p>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={selectAll}
+                  className="w-full bg-indigo-800/50 text-indigo-100 py-3 rounded-xl font-bold text-xs hover:bg-indigo-800 transition-all flex items-center justify-center space-x-2 border border-indigo-700"
+                >
+                  <MousePointerClick size={14} />
+                  <span>{selectedIds.length === pendingPackages.length ? 'Selectie Wissen' : 'Selecteer Alles'}</span>
+                </button>
+                
+                <button 
+                  onClick={() => onOptimize(selectedIds)}
+                  disabled={isOptimizing || selectedIds.length === 0}
+                  className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 transition-all"
+                >
+                  {isOptimizing ? <Loader2 className="animate-spin" size={20} /> : <Map size={20} />}
+                  <span>{isOptimizing ? 'Berekenen...' : 'Start Route Planning'}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -81,23 +102,32 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
         {/* List Column */}
         <div className="lg:col-span-2">
           <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden h-full flex flex-col">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-900">Zendingen</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                {packages.filter(p => p.status === PackageStatus.PENDING).length} WACHTEN OP PLANNING
-              </p>
+            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-end">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">Zendingen</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  {pendingPackages.length} WACHTEN OP PLANNING
+                </p>
+              </div>
+              {pendingPackages.length > 0 && (
+                <button onClick={selectAll} className="text-[10px] font-black text-blue-600 uppercase tracking-tighter hover:underline">
+                  {selectedIds.length === pendingPackages.length ? 'Deselecteer alles' : 'Alles selecteren'}
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[500px]">
               {packages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-20 text-center">
-                  <Package className="text-slate-200 mb-4" size={64} />
-                  <p className="text-slate-400 font-bold">Nog geen pakketten gescand</p>
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                    <Package className="text-slate-200" size={40} />
+                  </div>
+                  <p className="text-slate-900 font-black text-lg">Geen pakketten</p>
+                  <p className="text-slate-400 text-sm font-medium mt-1">Gebruik de scanner om zendingen toe te voegen.</p>
                 </div>
               ) : (
                 [...packages]
                   .sort((a, b) => {
-                    // Sorteer eerst op gepland (orderIndex), dan op datum
                     if (a.orderIndex !== undefined && b.orderIndex !== undefined) return a.orderIndex - b.orderIndex;
                     if (a.orderIndex !== undefined) return -1;
                     if (b.orderIndex !== undefined) return 1;
@@ -108,7 +138,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                     key={p.id} 
                     onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
                     className={`group bg-white border rounded-3xl p-6 flex items-center justify-between transition-all cursor-pointer ${
-                      selectedIds.includes(p.id) ? 'border-blue-500 bg-blue-50/30 shadow-md' : 'border-slate-100 hover:border-slate-300'
+                      selectedIds.includes(p.id) ? 'border-blue-500 bg-blue-50/30 shadow-md ring-1 ring-blue-500/20' : 'border-slate-100 hover:border-slate-300'
                     } ${p.status === PackageStatus.SCANNING ? 'animate-pulse bg-slate-50 border-blue-200' : ''}`}
                   >
                     <div className="flex items-center space-x-5">
