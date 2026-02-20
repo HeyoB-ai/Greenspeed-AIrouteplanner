@@ -269,10 +269,14 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
                            <code className="text-[10px] font-black text-blue-600 uppercase">VITE_SUPABASE_ANON_KEY</code>
                            <span className="text-[9px] font-bold text-slate-400">Anon Public Key</span>
                         </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                           <code className="text-[10px] font-black text-emerald-600 uppercase">VITE_GEMINI_API_KEY</code>
+                           <span className="text-[9px] font-bold text-slate-400">Gemini API Key</span>
+                        </div>
                       </div>
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                          <p className="text-[9px] font-bold text-blue-700 leading-relaxed uppercase">
-                           Let op: Gebruik exact de namen met <span className="underline">VITE_</span> prefix en herstart je deploy in Netlify.
+                           Let op: Gebruik exact de namen met <span className="underline">VITE_</span> prefix, herstart je deploy in Netlify en ververs je browser.
                          </p>
                       </div>
                     </div>
