@@ -164,7 +164,8 @@ const App: React.FC = () => {
   };
 
   const copySQL = () => {
-    const sql = `CREATE TABLE packages (
+    const sql = `-- Maak de tabel alleen aan als deze nog niet bestaat
+CREATE TABLE IF NOT EXISTS packages (
   id TEXT PRIMARY KEY,
   "pharmacyId" TEXT,
   "pharmacyName" TEXT,
@@ -179,7 +180,11 @@ const App: React.FC = () => {
   "displayIndex" INTEGER
 );
 
+-- Schakel RLS in
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
+
+-- Verwijder de policy als deze al bestaat en maak opnieuw aan
+DROP POLICY IF EXISTS "Allow public access" ON packages;
 CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     
     navigator.clipboard.writeText(sql);
