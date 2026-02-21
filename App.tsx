@@ -81,10 +81,27 @@ const App: React.FC = () => {
     setPackages(prev => [placeholderPkg, ...prev]);
 
     try {
-      const address = await extractAddressFromImage(base64);
-      if (address && address.street) {
+      const result = await extractAddressFromImage(base64);
+      
+      if (result && result.address && result.address.street) {
+        const { address, pharmacyName: detectedName } = result;
+        
+        // Zoek of de gedetecteerde apotheek al in ons systeem staat
+        const matchedPharmacy = pharmacies.find(p => 
+          p.name.toLowerCase().includes(detectedName.toLowerCase()) || 
+          detectedName.toLowerCase().includes(p.name.toLowerCase())
+        );
+
+        if (!matchedPharmacy) {
+          alert(`Let op: De apotheek "${detectedName}" is nog niet bekend in het systeem. Voeg deze eerst toe via de '+ Nieuw' knop om dit pakket correct te registreren.`);
+          setPackages(prev => prev.filter(p => p.id !== tempId));
+          return;
+        }
+
         const finalPkg: Package = { 
           ...placeholderPkg, 
+          pharmacyId: matchedPharmacy.id,
+          pharmacyName: matchedPharmacy.name,
           address, 
           status: PackageStatus.PENDING 
         };
@@ -97,7 +114,7 @@ const App: React.FC = () => {
     } catch (err) {
       setPackages(prev => prev.filter(p => p.id !== tempId));
     }
-  }, [currentPharmacy]);
+  }, [currentPharmacy, pharmacies]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);

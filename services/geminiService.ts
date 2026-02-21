@@ -39,7 +39,7 @@ function getGenAI() {
   return genAI;
 }
 
-export async function extractAddressFromImage(base64Image: string): Promise<Address | null> {
+export async function extractAddressFromImage(base64Image: string): Promise<{ address: Address; pharmacyName: string } | null> {
   try {
     const ai = getGenAI();
     const response = await ai.models.generateContent({
@@ -53,7 +53,7 @@ export async function extractAddressFromImage(base64Image: string): Promise<Addr
             },
           },
           {
-            text: "Analyseer dit Nederlandse apotheek-etiket. Zoek het afleveradres van de patiënt (meestal het grootste adres in het midden). Als velden ontbreken, doe een best-guess op basis van de context (bijv. stad op basis van postcode). TAAK: Extraheer street, houseNumber, postalCode, city. Geef GEEN namen of medicatie. Antwoord in JSON.",
+            text: "Analyseer dit Nederlandse apotheek-etiket. TAAK 1: Zoek het afleveradres van de patiënt (street, houseNumber, postalCode, city). TAAK 2: Zoek de NAAM van de apotheek die dit label heeft uitgegeven (vaak bovenaan of onderaan met 'Apotheek' in de naam). Geef GEEN patiëntnamen of medicatie. Antwoord in JSON.",
           },
         ],
       },
@@ -62,12 +62,22 @@ export async function extractAddressFromImage(base64Image: string): Promise<Addr
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            street: { type: Type.STRING },
-            houseNumber: { type: Type.STRING },
-            postalCode: { type: Type.STRING },
-            city: { type: Type.STRING },
+            address: {
+              type: Type.OBJECT,
+              properties: {
+                street: { type: Type.STRING },
+                houseNumber: { type: Type.STRING },
+                postalCode: { type: Type.STRING },
+                city: { type: Type.STRING },
+              },
+              required: ["street", "houseNumber", "postalCode", "city"],
+            },
+            pharmacyName: { 
+              type: Type.STRING,
+              description: "De volledige naam van de apotheek gevonden op het label."
+            },
           },
-          required: ["street", "houseNumber", "postalCode", "city"],
+          required: ["address", "pharmacyName"],
         },
       },
     });
