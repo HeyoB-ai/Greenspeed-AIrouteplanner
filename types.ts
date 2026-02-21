@@ -55,3 +55,9 @@ export interface User {
   role: UserRole;
   status?: CourierStatus;
 }
+
+export interface Pharmacy {
+  id: string;
+  name: string;
+  address?: string;
+}

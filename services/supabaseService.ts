@@ -37,6 +37,7 @@ export const supabase = (typeof supabaseUrl === 'string' && supabaseUrl.length >
   : null;
 
 const LOCAL_STORAGE_KEY = 'medroute_backup_packages';
+const PHARMACIES_KEY = 'medroute_pharmacies';
 
 export const db = {
   async fetchPackages(): Promise<Package[]> {
@@ -46,6 +47,49 @@ export const db = {
     } catch (err) {
       console.error('Fout bij ophalen pakketten:', err);
       return [];
+    }
+  },
+
+  async fetchPharmacies(): Promise<any[]> {
+    try {
+      const localData = localStorage.getItem(PHARMACIES_KEY);
+      const localPharmacies = localData ? JSON.parse(localData) : [
+        { id: 'ph-1', name: 'Apotheek de Kroon' },
+        { id: 'ph-2', name: 'Apotheek Hilversum Noord' }
+      ];
+      
+      if (supabase) {
+        const { data } = await supabase.from('pharmacies').select('*');
+        if (data && data.length > 0) return data;
+      }
+      
+      return localPharmacies;
+    } catch (err) {
+      return [{ id: 'ph-1', name: 'Apotheek de Kroon' }];
+    }
+  },
+
+  async savePharmacy(pharmacy: any) {
+    const localData = localStorage.getItem(PHARMACIES_KEY);
+    const localPharmacies = localData ? JSON.parse(localData) : [];
+    const exists = localPharmacies.findIndex((p: any) => p.id === pharmacy.id);
+    
+    let updated;
+    if (exists !== -1) {
+      updated = [...localPharmacies];
+      updated[exists] = pharmacy;
+    } else {
+      updated = [...localPharmacies, pharmacy];
+    }
+    
+    localStorage.setItem(PHARMACIES_KEY, JSON.stringify(updated));
+
+    if (supabase) {
+      try {
+        await supabase.from('pharmacies').upsert(pharmacy);
+      } catch (err) {
+        console.warn('Cloud sync pharmacies mislukt:', err);
+      }
     }
   },
 

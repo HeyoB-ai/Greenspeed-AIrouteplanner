@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserRole, Package, PackageStatus, Address, CourierStatus, DeliveryEvidence } from './types';
+import { UserRole, Package, PackageStatus, Address, CourierStatus, DeliveryEvidence, Pharmacy } from './types';
 import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
@@ -19,7 +19,8 @@ const App: React.FC = () => {
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   
-  const [currentPharmacy, setCurrentPharmacy] = useState({ id: 'ph-1', name: 'Apotheek de Kroon' });
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [currentPharmacy, setCurrentPharmacy] = useState<Pharmacy>({ id: 'ph-1', name: 'Apotheek de Kroon' });
 
   // Controleer of cloud opslag beschikbaar is
   const hasCloudConfig = !!supabase;
@@ -28,12 +29,41 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setIsSyncing(true);
-      const data = await db.fetchPackages();
-      setPackages(data);
+      const [pkgs, pharms] = await Promise.all([db.fetchPackages(), db.fetchPharmacies()]);
+      setPackages(pkgs);
+      setPharmacies(pharms);
+      if (pharms.length > 0) {
+        // Probeer de laatst gebruikte apotheek te onthouden of neem de eerste
+        const lastId = localStorage.getItem('last_pharmacy_id');
+        const found = pharms.find(p => p.id === lastId);
+        setCurrentPharmacy(found || pharms[0]);
+      }
       setIsSyncing(false);
     };
     loadData();
   }, []);
+
+  const handleAddPharmacy = async () => {
+    const name = prompt("Naam van de nieuwe apotheek:");
+    if (name) {
+      const newPharm: Pharmacy = {
+        id: `ph-${Date.now()}`,
+        name
+      };
+      setPharmacies(prev => [...prev, newPharm]);
+      setCurrentPharmacy(newPharm);
+      localStorage.setItem('last_pharmacy_id', newPharm.id);
+      await db.savePharmacy(newPharm);
+    }
+  };
+
+  const handleSwitchPharmacy = (id: string) => {
+    const found = pharmacies.find(p => p.id === id);
+    if (found) {
+      setCurrentPharmacy(found);
+      localStorage.setItem('last_pharmacy_id', id);
+    }
+  };
 
   const handleNewScan = useCallback(async (base64: string) => {
     const tempId = `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
@@ -164,10 +194,17 @@ const App: React.FC = () => {
   };
 
   const copySQL = () => {
-    const sql = `-- Maak de tabel alleen aan als deze nog niet bestaat
+    const sql = `-- Tabel voor apotheken
+CREATE TABLE IF NOT EXISTS pharmacies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT
+);
+
+-- Tabel voor pakketten
 CREATE TABLE IF NOT EXISTS packages (
   id TEXT PRIMARY KEY,
-  "pharmacyId" TEXT,
+  "pharmacyId" TEXT REFERENCES pharmacies(id),
   "pharmacyName" TEXT,
   address JSONB,
   status TEXT,
@@ -181,9 +218,13 @@ CREATE TABLE IF NOT EXISTS packages (
 );
 
 -- Schakel RLS in
+ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 
--- Verwijder de policy als deze al bestaat en maak opnieuw aan
+-- Policies
+DROP POLICY IF EXISTS "Allow public access" ON pharmacies;
+CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);
+
 DROP POLICY IF EXISTS "Allow public access" ON packages;
 CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     
@@ -289,18 +330,29 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
 
         {role === UserRole.PHARMACY && (
           <>
-            <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="hidden sm:block">
                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                    Status: {hasCloudConfig ? 'Cloud Gesynchroniseerd' : 'Lokale Modus'}
                  </p>
               </div>
-              <button 
-                onClick={() => setCurrentPharmacy(prev => prev.id === 'ph-1' ? { id: 'ph-2', name: 'Apotheek Hilversum Noord' } : { id: 'ph-1', name: 'Apotheek de Kroon' })}
-                className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100 transition-all"
-              >
-                Wissel Apotheek: {currentPharmacy.name}
-              </button>
+              <div className="flex items-center space-x-2">
+                <select 
+                  value={currentPharmacy.id}
+                  onChange={(e) => handleSwitchPharmacy(e.target.value)}
+                  className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                >
+                  {pharmacies.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={handleAddPharmacy}
+                  className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 hover:bg-emerald-100 transition-all"
+                >
+                  + Nieuw
+                </button>
+              </div>
             </div>
             <PharmacyView 
               packages={packages} 
