@@ -2,15 +2,17 @@
 import React, { useState } from 'react';
 import { Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map, Loader2, RefreshCw, Building2, MousePointerClick } from 'lucide-react';
 import { Package as PackageType, PackageStatus } from '../types';
+import ChatBot from './ChatBot';
 
 interface Props {
   packages: PackageType[];
   onScanStart: () => void;
   onOptimize: (selectedIds: string[]) => void;
   isOptimizing: boolean;
+  pharmacyName: string;
 }
 
-const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOptimizing }) => {
+const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOptimizing, pharmacyName }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const pendingPackages = packages.filter(p => p.status === PackageStatus.PENDING);
@@ -197,6 +199,12 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
           </div>
         </div>
       </div>
+      
+      {/* ChatBot Integration */}
+      <ChatBot 
+        packages={packages.filter(p => p.pharmacyName === pharmacyName)} 
+        pharmacyName={pharmacyName} 
+      />
     </div>
   );
 };

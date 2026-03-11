@@ -383,6 +383,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
               onScanStart={() => setShowScanner(true)} 
               onOptimize={handleOptimizeRoute}
               isOptimizing={isOptimizing}
+              pharmacyName={currentPharmacy.name}
             />
           </>
         )}
