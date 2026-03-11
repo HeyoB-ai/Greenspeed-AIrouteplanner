@@ -52,7 +52,6 @@ const ChatBot: React.FC<Props> = ({ packages, pharmacyName }) => {
                 id: p.id,
                 adres: `${p.address.street} ${p.address.houseNumber}, ${p.address.postalCode} ${p.address.city}`,
                 status: p.status,
-                trackCode: p.trackingCode,
                 aangemaakt: p.createdAt,
                 bezorgd: p.deliveredAt
               })))}

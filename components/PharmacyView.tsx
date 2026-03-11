@@ -167,11 +167,6 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                           <h4 className={`font-extrabold text-base tracking-tight ${p.status === PackageStatus.SCANNING ? 'text-blue-400 italic' : 'text-slate-900'}`}>
                             {p.address.street} {p.address.houseNumber}
                           </h4>
-                          {p.trackingCode && (
-                            <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">
-                              Code: {p.trackingCode}
-                            </span>
-                          )}
                         </div>
                         <div className="flex items-center space-x-2 mt-1">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.address.postalCode} {p.address.city}</p>

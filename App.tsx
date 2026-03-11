@@ -39,6 +39,14 @@ const App: React.FC = () => {
         const found = pharms.find(p => p.id === lastId);
         setCurrentPharmacy(found || pharms[0]);
       }
+
+      // Check URL for role parameter (e.g. for patient deep links)
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get('role');
+      if (urlRole === 'PATIENT') {
+        setRole(UserRole.PATIENT);
+      }
+
       setIsSyncing(false);
     };
     loadData();
@@ -68,10 +76,6 @@ const App: React.FC = () => {
 
   const handleNewScan = useCallback(async (base64: string) => {
     const tempId = `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-    // Genereer een unieke track-code (bijv. AB-123)
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const nums = '123456789';
-    const trackingCode = `${chars[Math.floor(Math.random() * chars.length)]}${chars[Math.floor(Math.random() * chars.length)]}-${nums[Math.floor(Math.random() * nums.length)]}${nums[Math.floor(Math.random() * nums.length)]}${nums[Math.floor(Math.random() * nums.length)]}`;
     
     const placeholderPkg: Package = {
       id: tempId,
@@ -79,7 +83,6 @@ const App: React.FC = () => {
       pharmacyName: currentPharmacy.name,
       address: { street: 'Bezig met analyseren...', houseNumber: '', postalCode: '', city: '' },
       status: PackageStatus.SCANNING,
-      trackingCode,
       createdAt: new Date().toISOString(),
       priority: 3
     };
@@ -231,7 +234,6 @@ CREATE TABLE IF NOT EXISTS packages (
   "pharmacyName" TEXT,
   address JSONB,
   status TEXT,
-  "trackingCode" TEXT,
   "courierId" TEXT,
   "createdAt" TIMESTAMPTZ DEFAULT NOW(),
   "deliveredAt" TIMESTAMPTZ,

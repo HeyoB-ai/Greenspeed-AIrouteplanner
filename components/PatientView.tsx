@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package as PackageType, PackageStatus } from '../types';
 import { Search, Package, Truck, CheckCircle2, MapPin, Clock, AlertCircle } from 'lucide-react';
 
@@ -10,9 +10,29 @@ interface Props {
 const PatientView: React.FC<Props> = ({ packages }) => {
   const [postalCode, setPostalCode] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
-  const [trackingCode, setTrackingCode] = useState('');
   const [foundPackage, setFoundPackage] = useState<PackageType | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle URL parameters for deep linking
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pc = params.get('pc');
+    const hn = params.get('hn');
+
+    if (pc && hn) {
+      setPostalCode(pc);
+      setHouseNumber(hn);
+      
+      // Auto-track if packages are loaded
+      if (packages.length > 0) {
+        const pkg = packages.find(p => 
+          p.address.postalCode.replace(/\s/g, '').toLowerCase() === pc.replace(/\s/g, '').toLowerCase() &&
+          p.address.houseNumber.toLowerCase() === hn.toLowerCase()
+        );
+        if (pkg) setFoundPackage(pkg);
+      }
+    }
+  }, [packages]);
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,14 +41,13 @@ const PatientView: React.FC<Props> = ({ packages }) => {
 
     const pkg = packages.find(p => 
       p.address.postalCode.replace(/\s/g, '').toLowerCase() === postalCode.replace(/\s/g, '').toLowerCase() &&
-      p.address.houseNumber.toLowerCase() === houseNumber.toLowerCase() &&
-      p.trackingCode?.toUpperCase() === trackingCode.toUpperCase()
+      p.address.houseNumber.toLowerCase() === houseNumber.toLowerCase()
     );
 
     if (pkg) {
       setFoundPackage(pkg);
     } else {
-      setError('Geen zending gevonden met deze gegevens. Controleer de postcode, het huisnummer en de track-code.');
+      setError('Geen zending gevonden met deze gegevens. Controleer de postcode en het huisnummer.');
     }
   };
 
@@ -84,17 +103,6 @@ const PatientView: React.FC<Props> = ({ packages }) => {
                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Track-Code</label>
-            <input 
-              type="text" 
-              placeholder="AB-123"
-              value={trackingCode}
-              onChange={(e) => setTrackingCode(e.target.value)}
-              required
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
-            />
           </div>
 
           {error && (

@@ -41,7 +41,6 @@ export interface Package {
   pharmacyName: string; // Voor financiële rapportage
   address: Address;
   status: PackageStatus;
-  trackingCode?: string;
   courierId?: string;
   createdAt: string;
   deliveredAt?: string;
