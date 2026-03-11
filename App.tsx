@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
+import PatientView from './components/PatientView';
 import Scanner from './components/Scanner';
 import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
@@ -67,6 +68,10 @@ const App: React.FC = () => {
 
   const handleNewScan = useCallback(async (base64: string) => {
     const tempId = `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    // Genereer een unieke track-code (bijv. AB-123)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const nums = '123456789';
+    const trackingCode = `${chars[Math.floor(Math.random() * chars.length)]}${chars[Math.floor(Math.random() * chars.length)]}-${nums[Math.floor(Math.random() * nums.length)]}${nums[Math.floor(Math.random() * nums.length)]}${nums[Math.floor(Math.random() * nums.length)]}`;
     
     const placeholderPkg: Package = {
       id: tempId,
@@ -74,6 +79,7 @@ const App: React.FC = () => {
       pharmacyName: currentPharmacy.name,
       address: { street: 'Bezig met analyseren...', houseNumber: '', postalCode: '', city: '' },
       status: PackageStatus.SCANNING,
+      trackingCode,
       createdAt: new Date().toISOString(),
       priority: 3
     };
@@ -225,6 +231,7 @@ CREATE TABLE IF NOT EXISTS packages (
   "pharmacyName" TEXT,
   address JSONB,
   status TEXT,
+  "trackingCode" TEXT,
   "courierId" TEXT,
   "createdAt" TIMESTAMPTZ DEFAULT NOW(),
   "deliveredAt" TIMESTAMPTZ,
@@ -395,6 +402,9 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
               { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE }
             ]} 
           />
+        )}
+        {role === UserRole.PATIENT && (
+          <PatientView packages={packages} />
         )}
       </div>
 

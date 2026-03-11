@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { UserRole } from '../types';
-import { ShieldCheck, LogOut, LayoutDashboard, Truck, Package, Shield, Bell } from 'lucide-react';
+import { ShieldCheck, LogOut, LayoutDashboard, Truck, Package, Shield, Bell, User } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,6 +26,7 @@ const Layout: React.FC<LayoutProps> = ({
     { id: UserRole.PHARMACY, label: 'Apotheek', icon: Package },
     { id: UserRole.COURIER, label: 'Koerier', icon: Truck },
     { id: UserRole.SUPERVISOR, label: 'Beheer', icon: LayoutDashboard },
+    { id: UserRole.PATIENT, label: 'Patiënt', icon: User },
   ];
 
   return (

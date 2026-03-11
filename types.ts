@@ -1,7 +1,8 @@
 export enum UserRole {
   PHARMACY = 'APOTHEEK',
   COURIER = 'KOERIER',
-  SUPERVISOR = 'SUPERVISOR'
+  SUPERVISOR = 'SUPERVISOR',
+  PATIENT = 'PATIENT'
 }
 
 export enum CourierStatus {
@@ -40,6 +41,7 @@ export interface Package {
   pharmacyName: string; // Voor financiële rapportage
   address: Address;
   status: PackageStatus;
+  trackingCode?: string;
   courierId?: string;
   createdAt: string;
   deliveredAt?: string;
