@@ -43,7 +43,7 @@ export async function extractAddressFromImage(base64Image: string): Promise<{ ad
   try {
     const ai = getGenAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: {
         parts: [
           {
@@ -83,6 +83,7 @@ export async function extractAddressFromImage(base64Image: string): Promise<{ ad
     });
 
     const text = response.text;
+    console.log('Gemini raw response (OCR):', text);
     if (!text) return null;
     return JSON.parse(text);
   } catch (error: any) {
@@ -98,7 +99,7 @@ export async function optimizeRoute(addresses: (Address & { id: string })[]): Pr
   try {
     const ai = getGenAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-2.5-flash",
       contents: `Optimaliseer de meest logische fietsroute langs deze adressen, beginnend in het centrum van de stad. Geef ALLE IDs terug in de nieuwe volgorde. INPUT: ${JSON.stringify(addresses)}`,
       config: {
         responseMimeType: "application/json",
