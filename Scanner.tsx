@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, X, RefreshCw, AlertCircle } from 'lucide-react';
-import { extractAddressFromImage } from '../services/geminiService';
-import { Address } from '../types';
+import { extractAddressFromImage } from './services/geminiService';
+import { Address } from './types';
 
 interface ScannerProps {
   onScanComplete: (address: Address) => void;

@@ -60,15 +60,36 @@ export const db = {
   },
 
   async fetchPharmacies(): Promise<any[]> {
-    // Apotheken worden alleen lokaal opgeslagen (geen aparte Supabase-tabel)
+    // Haal unieke apotheken op uit de packages tabel (geen aparte pharmacies tabel)
     try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('packages')
+          .select('pharmacyId, pharmacyName');
+        if (!error && data && data.length > 0) {
+          // Deduplicate op pharmacyId
+          const seen = new Set<string>();
+          const unique = data
+            .filter((p: any) => {
+              if (!p.pharmacyId || seen.has(p.pharmacyId)) return false;
+              seen.add(p.pharmacyId);
+              return true;
+            })
+            .map((p: any) => ({ id: p.pharmacyId, name: p.pharmacyName }));
+          if (unique.length > 0) {
+            localStorage.setItem(PHARMACIES_KEY, JSON.stringify(unique));
+            return unique;
+          }
+        }
+      }
       const localData = localStorage.getItem(PHARMACIES_KEY);
       return localData ? JSON.parse(localData) : [
         { id: 'ph-1', name: 'Apotheek de Kroon' },
         { id: 'ph-2', name: 'Apotheek Hilversum Noord' }
       ];
     } catch (err) {
-      return [{ id: 'ph-1', name: 'Apotheek de Kroon' }];
+      const localData = localStorage.getItem(PHARMACIES_KEY);
+      return localData ? JSON.parse(localData) : [{ id: 'ph-1', name: 'Apotheek de Kroon' }];
     }
   },
 
