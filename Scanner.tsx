@@ -69,7 +69,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       const result = await extractAddressFromImage(base64);
 
       if (result && result.address && result.address.street && result.address.houseNumber) {
-        onScanComplete(result.address);
+        if (typeof onScanComplete === 'function') onScanComplete(result.address);
       } else {
         setError("Geen geldig afleveradres gevonden. Zorg dat het patiënt-adres goed in beeld is.");
         setIsProcessing(false);
@@ -78,6 +78,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       setError("Analyse mislukt. Probeer het opnieuw.");
       setIsProcessing(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (typeof onCancel === 'function') onCancel();
   };
 
   return (
@@ -127,8 +131,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
       {/* Bottom Controls - Verhoogd voor iOS Safari bars */}
       <div className="px-10 pt-8 pb-16 bg-slate-950 flex justify-between items-center border-t border-white/5">
-        <button 
-          onClick={onCancel} 
+        <button
+          onClick={handleCancel}
           className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/10"
         >
           <X size={24} />

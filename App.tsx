@@ -6,7 +6,7 @@ import PharmacyView from './components/PharmacyView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import PatientView from './components/PatientView';
-import Scanner from './components/Scanner';
+import Scanner from './Scanner';
 import { optimizeRoute } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info } from 'lucide-react';
