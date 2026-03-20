@@ -7,7 +7,7 @@ import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import PatientView from './components/PatientView';
 import Scanner from './components/Scanner';
-import { optimizeRoute, extractAddressFromImage } from './services/geminiService';
+import { optimizeRoute } from './services/geminiService';
 import { db, supabase } from './services/supabaseService';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info } from 'lucide-react';
 
@@ -74,56 +74,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNewScan = useCallback(async (base64: string) => {
-    const tempId = `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-    
-    const placeholderPkg: Package = {
-      id: tempId,
+  // Scanner doet de Gemini-analyse zelf en levert een Address op.
+  // We gebruiken currentPharmacy voor pharmacyId/Name — geen aparte matchinglogica nodig.
+  const handleNewScan = useCallback(async (address: Address) => {
+    const pkg: Package = {
+      id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId: currentPharmacy.id,
       pharmacyName: currentPharmacy.name,
-      address: { street: 'Bezig met analyseren...', houseNumber: '', postalCode: '', city: '' },
-      status: PackageStatus.SCANNING,
+      address,
+      status: PackageStatus.PENDING,
       createdAt: new Date().toISOString(),
       priority: 3
     };
-    
-    setPackages(prev => [placeholderPkg, ...prev]);
 
-    try {
-      const result = await extractAddressFromImage(base64);
-      
-      if (result && result.address && result.address.street) {
-        const { address, pharmacyName: detectedName } = result;
-        
-        // Zoek of de gedetecteerde apotheek al in ons systeem staat
-        const matchedPharmacy = pharmacies.find(p => 
-          p.name.toLowerCase().includes(detectedName.toLowerCase()) || 
-          detectedName.toLowerCase().includes(p.name.toLowerCase())
-        );
-
-        if (!matchedPharmacy) {
-          alert(`Let op: De apotheek "${detectedName}" is nog niet bekend in het systeem. Voeg deze eerst toe via de '+ Nieuw' knop om dit pakket correct te registreren.`);
-          setPackages(prev => prev.filter(p => p.id !== tempId));
-          return;
-        }
-
-        const finalPkg: Package = { 
-          ...placeholderPkg, 
-          pharmacyId: matchedPharmacy.id,
-          pharmacyName: matchedPharmacy.name,
-          address, 
-          status: PackageStatus.PENDING 
-        };
-        
-        setPackages(prev => prev.map(p => p.id === tempId ? finalPkg : p));
-        await db.syncPackage(finalPkg);
-      } else {
-        setPackages(prev => prev.filter(p => p.id !== tempId));
-      }
-    } catch (err) {
-      setPackages(prev => prev.filter(p => p.id !== tempId));
-    }
-  }, [currentPharmacy, pharmacies]);
+    setPackages(prev => [pkg, ...prev]);
+    setShowScanner(false);
+    await db.syncPackage(pkg);
+  }, [currentPharmacy]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
@@ -403,9 +370,9 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
       </div>
 
       {showScanner && (
-        <Scanner 
-          onCapture={handleNewScan} 
-          onClose={() => setShowScanner(false)} 
+        <Scanner
+          onScanComplete={handleNewScan}
+          onCancel={() => setShowScanner(false)}
         />
       )}
     </Layout>

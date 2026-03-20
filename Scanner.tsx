@@ -66,10 +66,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     
     try {
       const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-      const address = await extractAddressFromImage(base64);
-      
-      if (address && address.street && address.houseNumber) {
-        onScanComplete(address);
+      const result = await extractAddressFromImage(base64);
+
+      if (result && result.address && result.address.street && result.address.houseNumber) {
+        onScanComplete(result.address);
       } else {
         setError("Geen geldig afleveradres gevonden. Zorg dat het patiënt-adres goed in beeld is.");
         setIsProcessing(false);
