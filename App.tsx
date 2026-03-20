@@ -220,17 +220,10 @@ const App: React.FC = () => {
   };
 
   const copySQL = () => {
-    const sql = `-- Tabel voor apotheken
-CREATE TABLE IF NOT EXISTS pharmacies (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  address TEXT
-);
-
--- Tabel voor pakketten
+    const sql = `-- Tabel voor pakketten
 CREATE TABLE IF NOT EXISTS packages (
   id TEXT PRIMARY KEY,
-  "pharmacyId" TEXT REFERENCES pharmacies(id),
+  "pharmacyId" TEXT,
   "pharmacyName" TEXT,
   address JSONB,
   status TEXT,
@@ -244,13 +237,9 @@ CREATE TABLE IF NOT EXISTS packages (
 );
 
 -- Schakel RLS in
-ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 
--- Policies
-DROP POLICY IF EXISTS "Allow public access" ON pharmacies;
-CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);
-
+-- Policy
 DROP POLICY IF EXISTS "Allow public access" ON packages;
 CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     
@@ -258,6 +247,8 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // SQL wordt niet meer gebruikt voor pharmacies (lokaal opgeslagen)
 
   const syncIndicator = (
     <div className={`flex items-center space-x-2 px-3 py-1 border rounded-full transition-colors ${hasCloudConfig ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-100'}`}>

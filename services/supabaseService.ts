@@ -42,38 +42,42 @@ const PHARMACIES_KEY = 'medroute_pharmacies';
 export const db = {
   async fetchPackages(): Promise<Package[]> {
     try {
+      // Probeer eerst Supabase (cloud), val terug op localStorage
+      if (supabase) {
+        const { data, error } = await supabase.from('packages').select('*').order('createdAt', { ascending: false });
+        if (!error && data && data.length > 0) {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+          return data;
+        }
+      }
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       return localData ? JSON.parse(localData) : [];
     } catch (err) {
       console.error('Fout bij ophalen pakketten:', err);
-      return [];
+      const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      return localData ? JSON.parse(localData) : [];
     }
   },
 
   async fetchPharmacies(): Promise<any[]> {
+    // Apotheken worden alleen lokaal opgeslagen (geen aparte Supabase-tabel)
     try {
       const localData = localStorage.getItem(PHARMACIES_KEY);
-      const localPharmacies = localData ? JSON.parse(localData) : [
+      return localData ? JSON.parse(localData) : [
         { id: 'ph-1', name: 'Apotheek de Kroon' },
         { id: 'ph-2', name: 'Apotheek Hilversum Noord' }
       ];
-      
-      if (supabase) {
-        const { data } = await supabase.from('pharmacies').select('*');
-        if (data && data.length > 0) return data;
-      }
-      
-      return localPharmacies;
     } catch (err) {
       return [{ id: 'ph-1', name: 'Apotheek de Kroon' }];
     }
   },
 
   async savePharmacy(pharmacy: any) {
+    // Apotheken worden alleen lokaal opgeslagen (geen aparte Supabase-tabel)
     const localData = localStorage.getItem(PHARMACIES_KEY);
     const localPharmacies = localData ? JSON.parse(localData) : [];
     const exists = localPharmacies.findIndex((p: any) => p.id === pharmacy.id);
-    
+
     let updated;
     if (exists !== -1) {
       updated = [...localPharmacies];
@@ -81,16 +85,8 @@ export const db = {
     } else {
       updated = [...localPharmacies, pharmacy];
     }
-    
-    localStorage.setItem(PHARMACIES_KEY, JSON.stringify(updated));
 
-    if (supabase) {
-      try {
-        await supabase.from('pharmacies').upsert(pharmacy);
-      } catch (err) {
-        console.warn('Cloud sync pharmacies mislukt:', err);
-      }
-    }
+    localStorage.setItem(PHARMACIES_KEY, JSON.stringify(updated));
   },
 
   /**
