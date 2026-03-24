@@ -8,10 +8,23 @@ interface ScannerProps {
   onCancel: () => void;
 }
 
-// Web Audio API tonen — geen externe bestanden nodig
+// Één gedeelde AudioContext — iOS Safari crasht bij meerdere instanties
+let sharedAudioCtx: AudioContext | null = null;
+const getAudioCtx = (): AudioContext | null => {
+  try {
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioContext();
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+};
+
 const playSound = (type: 'success' | 'error') => {
   try {
-    const ctx = new AudioContext();
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // iOS Safari: AudioContext kan 'suspended' zijn na paginawissel
+    if (ctx.state === 'suspended') ctx.resume();
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
@@ -34,7 +47,7 @@ const playSound = (type: 'success' | 'error') => {
       osc.stop(ctx.currentTime + 0.3);
     }
   } catch {
-    // AudioContext niet beschikbaar
+    // AudioContext niet beschikbaar — scan gaat gewoon door
   }
 };
 
@@ -43,6 +56,7 @@ type ScanStatus = 'pending' | 'ok' | 'err';
 interface ScanEntry {
   id: number;
   status: ScanStatus;
+  errorMsg?: string;
 }
 
 interface QueueItem {
@@ -109,12 +123,13 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
             onScanCompleteRef.current(result.address);
           } else {
             playSound('error');
-            setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
+            setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err', errorMsg: 'Adres niet herkend' } : s));
           }
-        } catch (err) {
-          console.error('[processQueue] extractAddressFromImage error:', err);
+        } catch (err: any) {
+          const msg = err?.message || String(err);
+          console.error('[processQueue] extractAddressFromImage error:', msg);
           playSound('error');
-          setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
+          setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err', errorMsg: msg } : s));
         }
       }
     } finally {
@@ -143,6 +158,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) { setCameraLocked(false); return; }
+
+    if (!video.videoWidth || !video.videoHeight) {
+      setCameraError('Camera not ready — probeer opnieuw.');
+      setCameraLocked(false);
+      return;
+    }
 
     const scale = Math.min(1, 1280 / video.videoWidth);
     canvas.width = video.videoWidth * scale;
@@ -186,7 +207,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
             {scans.map(s => (
               <div
                 key={s.id}
-                title={s.status === 'ok' ? 'Herkend' : s.status === 'err' ? 'Mislukt' : 'Bezig...'}
+                title={s.status === 'ok' ? 'Herkend' : s.status === 'err' ? (s.errorMsg || 'Mislukt') : 'Bezig...'}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
                   s.status === 'ok'      ? 'bg-emerald-400 scale-110' :
                   s.status === 'err'     ? 'bg-red-400' :
