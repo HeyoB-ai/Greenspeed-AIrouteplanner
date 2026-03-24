@@ -98,25 +98,28 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     if (processingRef.current) return;
     processingRef.current = true;
 
-    while (queueRef.current.length > 0) {
-      const item = queueRef.current.shift()!;
-      try {
-        const result = await extractAddressFromImage(item.base64);
-        if (result?.address?.street && result.address.houseNumber) {
-          playSound('success');
-          setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'ok' } : s));
-          onScanCompleteRef.current(result.address);
-        } else {
+    try {
+      while (queueRef.current.length > 0) {
+        const item = queueRef.current.shift()!;
+        try {
+          const result = await extractAddressFromImage(item.base64);
+          if (result?.address?.street && result.address.houseNumber) {
+            playSound('success');
+            setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'ok' } : s));
+            onScanCompleteRef.current(result.address);
+          } else {
+            playSound('error');
+            setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
+          }
+        } catch (err) {
+          console.error('[processQueue] extractAddressFromImage error:', err);
           playSound('error');
           setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
         }
-      } catch {
-        playSound('error');
-        setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
       }
+    } finally {
+      processingRef.current = false;
     }
-
-    processingRef.current = false;
   }, []); // lege deps: gebruikt alleen refs en stable setState
 
   /**
