@@ -88,7 +88,6 @@ const App: React.FC = () => {
     };
 
     setPackages(prev => [pkg, ...prev]);
-    setShowScanner(false);
     await db.syncPackage(pkg);
   }, [currentPharmacy]);
 

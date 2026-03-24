@@ -9,43 +9,41 @@ interface ScannerProps {
 }
 
 // Één gedeelde AudioContext — iOS Safari crasht bij meerdere instanties
-let sharedAudioCtx: AudioContext | null = null;
-const getAudioCtx = (): AudioContext | null => {
+const audioCtx = (() => {
   try {
-    if (!sharedAudioCtx) sharedAudioCtx = new AudioContext();
-    return sharedAudioCtx;
+    return new (window.AudioContext || (window as any).webkitAudioContext)();
   } catch {
     return null;
   }
-};
+})();
 
 const playSound = (type: 'success' | 'error') => {
   try {
-    const ctx = getAudioCtx();
-    if (!ctx) return;
-    // iOS Safari: AudioContext kan 'suspended' zijn na paginawissel
-    if (ctx.state === 'suspended') ctx.resume();
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    if (type === 'success') {
-      [880, 1100].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+    if (!audioCtx) return;
+    // iOS Safari: AudioContext start altijd 'suspended' — resume() eerst
+    audioCtx.resume().then(() => {
+      const gain = audioCtx.createGain();
+      gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      if (type === 'success') {
+        [880, 1100].forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          osc.connect(gain);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          osc.start(audioCtx.currentTime + i * 0.16);
+          osc.stop(audioCtx.currentTime + i * 0.16 + 0.14);
+        });
+      } else {
+        const osc = audioCtx.createOscillator();
         osc.connect(gain);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-        osc.start(ctx.currentTime + i * 0.16);
-        osc.stop(ctx.currentTime + i * 0.16 + 0.14);
-      });
-    } else {
-      const osc = ctx.createOscillator();
-      osc.connect(gain);
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    }
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+    });
   } catch {
     // AudioContext niet beschikbaar — scan gaat gewoon door
   }
