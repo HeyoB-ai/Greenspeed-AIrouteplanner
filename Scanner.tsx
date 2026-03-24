@@ -86,9 +86,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 100);
 
-    setScanState('processing');
-    setErrorMsg('');
-
+    // Foto vastleggen
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
@@ -98,30 +96,24 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
+    // ✅ Meteen terug naar ready — volgende scan kan al beginnen
+    setScanState('ready');
+    setScanCount(prev => prev + 1);
+    setErrorMsg('');
+
+    // AI-analyse op de achtergrond (niet-blokkerend)
     try {
-      const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
       const result = await extractAddressFromImage(base64);
-
       if (result?.address?.street && result.address.houseNumber) {
         playSound('success');
-        setScanState('success');
-        setScanCount(prev => prev + 1);
         if (typeof onScanComplete === 'function') onScanComplete(result.address);
-
-        // Na 1.5 seconde feedback: automatisch doorgaan (burst mode)
-        resumeTimer.current = setTimeout(() => setScanState('ready'), 1500);
       } else {
         playSound('error');
-        setScanState('error');
-        setErrorMsg('Geen geldig adres herkend. Hou het label stilhouden in het kader.');
-        resumeTimer.current = setTimeout(() => setScanState('ready'), 2500);
       }
     } catch {
       playSound('error');
-      setScanState('error');
-      setErrorMsg('Analyse mislukt. Probeer opnieuw.');
-      resumeTimer.current = setTimeout(() => setScanState('ready'), 2500);
     }
   }, [scanState, onScanComplete]);
 
