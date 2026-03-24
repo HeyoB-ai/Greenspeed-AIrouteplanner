@@ -15,9 +15,7 @@ const playSound = (type: 'success' | 'error') => {
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
-
     if (type === 'success') {
-      // Twee oplopende tonen: 880Hz → 1100Hz
       [880, 1100].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         osc.connect(gain);
@@ -27,7 +25,6 @@ const playSound = (type: 'success' | 'error') => {
         osc.stop(ctx.currentTime + i * 0.16 + 0.14);
       });
     } else {
-      // Één lage buzzer: 220Hz
       const osc = ctx.createOscillator();
       osc.connect(gain);
       osc.type = 'sawtooth';
@@ -37,24 +34,44 @@ const playSound = (type: 'success' | 'error') => {
       osc.stop(ctx.currentTime + 0.3);
     }
   } catch {
-    // AudioContext niet beschikbaar (bijv. server-side render)
+    // AudioContext niet beschikbaar
   }
 };
 
-type ScanState = 'ready' | 'processing' | 'success' | 'error';
+type ScanStatus = 'pending' | 'ok' | 'err';
+
+interface ScanEntry {
+  id: number;
+  status: ScanStatus;
+}
+
+interface QueueItem {
+  id: number;
+  base64: string;
+}
 
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [scanState, setScanState] = useState<ScanState>('ready');
-  const [scanCount, setScanCount] = useState(0);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [showFlash, setShowFlash] = useState(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Per-scan state voor de UI
+  const [scans, setScans] = useState<ScanEntry[]>([]);
+  // Camera geblokkeerd voor ~400ms na elke foto (voorkomt dubbele taps)
+  const [cameraLocked, setCameraLocked] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+
+  // Refs die geen re-render veroorzaken
+  const idCounterRef = useRef(0);
+  const queueRef = useRef<QueueItem[]>([]);
+  const processingRef = useRef(false);
+  // Stabiele ref naar onScanComplete om stale-closure issues te voorkomen
+  const onScanCompleteRef = useRef(onScanComplete);
+  useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
+
+  // Camera setup
   useEffect(() => {
     let stream: MediaStream | null = null;
-
     async function setupCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -65,84 +82,124 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           videoRef.current.play().catch(e => console.error('Video play failed:', e));
         }
       } catch {
-        setScanState('error');
-        setErrorMsg('Kan de camera niet starten. Controleer je rechten.');
+        setCameraError('Kan de camera niet starten. Controleer je rechten.');
+      }
+    }
+    setupCamera();
+    return () => { stream?.getTracks().forEach(t => t.stop()); };
+  }, []);
+
+  /**
+   * Verwerkt de queue één item tegelijk.
+   * onScanComplete wordt nooit parallel aangeroepen —
+   * App.tsx's setPackages is dus altijd safe.
+   */
+  const processQueue = useCallback(async () => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    while (queueRef.current.length > 0) {
+      const item = queueRef.current.shift()!;
+      try {
+        const result = await extractAddressFromImage(item.base64);
+        if (result?.address?.street && result.address.houseNumber) {
+          playSound('success');
+          setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'ok' } : s));
+          onScanCompleteRef.current(result.address);
+        } else {
+          playSound('error');
+          setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
+        }
+      } catch {
+        playSound('error');
+        setScans(prev => prev.map(s => s.id === item.id ? { ...s, status: 'err' } : s));
       }
     }
 
-    setupCamera();
+    processingRef.current = false;
+  }, []); // lege deps: gebruikt alleen refs en stable setState
 
-    return () => {
-      stream?.getTracks().forEach(t => t.stop());
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    };
-  }, []);
-
-  const capture = useCallback(async () => {
-    if (scanState !== 'ready') return;
+  /**
+   * Maakt een foto en zet die in de queue.
+   * Camera is na ~400ms direct weer beschikbaar.
+   */
+  const capture = useCallback(() => {
+    if (cameraLocked || cameraError) return;
     if (!videoRef.current || !canvasRef.current) return;
 
     // Flash-effect
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 100);
 
+    // Camera kort blokkeren (voorkomt dubbele tap, niet de AI-wachttijd)
+    setCameraLocked(true);
+    setTimeout(() => setCameraLocked(false), 400);
+
     // Foto vastleggen
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { setCameraLocked(false); return; }
 
     const scale = Math.min(1, 1280 / video.videoWidth);
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-    // ✅ Meteen terug naar ready — volgende scan kan al beginnen
-    setScanState('ready');
-    setScanCount(prev => prev + 1);
-    setErrorMsg('');
+    // Voeg toe aan state en queue
+    const id = ++idCounterRef.current;
+    setScans(prev => [...prev, { id, status: 'pending' }]);
+    queueRef.current.push({ id, base64 });
+    processQueue();
+  }, [cameraLocked, cameraError, processQueue]);
 
-    // AI-analyse op de achtergrond (niet-blokkerend)
-    try {
-      const result = await extractAddressFromImage(base64);
-      if (result?.address?.street && result.address.houseNumber) {
-        playSound('success');
-        if (typeof onScanComplete === 'function') onScanComplete(result.address);
-      } else {
-        playSound('error');
-      }
-    } catch {
-      playSound('error');
-    }
-  }, [scanState, onScanComplete]);
-
-  const handleCancel = () => {
-    if (typeof onCancel === 'function') onCancel();
-  };
-
-  const isCapturing = scanState === 'processing';
+  // Afgeleide telwaarden
+  const successCount = scans.filter(s => s.status === 'ok').length;
+  const pendingCount = scans.filter(s => s.status === 'pending').length;
+  const totalCount = scans.length;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
+
       {/* Camera feed */}
       <div className="relative flex-1 bg-slate-900 overflow-hidden flex items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover"
-        />
+        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
 
         {/* Flash overlay */}
         {showFlash && <div className="absolute inset-0 bg-white z-50 pointer-events-none" />}
 
-        {/* Succes overlay — groen */}
-        {scanState === 'success' && (
-          <div className="absolute inset-0 bg-emerald-500/20 z-40 pointer-events-none flex items-center justify-center animate-in fade-in duration-200">
-            <div className="bg-emerald-500 text-white rounded-full p-6 shadow-2xl">
-              <Check size={48} strokeWidth={3} />
+        {/* Burst Mode badge */}
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-10">
+          <span className="bg-blue-600/90 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter flex items-center space-x-2 shadow-lg">
+            <Zap size={10} fill="currentColor" />
+            <span>Burst Mode — scan meerdere pakketten achter elkaar</span>
+          </span>
+        </div>
+
+        {/* Scan status dots — bovenaan gecentreerd, onder de badge */}
+        {totalCount > 0 && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 flex flex-wrap gap-1.5 justify-center max-w-[70vw] z-10">
+            {scans.map(s => (
+              <div
+                key={s.id}
+                title={s.status === 'ok' ? 'Herkend' : s.status === 'err' ? 'Mislukt' : 'Bezig...'}
+                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  s.status === 'ok'      ? 'bg-emerald-400 scale-110' :
+                  s.status === 'err'     ? 'bg-red-400' :
+                  /* pending */            'bg-blue-400 animate-pulse'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Succesbadge rechtsboven */}
+        {successCount > 0 && (
+          <div className="absolute top-14 right-5 z-10 animate-in zoom-in duration-300">
+            <div className="bg-emerald-600 text-white w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xl border-4 border-white/20">
+              <span className="text-xl font-black leading-none">{successCount}</span>
+              <span className="text-[8px] font-bold uppercase tracking-tighter">OK</span>
             </div>
           </div>
         )}
@@ -150,70 +207,49 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         {/* Scan frame */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
           <div className={`w-full max-w-md aspect-[4/3] border-2 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)] transition-colors duration-300 ${
-            scanState === 'success' ? 'border-emerald-400' :
-            scanState === 'error'   ? 'border-red-400' :
-            isCapturing             ? 'border-blue-400' :
-                                      'border-white/20'
+            cameraLocked ? 'border-blue-400' : 'border-white/20'
           }`}>
-            <div className={`absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 rounded-tl-xl transition-colors ${scanState === 'success' ? 'border-emerald-400' : 'border-blue-500'}`} />
-            <div className={`absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 rounded-tr-xl transition-colors ${scanState === 'success' ? 'border-emerald-400' : 'border-blue-500'}`} />
-            <div className={`absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 rounded-bl-xl transition-colors ${scanState === 'success' ? 'border-emerald-400' : 'border-blue-500'}`} />
-            <div className={`absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 rounded-br-xl transition-colors ${scanState === 'success' ? 'border-emerald-400' : 'border-blue-500'}`} />
+            {/* Hoekdecoraties */}
+            {(['tl','tr','bl','br'] as const).map(corner => (
+              <div key={corner} className={`absolute w-8 h-8 transition-colors ${
+                corner === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-xl' :
+                corner === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-xl' :
+                corner === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-xl' :
+                                  '-bottom-1 -right-1 border-b-4 border-r-4 rounded-br-xl'
+              } ${cameraLocked ? 'border-blue-400' : 'border-blue-500'}`} />
+            ))}
 
-            {/* Scan-line animatie alleen in ready staat */}
-            {scanState === 'ready' && <div className="scan-line" />}
+            {/* Scan-line animatie alleen wanneer camera vrij is */}
+            {!cameraLocked && <div className="scan-line" />}
 
             <div className="absolute inset-0 flex items-center justify-center">
-              {scanState === 'ready' && (
+              {!cameraLocked && (
                 <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest text-center px-4">
                   Plaats label in dit kader
                 </p>
               )}
-              {isCapturing && (
-                <div className="flex flex-col items-center space-y-2">
-                  <RefreshCw className="animate-spin text-blue-400" size={32} />
-                  <p className="text-blue-300 text-[10px] font-black uppercase tracking-widest">AI analyseert...</p>
-                </div>
-              )}
-              {scanState === 'success' && (
-                <p className="text-emerald-300 text-sm font-black uppercase tracking-widest">Adres herkend!</p>
+              {cameraLocked && (
+                <RefreshCw className="animate-spin text-blue-400" size={32} />
               )}
             </div>
           </div>
         </div>
 
-        {/* Burst mode badge */}
-        <div className="absolute top-5 left-1/2 -translate-x-1/2">
-          <span className="bg-blue-600/90 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter flex items-center space-x-2 shadow-lg">
-            <Zap size={10} fill="currentColor" />
-            <span>Burst Mode — scan meerdere pakketten achter elkaar</span>
-          </span>
-        </div>
-
-        {/* Scan counter */}
-        {scanCount > 0 && (
-          <div className="absolute top-14 right-5 animate-in zoom-in duration-300">
-            <div className="bg-emerald-600 text-white w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xl border-4 border-white/20">
-              <span className="text-xl font-black leading-none">{scanCount}</span>
-              <span className="text-[8px] font-bold uppercase tracking-tighter">Scans</span>
-            </div>
-          </div>
-        )}
-
-        {/* Foutmelding */}
-        {scanState === 'error' && errorMsg && (
+        {/* Camerafout */}
+        {cameraError && (
           <div className="absolute bottom-4 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-30 animate-in slide-in-from-bottom duration-300">
             <AlertCircle size={20} className="shrink-0" />
-            <p className="text-sm font-black">{errorMsg}</p>
+            <p className="text-sm font-black">{cameraError}</p>
           </div>
         )}
       </div>
 
       {/* Controls */}
       <div className="px-8 pt-8 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5">
+
         {/* Annuleer */}
         <button
-          onClick={handleCancel}
+          onClick={onCancel}
           className="w-14 h-14 bg-slate-900 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/5"
         >
           <X size={24} />
@@ -222,42 +258,46 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         {/* Capture knop */}
         <button
           onClick={capture}
-          disabled={isCapturing}
+          disabled={cameraLocked || !!cameraError}
           className="relative group outline-none"
           aria-label="Scan pakket"
         >
           <div className={`absolute inset-[-12px] rounded-full blur-2xl transition-all duration-300 ${
-            scanState === 'success' ? 'bg-emerald-500/40 scale-150' :
-            isCapturing             ? 'bg-blue-600/40' :
-                                      'bg-blue-600/20 group-active:scale-150'
+            cameraLocked ? 'bg-blue-600/40' : 'bg-blue-600/20 group-active:scale-150'
           }`} />
-          <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all relative z-10 border-[10px] border-slate-950 ${
-            scanState === 'success' ? 'bg-emerald-500 text-white' :
-            isCapturing             ? 'bg-slate-300 text-slate-500' :
-                                      'bg-white text-slate-900'
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all relative z-10 border-[10px] border-slate-950 ${
+            cameraLocked ? 'bg-slate-300 text-slate-500' : 'bg-white text-slate-900 active:scale-90'
           }`}>
-            {isCapturing ? <RefreshCw className="animate-spin" size={40} /> :
-             scanState === 'success' ? <Check size={40} strokeWidth={3} /> :
-             <Camera size={40} />}
+            {cameraLocked ? <RefreshCw className="animate-spin" size={40} /> : <Camera size={40} />}
           </div>
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
-            {isCapturing ? 'Verwerken...' : scanState === 'success' ? 'Volgende' : 'Klik om te scannen'}
+            {cameraLocked ? 'Even wachten...' : 'Klik om te scannen'}
           </div>
         </button>
 
-        {/* Klaar knop — groen zodra er ≥1 scan is */}
+        {/* Klaar-knop — actief zodra er ≥1 succesvolle scan is */}
         <button
-          onClick={handleCancel}
-          disabled={scanCount === 0}
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-            scanCount > 0
+          onClick={onCancel}
+          disabled={successCount === 0}
+          className={`relative w-14 h-14 rounded-2xl flex flex-col items-center justify-center transition-all ${
+            successCount > 0
               ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 active:scale-90'
               : 'bg-slate-900 text-slate-700 pointer-events-none'
           }`}
           aria-label="Klaar met scannen"
         >
-          <Check size={28} />
+          <Check size={successCount > 0 ? 20 : 28} />
+          {successCount > 0 && (
+            <span className="text-[9px] font-black leading-none">{successCount}</span>
+          )}
+          {/* Badge: aantal nog in verwerking */}
+          {pendingCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+              {pendingCount}
+            </span>
+          )}
         </button>
+
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
