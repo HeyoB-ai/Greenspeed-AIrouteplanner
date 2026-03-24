@@ -13,6 +13,8 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured on server' }) };
   }
 
+  console.log('[gemini] API key present:', !!GEMINI_API_KEY);
+
   try {
     const body = JSON.parse(event.body || '{}');
 
@@ -20,18 +22,22 @@ export const handler: Handler = async (event) => {
     const { model = 'gemini-2.5-flash', ...requestBody } = body;
     const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
+    console.log('[gemini] Calling Google model:', model);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
 
-    const data = await response.json();
+    console.log('[gemini] Google response status:', response.status);
+    const responseText = await response.text();
+    console.log('[gemini] Google response preview:', responseText.substring(0, 200));
 
     return {
       statusCode: response.status,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: responseText,
     };
   } catch (err) {
     console.error('[gemini] Function error:', err);
