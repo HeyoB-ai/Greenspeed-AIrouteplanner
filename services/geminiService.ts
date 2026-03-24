@@ -1,120 +1,116 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { Address } from "../types";
 
+const MODEL = 'gemini-2.5-flash';
+
 /**
- * Veilige helper om omgevingsvariabelen op te halen.
- * Voorkomt 'undefined' crashes in verschillende JS runtimes.
+ * Stuurt een verzoek naar de Netlify proxy-functie die de Gemini API aanroept.
+ * De API key blijft op de server — nooit zichtbaar in de browser.
  */
-const getEnvVar = (key: string): string | undefined => {
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      return (import.meta as any).env[key];
-    }
-  } catch (e) {}
-  
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env[key];
-    }
-  } catch (e) {}
+async function callGemini(requestBody: object): Promise<string | null> {
+  const response = await fetch('/.netlify/functions/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: MODEL, ...requestBody }),
+  });
 
-  return undefined;
-};
-
-// Gebruik een variabele om de client op te slaan na initialisatie
-let genAI: GoogleGenAI | null = null;
-
-function getGenAI() {
-  if (!genAI) {
-    // Probeer verschillende mogelijke namen voor de API key
-    const apiKey = getEnvVar('VITE_GEMINI_API_KEY') || 
-                   getEnvVar('GEMINI_API_KEY') || 
-                   getEnvVar('API_KEY');
-    
-    if (!apiKey) {
-      throw new Error("Gemini API Key is niet geconfigureerd. Voeg VITE_GEMINI_API_KEY toe aan je omgevingsvariabelen.");
-    }
-    genAI = new GoogleGenAI({ apiKey });
+  if (!response.ok) {
+    let errMsg = `Gemini proxy error ${response.status}`;
+    try {
+      const errData = await response.json();
+      errMsg = errData?.error?.message || errData?.error || errMsg;
+    } catch {}
+    throw new Error(errMsg);
   }
-  return genAI;
+
+  const data = await response.json();
+  // Gemini REST-response: candidates[0].content.parts[0].text
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
 }
 
-export async function extractAddressFromImage(base64Image: string): Promise<{ address: Address; pharmacyName: string } | null> {
+export async function extractAddressFromImage(
+  base64Image: string
+): Promise<{ address: Address; pharmacyName: string } | null> {
   try {
-    const ai = getGenAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
+    const text = await callGemini({
+      contents: [
+        {
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: base64Image,
+              },
             },
-          },
-          {
-            text: "Analyseer dit Nederlandse apotheek-etiket. TAAK 1: Zoek het afleveradres van de patiënt (street, houseNumber, postalCode, city). TAAK 2: Zoek de NAAM van de apotheek die dit label heeft uitgegeven (vaak bovenaan of onderaan met 'Apotheek' in de naam). Geef GEEN patiëntnamen of medicatie. Antwoord in JSON.",
-          },
-        ],
-      },
-      config: {
-        responseMimeType: "application/json",
+            {
+              text: 'Analyseer dit Nederlandse apotheek-etiket. TAAK 1: Zoek het afleveradres van de patiënt (street, houseNumber, postalCode, city). TAAK 2: Zoek de NAAM van de apotheek die dit label heeft uitgegeven (vaak bovenaan of onderaan met "Apotheek" in de naam). Geef GEEN patiëntnamen of medicatie. Antwoord in JSON.',
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
         responseSchema: {
-          type: Type.OBJECT,
+          type: 'OBJECT',
           properties: {
             address: {
-              type: Type.OBJECT,
+              type: 'OBJECT',
               properties: {
-                street: { type: Type.STRING },
-                houseNumber: { type: Type.STRING },
-                postalCode: { type: Type.STRING },
-                city: { type: Type.STRING },
+                street: { type: 'STRING' },
+                houseNumber: { type: 'STRING' },
+                postalCode: { type: 'STRING' },
+                city: { type: 'STRING' },
               },
-              required: ["street", "houseNumber", "postalCode", "city"],
+              required: ['street', 'houseNumber', 'postalCode', 'city'],
             },
-            pharmacyName: { 
-              type: Type.STRING,
-              description: "De volledige naam van de apotheek gevonden op het label."
+            pharmacyName: {
+              type: 'STRING',
+              description: 'De volledige naam van de apotheek gevonden op het label.',
             },
           },
-          required: ["address", "pharmacyName"],
+          required: ['address', 'pharmacyName'],
         },
       },
     });
 
-    const text = response.text;
     console.log('Gemini raw response (OCR):', text);
     if (!text) return null;
     return JSON.parse(text);
   } catch (error: any) {
-    console.error("AI OCR Error:", error);
-    if (error.message?.includes("API Key") || error.message?.includes("geconfigureerd")) {
-      alert("Configuratie fout: De Gemini API Key ontbreekt. Zorg dat VITE_GEMINI_API_KEY is ingesteld in Netlify.");
+    console.error('AI OCR Error:', error);
+    if (error.message?.includes('API key not configured')) {
+      alert('Configuratie fout: GEMINI_API_KEY ontbreekt op de server. Voeg hem toe via Netlify → Site settings → Environment variables.');
     }
     return null;
   }
 }
 
-export async function optimizeRoute(addresses: (Address & { id: string })[]): Promise<string[]> {
+export async function optimizeRoute(
+  addresses: (Address & { id: string })[]
+): Promise<string[]> {
   try {
-    const ai = getGenAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Optimaliseer de meest logische fietsroute langs deze adressen, beginnend in het centrum van de stad. Geef ALLE IDs terug in de nieuwe volgorde. INPUT: ${JSON.stringify(addresses)}`,
-      config: {
-        responseMimeType: "application/json",
+    const text = await callGemini({
+      contents: [
+        {
+          parts: [
+            {
+              text: `Optimaliseer de meest logische fietsroute langs deze adressen, beginnend in het centrum van de stad. Geef ALLE IDs terug in de nieuwe volgorde. INPUT: ${JSON.stringify(addresses)}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
         responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+        },
+      },
     });
 
-    const text = response.text;
     if (!text) return addresses.map(a => a.id);
     return JSON.parse(text);
   } catch (error: any) {
-    console.error("AI Route Error:", error);
+    console.error('AI Route Error:', error);
     return addresses.map(a => a.id);
   }
 }
