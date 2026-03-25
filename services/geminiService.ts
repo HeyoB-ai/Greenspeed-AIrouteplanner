@@ -7,24 +7,32 @@ const MODEL = 'gemini-2.5-flash';
  * De API key blijft op de server — nooit zichtbaar in de browser.
  */
 async function callGemini(requestBody: object): Promise<string | null> {
-  const response = await fetch('/.netlify/functions/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, ...requestBody }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-  if (!response.ok) {
-    let errMsg = `Gemini proxy error ${response.status}`;
-    try {
-      const errData = await response.json();
-      errMsg = errData?.error?.message || errData?.error || errMsg;
-    } catch {}
-    throw new Error(errMsg);
+  try {
+    const response = await fetch('/.netlify/functions/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, ...requestBody }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errMsg = `Gemini proxy error ${response.status}`;
+      try {
+        const errData = await response.json();
+        errMsg = errData?.error?.message || errData?.error || errMsg;
+      } catch {}
+      throw new Error(errMsg);
+    }
+
+    const data = await response.json();
+    // Gemini REST-response: candidates[0].content.parts[0].text
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await response.json();
-  // Gemini REST-response: candidates[0].content.parts[0].text
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
 }
 
 export async function extractAddressFromImage(

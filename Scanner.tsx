@@ -70,6 +70,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const [scans, setScans] = useState<ScanEntry[]>([]);
   // Camera geblokkeerd voor ~400ms na elke foto (voorkomt dubbele taps)
   const [cameraLocked, setCameraLocked] = useState(false);
+  // iOS Safari heeft ~300ms nodig na getUserMedia voor de camera warm is
+  const [cameraReady, setCameraReady] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [cameraError, setCameraError] = useState('');
 
@@ -92,6 +94,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(e => console.error('Video play failed:', e));
+          // iOS Safari: geef camera 300ms om te initialiseren voor eerste capture
+          setTimeout(() => setCameraReady(true), 300);
         }
       } catch {
         setCameraError('Kan de camera niet starten. Controleer je rechten.');
@@ -140,7 +144,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
    * Camera is na ~400ms direct weer beschikbaar.
    */
   const capture = useCallback(() => {
-    if (cameraLocked || cameraError) return;
+    if (!cameraReady || cameraLocked || cameraError) return;
     if (!videoRef.current || !canvasRef.current) return;
 
     // Flash-effect
@@ -174,7 +178,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     setScans(prev => [...prev, { id, status: 'pending' }]);
     queueRef.current.push({ id, base64 });
     processQueue();
-  }, [cameraLocked, cameraError, processQueue]);
+  }, [cameraReady, cameraLocked, cameraError, processQueue]);
 
   // Afgeleide telwaarden
   const successCount = scans.filter(s => s.status === 'ok').length;
@@ -280,7 +284,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         {/* Capture knop */}
         <button
           onClick={capture}
-          disabled={cameraLocked || !!cameraError}
+          disabled={!cameraReady || cameraLocked || !!cameraError}
           className="relative group outline-none"
           aria-label="Scan pakket"
         >
@@ -293,7 +297,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
             {cameraLocked ? <RefreshCw className="animate-spin" size={40} /> : <Camera size={40} />}
           </div>
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
-            {cameraLocked ? 'Even wachten...' : 'Klik om te scannen'}
+            {!cameraReady ? 'Camera starten...' : cameraLocked ? 'Even wachten...' : 'Klik om te scannen'}
           </div>
         </button>
 
