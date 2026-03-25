@@ -73,12 +73,11 @@ export async function extractAddressFromImage(
     console.log('Gemini raw response (OCR):', text);
     if (!text) return null;
     return JSON.parse(text);
-  } catch (error: any) {
-    console.error('AI OCR Error:', error);
-    if (error.message?.includes('API key not configured')) {
+  } catch (err: any) {
+    if (err?.message?.includes('API key not configured')) {
       alert('Configuratie fout: GEMINI_API_KEY ontbreekt op de server. Voeg hem toe via Netlify → Site settings → Environment variables.');
     }
-    return null;
+    throw err; // let processQueue handle and display it
   }
 }
 

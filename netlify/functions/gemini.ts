@@ -34,8 +34,12 @@ export const handler: Handler = async (event) => {
     const responseText = await response.text();
     console.log('[gemini] Google response preview:', responseText.substring(0, 200));
 
+    if (!response.ok) {
+      throw new Error(`Google API error ${response.status}: ${responseText.substring(0, 500)}`);
+    }
+
     return {
-      statusCode: response.status,
+      statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: responseText,
     };
@@ -43,7 +47,7 @@ export const handler: Handler = async (event) => {
     console.error('[gemini] Function error:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Function error', detail: String(err) }),
+      body: JSON.stringify({ error: { message: String(err) } }),
     };
   }
 };
