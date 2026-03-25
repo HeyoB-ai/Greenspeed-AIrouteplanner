@@ -29,7 +29,7 @@ async function callGemini(requestBody: object): Promise<string | null> {
 
 export async function extractAddressFromImage(
   base64Image: string
-): Promise<{ address: Address; pharmacyName: string } | null> {
+): Promise<Address | null> {
   try {
     const text = await callGemini({
       contents: [
@@ -42,7 +42,7 @@ export async function extractAddressFromImage(
               },
             },
             {
-              text: 'Analyseer dit Nederlandse apotheek-etiket. TAAK 1: Zoek het afleveradres van de patiënt (street, houseNumber, postalCode, city). TAAK 2: Zoek de NAAM van de apotheek die dit label heeft uitgegeven (vaak bovenaan of onderaan met "Apotheek" in de naam). Geef GEEN patiëntnamen of medicatie. Antwoord in JSON.',
+              text: 'Zoek het afleveradres van de patiënt op dit Nederlandse apotheek-etiket. Geef ALLEEN: straatnaam (street), huisnummer (houseNumber), postcode (postalCode), stad (city). Geen namen, geen medicatie, geen apotheeknaam. Antwoord in JSON.',
             },
           ],
         },
@@ -52,22 +52,12 @@ export async function extractAddressFromImage(
         responseSchema: {
           type: 'OBJECT',
           properties: {
-            address: {
-              type: 'OBJECT',
-              properties: {
-                street: { type: 'STRING' },
-                houseNumber: { type: 'STRING' },
-                postalCode: { type: 'STRING' },
-                city: { type: 'STRING' },
-              },
-              required: ['street', 'houseNumber', 'postalCode', 'city'],
-            },
-            pharmacyName: {
-              type: 'STRING',
-              description: 'De volledige naam van de apotheek gevonden op het label.',
-            },
+            street: { type: 'STRING' },
+            houseNumber: { type: 'STRING' },
+            postalCode: { type: 'STRING' },
+            city: { type: 'STRING' },
           },
-          required: ['address', 'pharmacyName'],
+          required: ['street', 'houseNumber', 'postalCode', 'city'],
         },
       },
     });
