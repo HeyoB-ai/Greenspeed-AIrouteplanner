@@ -173,6 +173,15 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
+    // iOS debug — zichtbaar in Safari console via Develop menu
+    console.log('iOS debug:', video.videoWidth, video.videoHeight, base64?.length);
+
+    if (!base64 || base64.length < 1000) {
+      setCameraError('Camera niet gereed, probeer opnieuw');
+      setCameraLocked(false);
+      return;
+    }
+
     // Voeg toe aan state en queue
     const id = ++idCounterRef.current;
     setScans(prev => [...prev, { id, status: 'pending' }]);
@@ -217,6 +226,16 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
                 }`}
               />
             ))}
+          </div>
+        )}
+
+        {/* Foutmelding — zichtbaar op iPhone zonder Mac/console */}
+        {scans.some(s => s.status === 'err') && (
+          <div className="absolute top-28 left-4 right-4 z-20 bg-black/80 rounded-2xl px-4 py-3">
+            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Scanfout</p>
+            <p className="text-[11px] font-mono text-white/90 break-all leading-snug">
+              {scans.filter(s => s.status === 'err').slice(-1)[0]?.errorMsg || 'Mislukt'}
+            </p>
           </div>
         )}
 
