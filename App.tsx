@@ -377,6 +377,8 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             packages={visiblePackages}
             onUpdate={() => {}}
             onUpdateMany={updateMultipleStatus}
+            pharmacyName={currentPharmacy.name}
+            pharmacyAddress={currentPharmacy.address}
           />
         )}
 
