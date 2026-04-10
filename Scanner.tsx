@@ -241,8 +241,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           <div className="absolute bottom-0 left-0 right-0 z-20 pb-3 px-3 bg-gradient-to-t from-black/60 to-transparent pt-6">
             <div
               ref={trayRef}
-              className="flex gap-2 overflow-x-auto"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              className="flex gap-2 overflow-x-auto scrollbar-none touch-pan-x"
             >
               {queue.map((item, index) => (
                 <button
@@ -281,8 +280,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         )}
       </div>
 
-      {/* Controls */}
-      <div className="px-8 pt-6 pb-10 bg-slate-950 flex justify-between items-center border-t border-white/5">
+      {/* Controls — pb-safe voor iOS home-indicator */}
+      <div className="px-8 pt-6 pb-safe bg-slate-950 flex justify-between items-center border-t border-white/5" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}>
 
         {/* Annuleer */}
         <button

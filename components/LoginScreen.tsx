@@ -9,29 +9,29 @@ interface Props {
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.SUPERUSER]: 'Superuser',
-  [UserRole.ADMIN]: 'Admin',
-  [UserRole.PHARMACY]: 'Apotheek',
-  [UserRole.COURIER]: 'Koerier',
+  [UserRole.SUPERUSER]:  'Superuser',
+  [UserRole.ADMIN]:      'Admin',
+  [UserRole.PHARMACY]:   'Apotheek',
+  [UserRole.COURIER]:    'Koerier',
   [UserRole.SUPERVISOR]: 'Supervisor',
-  [UserRole.PATIENT]: 'Patiënt',
+  [UserRole.PATIENT]:    'Patiënt',
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  [UserRole.SUPERUSER]: 'bg-purple-100 text-purple-700',
-  [UserRole.ADMIN]: 'bg-indigo-100 text-indigo-700',
-  [UserRole.PHARMACY]: 'bg-blue-100 text-blue-700',
-  [UserRole.COURIER]: 'bg-emerald-100 text-emerald-700',
+  [UserRole.SUPERUSER]:  'bg-purple-100 text-purple-700',
+  [UserRole.ADMIN]:      'bg-indigo-100 text-indigo-700',
+  [UserRole.PHARMACY]:   'bg-blue-100 text-blue-700',
+  [UserRole.COURIER]:    'bg-emerald-100 text-emerald-700',
   [UserRole.SUPERVISOR]: 'bg-amber-100 text-amber-700',
-  [UserRole.PATIENT]: 'bg-slate-100 text-slate-500',
+  [UserRole.PATIENT]:    'bg-slate-100 text-slate-500',
 };
 
 const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername]       = useState('');
+  const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [showDemo, setShowDemo] = useState(false);
+  const [error, setError]             = useState('');
+  const [showDemo, setShowDemo]       = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,11 +51,11 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center p-5 lg:p-8">
       <div className="w-full max-w-md space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-2xl shadow-blue-500/30 mb-4">
             <ShieldCheck className="text-white w-9 h-9" />
           </div>
@@ -64,8 +64,8 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
         </div>
 
         {/* Login form */}
-        <div className="bg-white rounded-4xl p-8 shadow-2xl shadow-black/30">
-          <h2 className="text-xl font-black text-slate-900 mb-6">Inloggen</h2>
+        <div className="bg-white rounded-4xl p-7 shadow-2xl shadow-black/30">
+          <h2 className="text-xl font-black text-slate-900 mb-5">Inloggen</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
@@ -79,7 +79,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
                 placeholder="Volledige naam"
                 required
                 autoComplete="username"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
 
@@ -95,7 +95,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 pr-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 pr-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
                 <button
                   type="button"
@@ -115,7 +115,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center space-x-2 mt-2"
+              className="w-full bg-blue-600 text-white h-12 rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center space-x-2"
             >
               <LogIn size={18} />
               <span>Inloggen</span>
@@ -127,10 +127,12 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
         <div className="bg-white/10 backdrop-blur-sm rounded-3xl overflow-hidden border border-white/10">
           <button
             onClick={() => setShowDemo(p => !p)}
-            className="w-full flex items-center justify-between px-6 py-4 text-white"
+            className="w-full flex items-center justify-between px-6 py-4 text-white h-14"
           >
             <span className="text-sm font-black uppercase tracking-widest text-blue-200">Demo accounts</span>
-            {showDemo ? <ChevronUp size={18} className="text-blue-300" /> : <ChevronDown size={18} className="text-blue-300" />}
+            {showDemo
+              ? <ChevronUp size={18} className="text-blue-300" />
+              : <ChevronDown size={18} className="text-blue-300" />}
           </button>
 
           {showDemo && (
@@ -139,7 +141,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
                 <button
                   key={u.id}
                   onClick={() => quickLogin(u)}
-                  className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 py-3 transition-all group"
+                  className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 h-14 transition-all"
                 >
                   <div className="text-left">
                     <p className="text-white font-black text-sm leading-none">{u.name}</p>
@@ -154,7 +156,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
           )}
         </div>
 
-        {/* Guest / Patient */}
+        {/* Gast / Patiënt */}
         <button
           onClick={onGuestAccess}
           className="w-full flex items-center justify-center space-x-2 text-blue-300 hover:text-white py-4 text-sm font-bold transition-colors"

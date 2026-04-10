@@ -6,7 +6,6 @@
   body {
     @apply font-sans bg-slate-50 m-0;
     font-family: 'Plus Jakarta Sans', sans-serif;
-    /* Voorkom 'bounce' scroll op mobiel */
     overscroll-behavior: none;
   }
 }
@@ -25,14 +24,34 @@
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
   }
 
-  /* Safe area utilities */
+  /* iOS safe-area onderaan (notch / home-indicator) */
   .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  /* Scrollbar volledig verbergen (scan tray, horizontale lijsten) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  /* Touch-vriendelijke min-hoogte op mobiel voor alle klikbare elementen */
+  @media (max-width: 640px) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 44px;
+    }
   }
 }
 
 @keyframes scan_line_anim {
-  0% { top: 0; }
+  0%   { top: 0; }
   100% { top: 100%; }
 }
 

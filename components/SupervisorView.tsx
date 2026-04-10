@@ -69,10 +69,10 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-1000 pb-20">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-1000 pb-24 lg:pb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
         {stats.map(s => (
-          <div key={s.label} className="bg-white p-8 rounded-4xl border border-slate-200 shadow-sm transition-transform hover:-translate-y-1">
+          <div key={s.label} className="bg-white p-5 lg:p-8 rounded-4xl border border-slate-200 shadow-sm transition-transform hover:-translate-y-1">
             <div className={`w-14 h-14 ${s.bg} ${s.color} rounded-2xl flex items-center justify-center mb-6`}>
               <s.icon size={28} />
             </div>
@@ -82,7 +82,7 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-4xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-2 flex border-b border-slate-100 bg-slate-50/50">
