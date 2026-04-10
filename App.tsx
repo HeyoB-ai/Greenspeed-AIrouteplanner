@@ -8,6 +8,7 @@ import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import PatientView from './components/PatientView';
 import Scanner from './Scanner';
+import ChatBot from './components/ChatBot';
 import { optimizeRoute } from './services/geminiService';
 import { getSession, logout } from './services/authService';
 import { db, supabase } from './services/supabaseService';
@@ -340,11 +341,14 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
 
         {/* SUPERUSER — systeem-breed overzicht */}
         {role === UserRole.SUPERUSER && (
-          <SupervisorView
-            packages={packages}
-            couriers={couriers}
-            onUpdateStatus={updateMultipleStatus}
-          />
+          <>
+            <SupervisorView
+              packages={packages}
+              couriers={couriers}
+              onUpdateStatus={updateMultipleStatus}
+            />
+            <ChatBot packages={packages} pharmacyName="Greenspeed HQ" />
+          </>
         )}
 
         {/* ADMIN — één apotheek beheren */}
@@ -378,11 +382,14 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
 
         {/* SUPERVISOR — legacy rol */}
         {role === UserRole.SUPERVISOR && (
-          <SupervisorView
-            packages={packages}
-            couriers={couriers}
-            onUpdateStatus={updateMultipleStatus}
-          />
+          <>
+            <SupervisorView
+              packages={packages}
+              couriers={couriers}
+              onUpdateStatus={updateMultipleStatus}
+            />
+            <ChatBot packages={packages} pharmacyName={currentPharmacy.name} />
+          </>
         )}
 
         {/* PATIENT — zou normaal niet hier komen (gaat via guest) */}

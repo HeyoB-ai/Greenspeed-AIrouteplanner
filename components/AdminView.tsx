@@ -5,6 +5,7 @@ import {
   ArrowRight, Map, Loader2, ListChecks, MousePointerClick, UserPlus,
   MapPin, Building2, RefreshCw
 } from 'lucide-react';
+import ChatBot from './ChatBot';
 
 interface Props {
   packages: PackageType[];
@@ -83,6 +84,7 @@ const AdminView: React.FC<Props> = ({ packages, pharmacyName, onScanStart, onOpt
   );
 
   return (
+    <>
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
 
       {/* Stats */}
@@ -249,6 +251,9 @@ const AdminView: React.FC<Props> = ({ packages, pharmacyName, onScanStart, onOpt
         </div>
       </div>
     </div>
+
+    <ChatBot packages={packages} pharmacyName={pharmacyName} />
+    </>
   );
 };
 
