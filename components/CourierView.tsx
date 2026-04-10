@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
 import {
   Navigation, CheckCircle, Map as MapIcon, X, Clock, Building2,
-  RotateCcw, Pencil, Truck
+  RotateCcw, Pencil, Truck, Scan, ArrowRight, Loader2,
+  MousePointerClick, CheckCircle2, MapPin
 } from 'lucide-react';
 
 interface Props {
@@ -11,6 +12,9 @@ interface Props {
   onUpdateMany: (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => void;
   pharmacyName?: string;
   pharmacyAddress?: string;
+  onScanStart?: () => void;
+  onOptimize?: (selectedIds: string[]) => void;
+  isOptimizing?: boolean;
 }
 
 interface Stop {
@@ -26,12 +30,16 @@ const CourierView: React.FC<Props> = ({
   onUpdateMany,
   pharmacyName = 'Apotheek',
   pharmacyAddress,
+  onScanStart,
+  onOptimize,
+  isOptimizing = false,
 }) => {
-  const [showMapModal, setShowMapModal]     = useState(false);
-  const [isCapturingGPS, setIsCapturingGPS] = useState<string | null>(null);
+  const [showMapModal, setShowMapModal]         = useState(false);
+  const [isCapturingGPS, setIsCapturingGPS]     = useState<string | null>(null);
   const [returnToPharmacy, setReturnToPharmacy] = useState(false);
-  const [editingReturn, setEditingReturn]   = useState(false);
-  const [returnAddr, setReturnAddr]         = useState(pharmacyAddress || pharmacyName);
+  const [editingReturn, setEditingReturn]       = useState(false);
+  const [returnAddr, setReturnAddr]             = useState(pharmacyAddress || pharmacyName);
+  const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
 
   const totalAssigned = packages.filter(
     p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP
@@ -99,6 +107,23 @@ const CourierView: React.FC<Props> = ({
     return `https://www.google.com/maps/dir/?api=1&destination=${dest}&waypoints=${waypoints}&travelmode=bicycling`;
   };
 
+  const pendingPackages = useMemo(
+    () => packages.filter(p => p.status === PackageStatus.PENDING),
+    [packages]
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelectedPendingIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedPendingIds(prev =>
+      prev.length === pendingPackages.length ? [] : pendingPackages.map(p => p.id)
+    );
+  };
+
   const totalStops = stops.length + delivered;
   const progressPct = totalStops > 0 ? Math.round((delivered / totalStops) * 100) : 0;
 
@@ -131,7 +156,7 @@ const CourierView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* ── Header: titel + route-knop ── */}
+      {/* ── Header: titel + actieknoppen ── */}
       <div className="flex items-center justify-between mb-5 gap-3">
         <div>
           <h2 className="text-xl font-black text-slate-900 lg:text-3xl tracking-tight">Jouw Rit</h2>
@@ -139,16 +164,97 @@ const CourierView: React.FC<Props> = ({
             {stops.length} STOPS OVER &bull; {packages.filter(p => p.status === PackageStatus.ASSIGNED).length} PAKKETTEN
           </p>
         </div>
-        {stops.length > 0 && (
-          <button
-            onClick={() => setShowMapModal(true)}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-5 h-12 rounded-2xl font-bold shadow-lg shrink-0"
-          >
-            <MapIcon size={18} />
-            <span className="text-sm">Hele Route</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {onScanStart && (
+            <button
+              onClick={onScanStart}
+              className="flex items-center space-x-2 bg-slate-900 text-white px-4 h-12 rounded-2xl font-bold shadow-lg"
+            >
+              <Scan size={18} />
+              <span className="text-sm">Scan</span>
+            </button>
+          )}
+          {stops.length > 0 && (
+            <button
+              onClick={() => setShowMapModal(true)}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-5 h-12 rounded-2xl font-bold shadow-lg"
+            >
+              <MapIcon size={18} />
+              <span className="text-sm">Route</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ── Wachtende pakketten: scannen + route plannen ── */}
+      {pendingPackages.length > 0 && (
+        <div className="mb-6 bg-white border-2 border-amber-200 rounded-3xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <MapPin size={18} className="text-amber-500" />
+              <span className="text-sm font-black text-slate-900">
+                {pendingPackages.length} pakket{pendingPackages.length !== 1 ? 'ten' : ''} wachten op route
+              </span>
+            </div>
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs font-black text-blue-600 active:opacity-70"
+            >
+              {selectedPendingIds.length === pendingPackages.length ? 'Deselecteer alle' : 'Selecteer alle'}
+            </button>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {pendingPackages.map(p => (
+              <button
+                key={p.id}
+                onClick={() => toggleSelect(p.id)}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-[0.98] ${
+                  selectedPendingIds.includes(p.id)
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-100 bg-slate-50'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  selectedPendingIds.includes(p.id)
+                    ? 'border-blue-600 bg-blue-600'
+                    : 'border-slate-300 bg-white'
+                }`}>
+                  {selectedPendingIds.includes(p.id) && <CheckCircle2 size={11} className="text-white" />}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-black text-slate-900 truncate">
+                    {p.address.street} {p.address.houseNumber}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {p.address.postalCode} {p.address.city}
+                  </p>
+                </div>
+                <ArrowRight size={14} className="text-slate-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+
+          {onOptimize && (
+            <button
+              onClick={() => selectedPendingIds.length > 0 && onOptimize(selectedPendingIds)}
+              disabled={isOptimizing || selectedPendingIds.length === 0}
+              className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white h-14 rounded-2xl font-black text-sm shadow-lg active:scale-95 disabled:opacity-40 transition-all"
+            >
+              {isOptimizing
+                ? <Loader2 size={18} className="animate-spin" />
+                : <MousePointerClick size={18} />}
+              <span>
+                {isOptimizing
+                  ? 'Optimaliseren…'
+                  : selectedPendingIds.length === 0
+                    ? 'Selecteer pakketten'
+                    : `Optimaliseer ${selectedPendingIds.length} stop${selectedPendingIds.length !== 1 ? 's' : ''}`}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Stop-kaartjes ── */}
       {stops.length === 0 ? (
