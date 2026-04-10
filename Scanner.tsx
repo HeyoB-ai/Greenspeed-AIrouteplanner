@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, X, Check, AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
 import { extractAddressFromImage } from './services/geminiService';
 import { Address } from './types';
 
@@ -7,6 +7,13 @@ interface ScannerProps {
   onScanComplete: (address: Address) => void;
   onCancel: () => void;
 }
+
+type QueueItem = {
+  id: string;
+  base64: string;
+  status: 'pending' | 'success' | 'error';
+  address?: Address;
+};
 
 // Één gedeelde AudioContext — iOS Safari crasht bij meerdere instanties
 const audioCtx = (() => {
@@ -17,15 +24,25 @@ const audioCtx = (() => {
   }
 })();
 
-const playSound = (type: 'success' | 'error') => {
+const playSound = (type: 'click' | 'success' | 'error') => {
   try {
     if (!audioCtx) return;
-    // iOS Safari: AudioContext start altijd 'suspended' — resume() eerst
     audioCtx.resume().then(() => {
       const gain = audioCtx.createGain();
       gain.connect(audioCtx.destination);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      if (type === 'success') {
+
+      if (type === 'click') {
+        // Instant piepje bij shutter — NIET wachten op Gemini
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        const osc = audioCtx.createOscillator();
+        osc.connect(gain);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.08);
+      } else if (type === 'success') {
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         [880, 1100].forEach((freq, i) => {
           const osc = audioCtx.createOscillator();
           osc.connect(gain);
@@ -35,31 +52,32 @@ const playSound = (type: 'success' | 'error') => {
           osc.stop(audioCtx.currentTime + i * 0.16 + 0.14);
         });
       } else {
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
         const osc = audioCtx.createOscillator();
         osc.connect(gain);
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
         osc.start(audioCtx.currentTime);
         osc.stop(audioCtx.currentTime + 0.3);
       }
     });
   } catch {
-    // AudioContext niet beschikbaar — scan gaat gewoon door
+    // AudioContext niet beschikbaar — scan gaat door
   }
 };
 
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  // iOS Safari heeft ~300ms nodig na getUserMedia voor de camera warm is
   const [cameraReady, setCameraReady] = useState(false);
-  const [showFlash, setShowFlash] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
   const [cameraError, setCameraError] = useState('');
+  const [showFlash, setShowFlash] = useState(false);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [scanCount, setScanCount] = useState(0);
+  const [showCloseModal, setShowCloseModal] = useState(false);
 
   // Stabiele ref naar onScanComplete om stale-closure issues te voorkomen
   const onScanCompleteRef = useRef(onScanComplete);
@@ -76,7 +94,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(e => console.error('Video play failed:', e));
-          // iOS Safari: geef camera 300ms om te initialiseren voor eerste capture
+          // iOS Safari: geef camera 300ms om te initialiseren
           setTimeout(() => setCameraReady(true), 300);
         }
       } catch {
@@ -87,26 +105,56 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  // Eenvoudige flow: foto → Gemini → feedback → klaar voor volgende scan
-  const capture = useCallback(async () => {
-    if (!cameraReady || isProcessing || cameraError) return;
+  // Scroll tray naar rechts zodra nieuwe items binnenkomen
+  useEffect(() => {
+    if (trayRef.current) {
+      trayRef.current.scrollLeft = trayRef.current.scrollWidth;
+    }
+  }, [queue.length]);
+
+  const updateQueueItem = useCallback((id: string, status: QueueItem['status'], address?: Address) => {
+    setQueue(prev => prev.map(item =>
+      item.id === id ? { ...item, status, address } : item
+    ));
+  }, []);
+
+  const processItem = useCallback(async (item: QueueItem) => {
+    try {
+      const result = await extractAddressFromImage(item.base64);
+      if (result?.street && result.houseNumber) {
+        updateQueueItem(item.id, 'success', result);
+        playSound('success');
+        onScanCompleteRef.current(result);
+      } else {
+        updateQueueItem(item.id, 'error');
+        playSound('error');
+      }
+    } catch {
+      updateQueueItem(item.id, 'error');
+      playSound('error');
+    }
+  }, [updateQueueItem]);
+
+  const retryItem = useCallback((item: QueueItem) => {
+    updateQueueItem(item.id, 'pending');
+    processItem(item);
+  }, [updateQueueItem, processItem]);
+
+  // Capture: foto direct in queue, camera meteen weer vrij
+  const capture = useCallback(() => {
+    if (!cameraReady || cameraError) return;
     if (!videoRef.current || !canvasRef.current) return;
     if (!videoRef.current.videoWidth || videoRef.current.videoWidth === 0) return;
 
-    // Witte sluiter-flash
+    // Witte sluiter-flash + direct geluid
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 100);
-
-    setIsProcessing(true);
-    setErrorMsg('');
+    playSound('click');
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    if (!ctx) { setIsProcessing(false); return; }
-
-    // iOS debug — zichtbaar in Safari console via Develop menu
-    console.log('iOS debug:', video.videoWidth, video.videoHeight);
+    if (!ctx) return;
 
     const scale = Math.min(1, 1280 / video.videoWidth);
     canvas.width = video.videoWidth * scale;
@@ -116,29 +164,32 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
     if (!base64 || base64.length < 1000) {
       setCameraError('Camera niet gereed, probeer opnieuw');
-      setIsProcessing(false);
       return;
     }
 
-    try {
-      const result = await extractAddressFromImage(base64);
-      if (result?.street && result.houseNumber) {
-        playSound('success');
-        // Groene flash (500ms) als visuele bevestiging
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 500);
-        onScanCompleteRef.current(result);
-      } else {
-        playSound('error');
-        setErrorMsg('Adres niet herkend — probeer opnieuw');
-      }
-    } catch (err: any) {
-      playSound('error');
-      setErrorMsg(err?.message || String(err));
-    } finally {
-      setIsProcessing(false);
+    const newItem: QueueItem = {
+      id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      base64,
+      status: 'pending',
+    };
+
+    // Teller direct omhoog + item in tray
+    setScanCount(prev => prev + 1);
+    setQueue(prev => [...prev, newItem]);
+
+    // Gemini verwerkt op de achtergrond — camera is nu al vrij
+    processItem(newItem);
+  }, [cameraReady, cameraError, processItem]);
+
+  const pendingCount = queue.filter(i => i.status === 'pending').length;
+
+  const handleKlaar = () => {
+    if (pendingCount > 0) {
+      setShowCloseModal(true);
+    } else {
+      onCancel();
     }
-  }, [cameraReady, isProcessing, cameraError]);
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
@@ -150,45 +201,76 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         {/* Witte sluiter-flash */}
         {showFlash && <div className="absolute inset-0 bg-white z-50 pointer-events-none" />}
 
-        {/* Groene success-flash */}
-        {showSuccess && <div className="absolute inset-0 bg-emerald-400/50 z-50 pointer-events-none" />}
+        {/* Burst Mode badge */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+            ⚡ Burst Mode
+          </div>
+        </div>
 
-        {/* Foutmelding — zichtbaar op iPhone zonder Mac/console */}
-        {errorMsg && (
-          <div className="absolute top-8 left-4 right-4 z-20 bg-black/80 rounded-2xl px-4 py-3">
-            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Scanfout</p>
-            <p className="text-[11px] font-mono text-white/90 break-all leading-snug">{errorMsg}</p>
+        {/* Scan-teller rechts bovenaan */}
+        {scanCount > 0 && (
+          <div className="absolute top-3 right-4 z-20 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-1.5 text-center pointer-events-none">
+            <p className="text-white font-black text-xl leading-none">{scanCount}</p>
+            <p className="text-white/50 text-[8px] font-bold uppercase tracking-widest">gescand</p>
           </div>
         )}
 
-        {/* Scan frame */}
+        {/* Scan frame met hoekmarkeringen */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
-          <div className={`w-full max-w-md aspect-[4/3] border-2 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)] transition-colors duration-300 ${
-            isProcessing ? 'border-blue-400' : 'border-white/20'
-          }`}>
-            {/* Hoekdecoraties */}
-            {(['tl','tr','bl','br'] as const).map(corner => (
-              <div key={corner} className={`absolute w-8 h-8 transition-colors ${
+          <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)]">
+            {(['tl', 'tr', 'bl', 'br'] as const).map(corner => (
+              <div key={corner} className={`absolute w-8 h-8 border-blue-500 ${
                 corner === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-xl' :
                 corner === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-xl' :
                 corner === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-xl' :
                                   '-bottom-1 -right-1 border-b-4 border-r-4 rounded-br-xl'
-              } ${isProcessing ? 'border-blue-400' : 'border-blue-500'}`} />
+              }`} />
             ))}
-
-            {/* Scan-line animatie alleen wanneer camera vrij is */}
-            {!isProcessing && <div className="scan-line" />}
-
+            <div className="scan-line" />
             <div className="absolute inset-0 flex items-center justify-center">
-              {isProcessing && <RefreshCw className="animate-spin text-blue-400" size={32} />}
-              {!isProcessing && (
-                <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest text-center px-4">
-                  Plaats label in dit kader
-                </p>
-              )}
+              <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest text-center px-4">
+                Plaats label in dit kader
+              </p>
             </div>
           </div>
         </div>
+
+        {/* Scan tray — horizontaal scrollende statuskaartjes */}
+        {queue.length > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 pb-3 px-3 bg-gradient-to-t from-black/60 to-transparent pt-6">
+            <div
+              ref={trayRef}
+              className="flex gap-2 overflow-x-auto"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {queue.map((item, index) => (
+                <button
+                  key={item.id}
+                  onClick={() => item.status === 'error' ? retryItem(item) : undefined}
+                  disabled={item.status !== 'error'}
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all duration-300 ${
+                    item.status === 'pending'
+                      ? 'bg-slate-700/90 border-slate-500'
+                      : item.status === 'success'
+                      ? 'bg-emerald-900/90 border-emerald-500'
+                      : 'bg-red-900/90 border-red-500 active:scale-90'
+                  }`}
+                  aria-label={
+                    item.status === 'error'
+                      ? `Scan ${index + 1} mislukt — tik om opnieuw te proberen`
+                      : `Scan ${index + 1} ${item.status}`
+                  }
+                >
+                  <span className="text-[7px] font-black text-white/40 leading-none">#{index + 1}</span>
+                  {item.status === 'pending' && <Loader2 size={18} className="text-slate-300 animate-spin" />}
+                  {item.status === 'success' && <Check size={18} className="text-emerald-400" />}
+                  {item.status === 'error' && <RotateCcw size={18} className="text-red-400" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Camerafout */}
         {cameraError && (
@@ -200,42 +282,80 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       </div>
 
       {/* Controls */}
-      <div className="px-8 pt-8 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5">
+      <div className="px-8 pt-6 pb-10 bg-slate-950 flex justify-between items-center border-t border-white/5">
 
-        {/* Sluiten */}
+        {/* Annuleer */}
         <button
           onClick={onCancel}
           className="w-14 h-14 bg-slate-900 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/5"
+          aria-label="Annuleer"
         >
           <X size={24} />
         </button>
 
-        {/* Capture knop */}
+        {/* Sluiterknop — altijd beschikbaar tijdens verwerking */}
         <button
           onClick={capture}
-          disabled={!cameraReady || isProcessing || !!cameraError}
+          disabled={!cameraReady || !!cameraError}
           className="relative group outline-none"
           aria-label="Scan pakket"
         >
-          <div className={`absolute inset-[-12px] rounded-full blur-2xl transition-all duration-300 ${
-            isProcessing ? 'bg-blue-600/40' : 'bg-blue-600/20 group-active:scale-150'
-          }`} />
+          <div className="absolute inset-[-12px] rounded-full blur-2xl bg-blue-600/20 group-active:scale-150 transition-all duration-300" />
           <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all relative z-10 border-[10px] border-slate-950 ${
-            isProcessing ? 'bg-slate-300 text-slate-500' : 'bg-white text-slate-900 active:scale-90'
+            !cameraReady ? 'bg-slate-300 text-slate-500' : 'bg-white text-slate-900 active:scale-90'
           }`}>
-            {isProcessing ? <RefreshCw className="animate-spin" size={40} /> : <Camera size={40} />}
+            <Camera size={40} />
           </div>
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
-            {!cameraReady ? 'Camera starten...' : isProcessing ? 'Verwerken...' : 'Klik om te scannen'}
+            {!cameraReady ? 'Camera starten...' : 'Klik om te scannen'}
           </div>
         </button>
 
-        {/* Lege ruimte rechts voor symmetrie */}
-        <div className="w-14 h-14" />
-
+        {/* Klaar-knop met pending indicator */}
+        <button
+          onClick={handleKlaar}
+          className="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex flex-col items-center justify-center hover:bg-emerald-500 active:scale-90 transition-all shadow-lg shadow-emerald-900/40"
+          aria-label={pendingCount > 0 ? `Klaar — ${pendingCount} nog bezig` : 'Klaar'}
+        >
+          <Check size={20} />
+          {pendingCount > 0 && (
+            <span className="text-[7px] font-black uppercase leading-none mt-0.5 opacity-80">
+              {pendingCount}…
+            </span>
+          )}
+        </button>
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Modal: sluiten terwijl items nog in queue zitten */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 mx-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <p className="text-white font-black text-lg mb-1">Nog bezig…</p>
+            <p className="text-slate-400 text-sm leading-relaxed mb-6">
+              Er worden nog{' '}
+              <span className="text-white font-black">{pendingCount}</span>{' '}
+              {pendingCount === 1 ? 'adres' : 'adressen'} verwerkt.
+              Wacht even of ga toch door?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCloseModal(false)}
+                className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-black text-sm hover:bg-slate-700 active:scale-95 transition-all"
+              >
+                Wacht even
+              </button>
+              <button
+                onClick={onCancel}
+                className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-500 active:scale-95 transition-all"
+              >
+                Toch sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
