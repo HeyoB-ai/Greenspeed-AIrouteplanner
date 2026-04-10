@@ -1,8 +1,24 @@
 export enum UserRole {
+  SUPERUSER = 'SUPERUSER',
+  ADMIN = 'ADMIN',
   PHARMACY = 'APOTHEEK',
   COURIER = 'KOERIER',
   SUPERVISOR = 'SUPERVISOR',
   PATIENT = 'PATIENT'
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  role: UserRole;
+  pharmacyId?: string;   // voor ADMIN en PHARMACY
+  courierId?: string;    // voor COURIER
+  passwordHash?: string;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  loggedInAt: string;
 }
 
 export enum CourierStatus {

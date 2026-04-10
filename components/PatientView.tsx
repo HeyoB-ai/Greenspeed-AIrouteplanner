@@ -5,9 +5,10 @@ import { Search, Package, Truck, CheckCircle2, MapPin, Clock, AlertCircle } from
 
 interface Props {
   packages: PackageType[];
+  onBack?: () => void;
 }
 
-const PatientView: React.FC<Props> = ({ packages }) => {
+const PatientView: React.FC<Props> = ({ packages, onBack }) => {
   const [postalCode, setPostalCode] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [foundPackage, setFoundPackage] = useState<PackageType | null>(null);
@@ -70,6 +71,14 @@ const PatientView: React.FC<Props> = ({ packages }) => {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="mb-8 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-4 py-2 rounded-full border border-blue-100 hover:bg-blue-100 transition-all"
+        >
+          ← Terug naar inloggen
+        </button>
+      )}
       <div className="text-center mb-12">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-xl mb-6">
           <Search size={32} />

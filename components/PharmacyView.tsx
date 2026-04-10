@@ -7,8 +7,8 @@ import ChatBot from './ChatBot';
 interface Props {
   packages: PackageType[];
   onScanStart: () => void;
-  onOptimize: (selectedIds: string[]) => void;
-  isOptimizing: boolean;
+  onOptimize?: (selectedIds: string[]) => void;
+  isOptimizing?: boolean;
   pharmacyName: string;
 }
 
@@ -70,7 +70,7 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
             </div>
           )}
 
-          {pendingPackages.length > 0 && (
+          {onOptimize && pendingPackages.length > 0 && (
             <div className="bg-indigo-900 rounded-4xl p-8 text-white shadow-xl animate-in slide-in-from-left duration-500">
               <div className="flex items-center justify-between mb-6">
                 <ListChecks size={28} />
@@ -88,8 +88,8 @@ const PharmacyView: React.FC<Props> = ({ packages, onScanStart, onOptimize, isOp
                   <span>{selectedIds.length === pendingPackages.length ? 'Selectie Wissen' : 'Selecteer Alles'}</span>
                 </button>
                 
-                <button 
-                  onClick={() => onOptimize(selectedIds)}
+                <button
+                  onClick={() => onOptimize?.(selectedIds)}
                   disabled={isOptimizing || selectedIds.length === 0}
                   className="w-full bg-indigo-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 transition-all"
                 >
