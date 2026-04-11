@@ -8,6 +8,7 @@ import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import PatientView from './components/PatientView';
 import Scanner from './Scanner';
+import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute, ScanResult } from './services/geminiService';
 import { getSession, logout } from './services/authService';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [showScanner, setShowScanner] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSetupHelp, setShowSetupHelp] = useState(false);
@@ -394,6 +396,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             packages={visiblePackages}
             pharmacyName={currentPharmacy.name}
             onScanStart={() => setShowScanner(true)}
+            onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
           />
@@ -404,6 +407,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
           <PharmacyView
             packages={visiblePackages}
             onScanStart={() => setShowScanner(true)}
+            onManualAdd={() => setShowManualForm(true)}
             pharmacyName={currentPharmacy.name}
           />
         )}
@@ -417,6 +421,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             pharmacyName={currentPharmacy.name}
             pharmacyAddress={currentPharmacy.address}
             onScanStart={() => setShowScanner(true)}
+            onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
           />
@@ -444,6 +449,13 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
         <Scanner
           onScanComplete={handleNewScan}
           onCancel={() => setShowScanner(false)}
+        />
+      )}
+
+      {showManualForm && (
+        <ManualAddressForm
+          onComplete={result => { handleNewScan(result); setShowManualForm(false); }}
+          onCancel={() => setShowManualForm(false)}
         />
       )}
     </Layout>

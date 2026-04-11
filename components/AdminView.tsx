@@ -11,6 +11,7 @@ interface Props {
   packages: PackageType[];
   pharmacyName: string;
   onScanStart: () => void;
+  onManualAdd?: () => void;
   onOptimize: (selectedIds: string[]) => void;
   isOptimizing: boolean;
 }
@@ -29,7 +30,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 const AdminView: React.FC<Props> = ({
-  packages, pharmacyName, onScanStart, onOptimize, isOptimizing,
+  packages, pharmacyName, onScanStart, onManualAdd, onOptimize, isOptimizing,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -119,6 +120,14 @@ const AdminView: React.FC<Props> = ({
                   <span>Start Scanner</span>
                   <ArrowRight size={16} />
                 </button>
+                {onManualAdd && (
+                  <button
+                    onClick={onManualAdd}
+                    className="w-full mt-3 text-blue-200 hover:text-white text-xs font-bold transition-colors text-center py-1"
+                  >
+                    ✏ Handmatig adres invoeren
+                  </button>
+                )}
               </div>
               <Package className="absolute -bottom-8 -right-8 w-36 h-36 text-white/10 rotate-12" />
             </div>

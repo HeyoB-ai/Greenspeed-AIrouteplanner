@@ -9,6 +9,7 @@ import ChatBot from './ChatBot';
 interface Props {
   packages: PackageType[];
   onScanStart: () => void;
+  onManualAdd?: () => void;
   onOptimize?: (selectedIds: string[]) => void;
   isOptimizing?: boolean;
   pharmacyName: string;
@@ -30,6 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
 const PharmacyView: React.FC<Props> = ({
   packages,
   onScanStart,
+  onManualAdd,
   onOptimize,
   isOptimizing,
   pharmacyName,
@@ -109,6 +111,14 @@ const PharmacyView: React.FC<Props> = ({
                 <span>Start Scanner</span>
                 <ArrowRight size={18} />
               </button>
+              {onManualAdd && (
+                <button
+                  onClick={onManualAdd}
+                  className="w-full mt-3 text-blue-200 hover:text-white text-xs font-bold transition-colors text-center py-1"
+                >
+                  ✏ Handmatig adres invoeren
+                </button>
+              )}
             </div>
             <Package className="absolute -bottom-10 -right-10 w-40 h-40 text-white/10 rotate-12 group-hover:rotate-45 transition-transform duration-1000" />
           </div>

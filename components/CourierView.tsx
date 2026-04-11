@@ -14,6 +14,7 @@ interface Props {
   pharmacyName?: string;
   pharmacyAddress?: string;
   onScanStart?: () => void;
+  onManualAdd?: () => void;
   onOptimize?: (selectedIds: string[]) => void;
   isOptimizing?: boolean;
 }
@@ -32,6 +33,7 @@ const CourierView: React.FC<Props> = ({
   pharmacyName = 'Apotheek',
   pharmacyAddress,
   onScanStart,
+  onManualAdd,
   onOptimize,
   isOptimizing = false,
 }) => {
@@ -168,13 +170,23 @@ const CourierView: React.FC<Props> = ({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {onScanStart && (
-            <button
-              onClick={onScanStart}
-              className="flex items-center space-x-2 bg-slate-900 text-white px-4 h-12 rounded-2xl font-bold shadow-lg"
-            >
-              <Scan size={18} />
-              <span className="text-sm">Scan</span>
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={onScanStart}
+                className="flex items-center space-x-2 bg-slate-900 text-white px-4 h-12 rounded-2xl font-bold shadow-lg"
+              >
+                <Scan size={18} />
+                <span className="text-sm">Scan</span>
+              </button>
+              {onManualAdd && (
+                <button
+                  onClick={onManualAdd}
+                  className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors px-1"
+                >
+                  ✏ Handmatig
+                </button>
+              )}
+            </div>
           )}
           {stops.length > 0 && (
             <button
