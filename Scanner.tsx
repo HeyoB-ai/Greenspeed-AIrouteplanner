@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, X, Check, AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
-import { extractAddressFromImage } from './services/geminiService';
+import { extractAddressFromImage, ScanResult } from './services/geminiService';
 import { Address } from './types';
 
 interface ScannerProps {
-  onScanComplete: (address: Address) => void;
+  onScanComplete: (result: ScanResult) => void;
   onCancel: () => void;
 }
 
@@ -121,8 +121,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const processItem = useCallback(async (item: QueueItem) => {
     try {
       const result = await extractAddressFromImage(item.base64);
-      if (result?.street && result.houseNumber) {
-        updateQueueItem(item.id, 'success', result);
+      if (result?.address?.street && result.address.houseNumber) {
+        updateQueueItem(item.id, 'success', result.address);
         playSound('success');
         onScanCompleteRef.current(result);
       } else {

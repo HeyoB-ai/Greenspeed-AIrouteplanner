@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserRole, Package, PackageStatus, Address, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser } from './types';
+import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser } from './types';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
@@ -9,10 +9,10 @@ import SupervisorView from './components/SupervisorView';
 import PatientView from './components/PatientView';
 import Scanner from './Scanner';
 import ChatBot from './components/ChatBot';
-import { optimizeRoute } from './services/geminiService';
+import { optimizeRoute, ScanResult } from './services/geminiService';
 import { getSession, logout } from './services/authService';
 import { db, supabase } from './services/supabaseService';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pharmacyMismatch, setPharmacyMismatch] = useState<string | null>(null);
 
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
@@ -98,7 +99,17 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNewScan = useCallback(async (address: Address) => {
+  const handleNewScan = useCallback(async ({ address, pharmacyName: scannedPharmacy }: ScanResult) => {
+    // Apotheekherkenning: vergelijk gescande naam met actieve apotheek
+    if (scannedPharmacy) {
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const a = normalize(scannedPharmacy);
+      const b = normalize(currentPharmacy.name);
+      if (!a.includes(b) && !b.includes(a)) {
+        setPharmacyMismatch(scannedPharmacy);
+      }
+    }
+
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId: currentPharmacy.id,
@@ -342,6 +353,28 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {setupBanner}
+
+        {/* Apotheek-mismatch waarschuwing */}
+        {pharmacyMismatch && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-3xl p-4 flex items-start space-x-3 animate-in slide-in-from-top-2 duration-300">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-black text-amber-900">Label van een andere apotheek</p>
+              <p className="text-xs font-bold text-amber-700 mt-1 leading-relaxed">
+                Op het label staat: <span className="font-black">{pharmacyMismatch}</span>.
+                Actieve apotheek: <span className="font-black">{currentPharmacy.name}</span>.
+                Controleer of dit pakket bij de juiste apotheek hoort.
+              </p>
+            </div>
+            <button
+              onClick={() => setPharmacyMismatch(null)}
+              className="text-amber-400 hover:text-amber-700 transition-colors shrink-0"
+              aria-label="Sluit melding"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         {/* SUPERUSER — systeem-breed overzicht */}
         {role === UserRole.SUPERUSER && (

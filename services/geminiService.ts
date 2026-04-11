@@ -1,5 +1,10 @@
 import { Address } from "../types";
 
+export interface ScanResult {
+  address: Address;
+  pharmacyName?: string; // naam van de apotheek zoals op het label staat
+}
+
 const MODEL = 'gemini-2.5-flash';
 
 /**
@@ -37,7 +42,7 @@ async function callGemini(requestBody: object): Promise<string | null> {
 
 export async function extractAddressFromImage(
   base64Image: string
-): Promise<Address | null> {
+): Promise<ScanResult | null> {
   try {
     const text = await callGemini({
       contents: [
@@ -50,7 +55,7 @@ export async function extractAddressFromImage(
               },
             },
             {
-              text: 'Zoek het afleveradres van de patiënt op dit Nederlandse apotheek-etiket. Geef ALLEEN: straatnaam (street), huisnummer (houseNumber), postcode (postalCode), stad (city). Geen namen, geen medicatie, geen apotheeknaam. Antwoord in JSON.',
+              text: 'Zoek het afleveradres en de apotheeknaam op dit Nederlandse apotheek-etiket. Geef: straatnaam (street), huisnummer (houseNumber), postcode (postalCode), stad (city). Geef ook de naam van de apotheek (pharmacyName) als die zichtbaar is op het etiket — anders laat je pharmacyName leeg. Geen patiëntnamen, geen medicatie. Antwoord in JSON.',
             },
           ],
         },
@@ -60,10 +65,11 @@ export async function extractAddressFromImage(
         responseSchema: {
           type: 'OBJECT',
           properties: {
-            street: { type: 'STRING' },
-            houseNumber: { type: 'STRING' },
-            postalCode: { type: 'STRING' },
-            city: { type: 'STRING' },
+            street:       { type: 'STRING' },
+            houseNumber:  { type: 'STRING' },
+            postalCode:   { type: 'STRING' },
+            city:         { type: 'STRING' },
+            pharmacyName: { type: 'STRING' },
           },
           required: ['street', 'houseNumber', 'postalCode', 'city'],
         },
@@ -72,7 +78,16 @@ export async function extractAddressFromImage(
 
     console.log('Gemini raw response (OCR):', text);
     if (!text) return null;
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return {
+      address: {
+        street:      parsed.street,
+        houseNumber: parsed.houseNumber,
+        postalCode:  parsed.postalCode,
+        city:        parsed.city,
+      },
+      pharmacyName: parsed.pharmacyName || undefined,
+    };
   } catch (err: any) {
     if (err?.message?.includes('API key not configured')) {
       alert('Configuratie fout: GEMINI_API_KEY ontbreekt op de server. Voeg hem toe via Netlify → Site settings → Environment variables.');
