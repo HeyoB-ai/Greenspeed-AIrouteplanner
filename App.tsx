@@ -15,6 +15,11 @@ import { getSession, logout } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X } from 'lucide-react';
 
+const COURIER_NAMES: Record<string, string> = {
+  'k1': 'Marco Koerier',
+  'k2': 'Sanne Bezorgd',
+};
+
 const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [showPatientView, setShowPatientView] = useState(false);
@@ -167,21 +172,17 @@ const App: React.FC = () => {
 
   const handleNewScan = useCallback(async (address: Address) => {
     const currentSession = getSession();
+    const isKoerier = currentSession?.user?.role === UserRole.COURIER;
+    const courierId = isKoerier ? currentSession?.user?.courierId : undefined;
 
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId: currentSession?.user?.pharmacyId ?? currentPharmacy.id,
       pharmacyName: currentPharmacy.name,
       address,
-      status: currentSession?.user?.role === UserRole.COURIER
-        ? PackageStatus.PICKED_UP
-        : PackageStatus.PENDING,
-      courierId: currentSession?.user?.role === UserRole.COURIER
-        ? currentSession.user.courierId
-        : undefined,
-      courierName: currentSession?.user?.role === UserRole.COURIER
-        ? currentSession.user.name
-        : undefined,
+      status: isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
+      courierId,
+      courierName: courierId ? (COURIER_NAMES[courierId] ?? currentSession?.user?.name ?? courierId) : undefined,
       createdAt: new Date().toISOString(),
       priority: 3
     };

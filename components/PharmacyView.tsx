@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Package, MapPin,
   RefreshCw, Building2, Truck, ShieldCheck, Clock,
@@ -14,6 +14,11 @@ interface Props {
   onMarkConversationRead?: (id: string) => void;
   onMarkCallbackHandled?: (id: string) => void;
 }
+
+const COURIER_NAMES: Record<string, string> = {
+  'k1': 'Marco Koerier',
+  'k2': 'Sanne Bezorgd',
+};
 
 const STATUS_STYLE: Record<string, string> = {
   [PackageStatus.SCANNING]:        'bg-blue-50 text-blue-600',
@@ -39,6 +44,7 @@ const PharmacyView: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab]       = useState<'packages' | 'chats'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
+  const [activeCourier, setActiveCourier] = useState<string>('all');
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -48,15 +54,34 @@ const PharmacyView: React.FC<Props> = ({
     if (!conv.isRead && onMarkConversationRead) onMarkConversationRead(conv.id);
   };
 
-  const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
-  const pendingPackages  = packages.filter(p => p.status === PackageStatus.PENDING);
+  const activeCouriers = useMemo(() => {
+    const map = new Map<string, string>();
+    packages.forEach(pkg => {
+      if (pkg.courierId) {
+        map.set(
+          pkg.courierId,
+          pkg.courierName ?? COURIER_NAMES[pkg.courierId] ?? pkg.courierId
+        );
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [packages]);
 
-  const sorted = [...packages].sort((a, b) => {
+  const filteredPackages = useMemo(() => {
+    if (activeCourier === 'all')        return packages;
+    if (activeCourier === 'unassigned') return packages.filter(p => !p.courierId);
+    return packages.filter(p => p.courierId === activeCourier);
+  }, [packages, activeCourier]);
+
+  const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
+  const pendingPackages  = filteredPackages.filter(p => p.status === PackageStatus.PENDING);
+
+  const sorted = useMemo(() => [...filteredPackages].sort((a, b) => {
     if (a.orderIndex !== undefined && b.orderIndex !== undefined) return a.orderIndex - b.orderIndex;
     if (a.orderIndex !== undefined) return -1;
     if (b.orderIndex !== undefined) return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  }), [filteredPackages]);
 
   const stats = [
     { label: 'Totaal',     val: packages.length,                                                                                              icon: Package,     color: 'text-blue-600',    bg: 'bg-blue-50' },
@@ -89,6 +114,47 @@ const PharmacyView: React.FC<Props> = ({
             <p className="text-sm font-black">{activeScansCount} scans in verwerking…</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase">AI analyseert op de achtergrond</p>
           </div>
+        </div>
+      )}
+
+      {/* ── Koerier-filter tabs ── */}
+      {(activeCouriers.length > 0 || packages.some(p => !p.courierId)) && (
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          <button
+            onClick={() => setActiveCourier('all')}
+            className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+              activeCourier === 'all'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+            }`}
+          >
+            Alle ({packages.length})
+          </button>
+          {packages.some(p => !p.courierId) && (
+            <button
+              onClick={() => setActiveCourier('unassigned')}
+              className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                activeCourier === 'unassigned'
+                  ? 'bg-slate-700 text-white shadow-md'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              Niet toegewezen ({packages.filter(p => !p.courierId).length})
+            </button>
+          )}
+          {activeCouriers.map(courier => (
+            <button
+              key={courier.id}
+              onClick={() => setActiveCourier(courier.id)}
+              className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                activeCourier === courier.id
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:border-emerald-300'
+              }`}
+            >
+              {courier.name} ({packages.filter(p => p.courierId === courier.id).length})
+            </button>
+          ))}
         </div>
       )}
 

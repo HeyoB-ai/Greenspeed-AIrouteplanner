@@ -15,6 +15,11 @@ interface Props {
   onMarkCallbackHandled?: (id: string) => void;
 }
 
+const COURIER_NAMES: Record<string, string> = {
+  'k1': 'Marco Koerier',
+  'k2': 'Sanne Bezorgd',
+};
+
 const STATUS_STYLE: Record<string, string> = {
   [PackageStatus.SCANNING]:        'bg-blue-50 text-blue-600',
   [PackageStatus.PENDING]:         'bg-amber-100 text-amber-700',
@@ -62,7 +67,12 @@ const AdminView: React.FC<Props> = ({
   const activeCouriers = useMemo(() => {
     const map = new Map<string, string>();
     packages.forEach(pkg => {
-      if (pkg.courierId && pkg.courierName) map.set(pkg.courierId, pkg.courierName);
+      if (pkg.courierId) {
+        map.set(
+          pkg.courierId,
+          pkg.courierName ?? COURIER_NAMES[pkg.courierId] ?? pkg.courierId
+        );
+      }
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [packages]);
