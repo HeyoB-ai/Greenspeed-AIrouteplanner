@@ -107,10 +107,14 @@ const App: React.FC = () => {
       status: PackageStatus.PENDING,
       createdAt: new Date().toISOString(),
       priority: 3,
+      // Koerier scant voor zichzelf → koppel direct aan eigen courierId
+      ...(role === UserRole.COURIER && session?.user.courierId
+        ? { courierId: session.user.courierId }
+        : {}),
     };
     setPackages(prev => [pkg, ...prev]);
     await db.syncPackage(pkg);
-  }, [currentPharmacy]);
+  }, [currentPharmacy, role, session]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
@@ -271,7 +275,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
 
   const couriers = [
     { id: 'k1', name: 'Marco Koerier', role: UserRole.COURIER, status: CourierStatus.AVAILABLE },
-    { id: 'k2', name: 'Sanne Bezorgd', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE },
+    { id: 'k2', name: 'Sanne Koerier', role: UserRole.COURIER, status: CourierStatus.ON_ROUTE },
   ];
 
   const setupBanner = !hasCloudConfig && (role === UserRole.SUPERUSER || role === UserRole.ADMIN) && (
@@ -371,7 +375,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
           />
         )}
 
-        {/* COURIER — eigen rit */}
+        {/* COURIER — eigen rit, scannen en route plannen */}
         {role === UserRole.COURIER && (
           <CourierView
             packages={visiblePackages}
@@ -379,6 +383,9 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             onUpdateMany={updateMultipleStatus}
             pharmacyName={currentPharmacy.name}
             pharmacyAddress={currentPharmacy.address}
+            onScanStart={() => setShowScanner(true)}
+            onOptimize={handleOptimizeRoute}
+            isOptimizing={isOptimizing}
           />
         )}
 

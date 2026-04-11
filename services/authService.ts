@@ -11,14 +11,14 @@ const DEMO_USERS: AuthUser[] = [
   },
   {
     id: 'u2',
-    name: 'Beheerder Apotheek de Kroon',
+    name: 'Admin De Kroon',
     role: UserRole.ADMIN,
     pharmacyId: 'ph-1',
     passwordHash: 'admin123',
   },
   {
     id: 'u3',
-    name: 'Assistente Apotheek de Kroon',
+    name: 'Apotheek De Kroon',
     role: UserRole.PHARMACY,
     pharmacyId: 'ph-1',
     passwordHash: 'apotheek123',
@@ -33,7 +33,7 @@ const DEMO_USERS: AuthUser[] = [
   },
   {
     id: 'u5',
-    name: 'Sanne Bezorgd',
+    name: 'Sanne Koerier',
     role: UserRole.COURIER,
     pharmacyId: 'ph-1',
     courierId: 'k2',
