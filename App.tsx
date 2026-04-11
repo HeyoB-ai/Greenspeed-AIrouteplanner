@@ -69,12 +69,15 @@ const App: React.FC = () => {
     return pharmacies[0] || { id: 'ph-1', name: 'Apotheek de Kroon' };
   }, [session, role, pharmacies, superuserPharmacyId]);
 
-  // Load conversations for pharmacy staff roles
+  // Load conversations for pharmacy staff roles, refresh every 30s
   useEffect(() => {
     if (!session) return;
     const r = session.user.role;
     if (r !== UserRole.PHARMACY && r !== UserRole.ADMIN && r !== UserRole.SUPERUSER) return;
-    db.fetchConversations(currentPharmacy.id).then(setConversations).catch(() => {});
+    const load = () => db.fetchConversations(currentPharmacy.id).then(setConversations).catch(() => {});
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
   }, [session, currentPharmacy.id]);
 
   const handleMarkConversationRead = (id: string) => {
@@ -423,6 +426,9 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
+            conversations={conversations}
+            onMarkConversationRead={handleMarkConversationRead}
+            onMarkCallbackHandled={handleMarkCallbackHandled}
           />
         )}
 

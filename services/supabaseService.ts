@@ -36,8 +36,9 @@ export const supabase = (typeof supabaseUrl === 'string' && supabaseUrl.length >
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
 
-const LOCAL_STORAGE_KEY = 'medroute_backup_packages';
-const PHARMACIES_KEY = 'medroute_pharmacies';
+const LOCAL_STORAGE_KEY    = 'medroute_backup_packages';
+const PHARMACIES_KEY       = 'medroute_pharmacies';
+const CONVERSATIONS_PREFIX = 'medroute_conversations_'; // + pharmacyId
 
 export const db = {
   async fetchPackages(): Promise<Package[]> {
@@ -162,7 +163,16 @@ export const db = {
   },
 
   async saveConversation(conv: ChatConversation) {
-    if (!supabase) return; // alleen opslaan als cloud beschikbaar
+    // 1. Altijd opslaan in localStorage (ook zonder cloud)
+    const key = CONVERSATIONS_PREFIX + conv.pharmacyId;
+    const existing: ChatConversation[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+    const idx = existing.findIndex(c => c.id === conv.id);
+    if (idx !== -1) existing[idx] = conv;
+    else existing.unshift(conv);
+    localStorage.setItem(key, JSON.stringify(existing));
+
+    // 2. Ook naar Supabase als die beschikbaar is
+    if (!supabase) return;
     try {
       await supabase.from('chat_conversations').upsert({
         id:               conv.id,
@@ -175,26 +185,51 @@ export const db = {
         isRead:           conv.isRead,
       });
     } catch (err) {
-      console.warn('Chat sync mislukt:', err);
+      console.warn('Chat cloud sync mislukt:', err);
     }
   },
 
   async fetchConversations(pharmacyId: string): Promise<ChatConversation[]> {
-    if (!supabase) return [];
-    try {
-      const { data } = await supabase
-        .from('chat_conversations')
-        .select('*')
-        .eq('pharmacyId', pharmacyId)
-        .gt('expiresAt', new Date().toISOString())
-        .order('createdAt', { ascending: false });
-      return (data as ChatConversation[]) ?? [];
-    } catch {
-      return [];
+    const now = new Date().toISOString();
+
+    // Probeer Supabase eerst
+    if (supabase) {
+      try {
+        const { data } = await supabase
+          .from('chat_conversations')
+          .select('*')
+          .eq('pharmacyId', pharmacyId)
+          .gt('expiresAt', now)
+          .order('createdAt', { ascending: false });
+        if (data && data.length > 0) {
+          // Sync resultaten terug naar localStorage
+          localStorage.setItem(CONVERSATIONS_PREFIX + pharmacyId, JSON.stringify(data));
+          return data as ChatConversation[];
+        }
+      } catch {}
     }
+
+    // Fallback: localStorage
+    const local: ChatConversation[] = JSON.parse(
+      localStorage.getItem(CONVERSATIONS_PREFIX + pharmacyId) ?? '[]'
+    );
+    return local.filter(c => c.expiresAt > now);
   },
 
   async markConversationRead(id: string) {
+    // Update localStorage: doorzoek alle gespreksbuckets op dit ID
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(CONVERSATIONS_PREFIX)) continue;
+      const convs: ChatConversation[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+      const idx = convs.findIndex(c => c.id === id);
+      if (idx !== -1) {
+        convs[idx] = { ...convs[idx], isRead: true };
+        localStorage.setItem(key, JSON.stringify(convs));
+        break;
+      }
+    }
+    // Ook Supabase bijwerken
     if (!supabase) return;
     try {
       await supabase.from('chat_conversations').update({ isRead: true }).eq('id', id);
