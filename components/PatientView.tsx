@@ -75,6 +75,10 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
 
   const currentStep = foundPackage ? getStatusStep(foundPackage.status) : 0;
 
+  // Derive pharmacy info for the chatbot — use found package if available, otherwise first in list
+  const chatPharmacyId   = foundPackage?.pharmacyId   ?? packages[0]?.pharmacyId   ?? 'ph-1';
+  const chatPharmacyName = foundPackage?.pharmacyName ?? packages[0]?.pharmacyName ?? 'Uw Apotheek';
+
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-10 bg-slate-50">
       <div className="w-full max-w-sm space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -234,21 +238,24 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
               </p>
             </div>
 
-            <button
-              onClick={() => setShowChat(true)}
-              className="w-full flex items-center justify-center space-x-2 h-12 bg-blue-600 text-white rounded-3xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all"
-            >
-              <MessageCircle size={18} />
-              <span>Vraag onze assistent</span>
-            </button>
           </div>
         )}
       </div>
 
-      {showChat && foundPackage && (
+      {/* Floating chat button — altijd zichtbaar rechtsonder */}
+      <button
+        onClick={() => setShowChat(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center space-x-2 bg-blue-600 text-white px-5 h-14 rounded-full font-black text-sm shadow-2xl shadow-blue-500/40 hover:bg-blue-700 active:scale-95 transition-all"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0px)' }}
+      >
+        <MessageCircle size={20} />
+        <span>Stel een vraag</span>
+      </button>
+
+      {showChat && (
         <PatientChatbot
-          pharmacyId={foundPackage.pharmacyId}
-          pharmacyName={foundPackage.pharmacyName}
+          pharmacyId={chatPharmacyId}
+          pharmacyName={chatPharmacyName}
           onClose={() => setShowChat(false)}
         />
       )}
