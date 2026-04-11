@@ -58,19 +58,27 @@ export interface DeliveryEvidence {
   notHomeOption?: 'mailbox' | 'neighbour' | 'return' | 'moved' | 'other_location' | 'custom';
 }
 
+export interface StatusEvent {
+  status:    PackageStatus;
+  timestamp: string;       // ISO string
+  note?:     string;       // bijv. deliveryNote
+}
+
 export interface Package {
   id: string;
   pharmacyId: string;
   pharmacyName: string; // Voor financiële rapportage
   address: Address;
   status: PackageStatus;
-  courierId?: string;
+  courierId?:   string;
+  courierName?: string;  // naam van de koerier voor weergave
   createdAt: string;
   deliveredAt?: string;
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
   displayIndex?: number; // Permanent stopnummer
+  statusHistory?: StatusEvent[];
 }
 
 export interface User {

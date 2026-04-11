@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
@@ -18,6 +18,22 @@ interface Props {
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
   'k2': 'Sanne Bezorgd',
+};
+
+const getStatusIcon = (status: PackageStatus): string => {
+  switch (status) {
+    case PackageStatus.PENDING:        return '📦';
+    case PackageStatus.ASSIGNED:       return '📋';
+    case PackageStatus.PICKED_UP:      return '🚚';
+    case PackageStatus.DELIVERED:      return '✅';
+    case PackageStatus.MAILBOX:        return '📬';
+    case PackageStatus.NEIGHBOUR:      return '🏠';
+    case PackageStatus.RETURN:         return '🔙';
+    case PackageStatus.MOVED:          return '🚛';
+    case PackageStatus.OTHER_LOCATION: return '🏥';
+    case PackageStatus.FAILED:         return '❌';
+    default:                           return '•';
+  }
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -39,9 +55,10 @@ const AdminView: React.FC<Props> = ({
   packages, pharmacyName,
   conversations = [], onMarkConversationRead, onMarkCallbackHandled,
 }) => {
-  const [activeTab, setActiveTab]       = useState<'packages' | 'chats' | 'archive'>('packages');
-  const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
+  const [activeTab, setActiveTab]         = useState<'packages' | 'chats' | 'archive'>('packages');
+  const [selectedConv, setSelectedConv]   = useState<ChatConversation | null>(null);
   const [activeCourier, setActiveCourier] = useState<string>('all');
+  const [timelinePkg, setTimelinePkg]     = useState<PackageType | null>(null);
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -286,9 +303,22 @@ const AdminView: React.FC<Props> = ({
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">{p.address.postalCode} {p.address.city}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
-                                  {p.status}
-                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
+                                    {p.status}
+                                  </span>
+                                  {p.statusHistory && p.statusHistory.length > 0 && (
+                                    <span className="text-xs text-slate-400 font-bold">
+                                      {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => setTimelinePkg(p)}
+                                    className="text-[10px] text-slate-400 hover:text-blue-600 font-bold underline underline-offset-2 transition-colors"
+                                  >
+                                    Historie
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -313,9 +343,22 @@ const AdminView: React.FC<Props> = ({
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{p.address.postalCode} {p.address.city}</p>
                             </div>
                           </div>
-                          <span className={`ml-2 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
-                            {p.status}
-                          </span>
+                          <div className="ml-2 flex flex-col items-end gap-1 shrink-0">
+                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
+                              {p.status}
+                            </span>
+                            {p.statusHistory && p.statusHistory.length > 0 && (
+                              <span className="text-[10px] text-slate-400 font-bold">
+                                {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setTimelinePkg(p)}
+                              className="text-[10px] text-slate-400 hover:text-blue-600 font-bold underline underline-offset-2 transition-colors"
+                            >
+                              Historie
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -449,6 +492,50 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Tijdlijn modal ── */}
+      {timelinePkg && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h3 className="font-black text-slate-900">Statushistorie</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {timelinePkg.address.street} {timelinePkg.address.houseNumber}
+                </p>
+              </div>
+              <button onClick={() => setTimelinePkg(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="relative">
+              <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-200" />
+              <div className="space-y-4">
+                {(timelinePkg.statusHistory ?? [{ status: timelinePkg.status, timestamp: timelinePkg.createdAt }]).map((event, i, arr) => (
+                  <div key={i} className="flex items-start gap-4 relative">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 text-sm border-2 border-white shadow-sm ${
+                      i === arr.length - 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {getStatusIcon(event.status)}
+                    </div>
+                    <div className="flex-1 pb-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-black text-slate-800">{event.status}</span>
+                        <span className="text-xs text-slate-400 font-bold whitespace-nowrap">
+                          {new Date(event.timestamp).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      {event.note && (
+                        <p className="text-xs text-slate-500 mt-0.5 bg-slate-50 rounded-xl px-2 py-1">{event.note}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

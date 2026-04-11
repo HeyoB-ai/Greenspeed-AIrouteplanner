@@ -316,6 +316,11 @@ const CourierView: React.FC<Props> = ({
                         ID: {p.id.split('-').pop()}
                       </p>
                     </div>
+                    {p.deliveryEvidence?.timestamp && (
+                      <span className="text-xs text-slate-400 font-bold shrink-0">
+                        {new Date(p.deliveryEvidence.timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

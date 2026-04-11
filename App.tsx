@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation, Address } from './types';
+import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation, Address, StatusEvent } from './types';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
@@ -18,6 +18,19 @@ import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
   'k2': 'Sanne Bezorgd',
+};
+
+const enrichWithHistory = (pkg: Package): Package => {
+  if (pkg.statusHistory && pkg.statusHistory.length > 0) return pkg;
+  const history: StatusEvent[] = [{ status: PackageStatus.PENDING, timestamp: pkg.createdAt }];
+  if (pkg.deliveredAt && pkg.status !== PackageStatus.PENDING) {
+    history.push({
+      status:    pkg.status,
+      timestamp: pkg.deliveredAt,
+      note:      pkg.deliveryEvidence?.deliveryNote,
+    });
+  }
+  return { ...pkg, statusHistory: history };
 };
 
 const App: React.FC = () => {
@@ -53,7 +66,7 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsSyncing(true);
       const [pkgs, pharms] = await Promise.all([db.fetchPackages(), db.fetchPharmacies()]);
-      setPackages(pkgs);
+      setPackages(pkgs.map(enrichWithHistory));
       setPharmacies(pharms);
       if (pharms.length > 0 && !superuserPharmacyId) {
         setSuperuserPharmacyId(pharms[0].id);
@@ -184,7 +197,11 @@ const App: React.FC = () => {
       courierId,
       courierName: courierId ? (COURIER_NAMES[courierId] ?? currentSession?.user?.name ?? courierId) : undefined,
       createdAt: new Date().toISOString(),
-      priority: 3
+      priority: 3,
+      statusHistory: [{
+        status:    isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
+        timestamp: new Date().toISOString(),
+      }],
     };
 
     setPackages(prev => [pkg, ...prev]);
@@ -244,7 +261,18 @@ const App: React.FC = () => {
     const pkgsToSync: Package[] = [];
     const newPackages = packages.map(p => {
       if (ids.includes(p.id)) {
-        const updated = { ...p, status, deliveryEvidence: evidence, deliveredAt: evidence?.timestamp || p.deliveredAt };
+        const newEvent: StatusEvent = {
+          status,
+          timestamp: evidence?.timestamp ?? new Date().toISOString(),
+          note:      evidence?.deliveryNote,
+        };
+        const updated: Package = {
+          ...p,
+          status,
+          deliveryEvidence: evidence,
+          deliveredAt: evidence?.timestamp ?? p.deliveredAt,
+          statusHistory: [...(p.statusHistory ?? [{ status: p.status, timestamp: p.createdAt }]), newEvent],
+        };
         pkgsToSync.push(updated);
         return updated;
       }
