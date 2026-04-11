@@ -50,12 +50,14 @@ export function calculateStats(packages: Package[], period: Period): ArchiveStat
   const { start, end } = getDateRange(period);
   const days = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-  const delivered = packages.filter(p => p.status === PackageStatus.DELIVERED).length;
-  const mailbox   = packages.filter(p => p.status === PackageStatus.MAILBOX).length;
-  const neighbour = packages.filter(p => p.status === PackageStatus.NEIGHBOUR).length;
-  const returned  = packages.filter(p => p.status === PackageStatus.RETURN).length;
-  const failed    = packages.filter(p => p.status === PackageStatus.FAILED).length;
-  const totalDone = delivered + mailbox + neighbour;
+  const delivered     = packages.filter(p => p.status === PackageStatus.DELIVERED).length;
+  const mailbox       = packages.filter(p => p.status === PackageStatus.MAILBOX).length;
+  const neighbour     = packages.filter(p => p.status === PackageStatus.NEIGHBOUR).length;
+  const returned      = packages.filter(p => p.status === PackageStatus.RETURN).length;
+  const failed        = packages.filter(p => p.status === PackageStatus.FAILED).length;
+  const moved         = packages.filter(p => p.status === PackageStatus.MOVED).length;
+  const otherLocation = packages.filter(p => p.status === PackageStatus.OTHER_LOCATION).length;
+  const totalDone     = delivered + mailbox + neighbour;
 
   return {
     period,
@@ -65,6 +67,8 @@ export function calculateStats(packages: Package[], period: Period): ArchiveStat
     neighbour,
     returned,
     failed,
+    moved,
+    otherLocation,
     deliveryRate: packages.length > 0
       ? Math.round((totalDone / packages.length) * 100)
       : 0,

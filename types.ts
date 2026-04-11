@@ -119,6 +119,8 @@ export interface ArchiveStats {
   neighbour:     number;
   returned:      number;
   failed:        number;
+  moved:         number;   // verhuisd
+  otherLocation: number;   // andere locatie
   deliveryRate:  number;   // percentage succesvol bezorgd
   avgPerDay:     number;   // gemiddeld per dag in periode
 }

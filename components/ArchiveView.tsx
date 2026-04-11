@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Package as PackageType, Pharmacy, HeatmapPoint, DailyCount } from '../types';
+import { Package as PackageType, PackageStatus, Pharmacy, HeatmapPoint, DailyCount } from '../types';
 import {
   filterPackagesByPeriod,
   calculateStats,
@@ -34,14 +34,16 @@ const TABS: { key: Period; label: string }[] = [
 ];
 
 const STAT_CARDS = (s: ReturnType<typeof calculateStats>) => [
-  { label: 'Totaal',       value: s.totalPackages,       icon: '📦', color: 'blue'    },
-  { label: 'Bezorgd',      value: s.delivered,           icon: '✅', color: 'emerald' },
-  { label: 'Brievenbus',   value: s.mailbox,             icon: '📬', color: 'emerald' },
-  { label: 'Bij buren',    value: s.neighbour,           icon: '🏠', color: 'blue'    },
-  { label: 'Retour',       value: s.returned,            icon: '🔙', color: 'amber'   },
-  { label: 'Mislukt',      value: s.failed,              icon: '❌', color: 'red'     },
-  { label: 'Bezorgd %',    value: `${s.deliveryRate}%`,  icon: '📊', color: 'purple'  },
-  { label: 'Gem. per dag', value: s.avgPerDay,           icon: '📅', color: 'slate'   },
+  { label: 'Totaal',         value: s.totalPackages,       icon: '📦' },
+  { label: 'Bezorgd',        value: s.delivered,           icon: '✅' },
+  { label: 'Brievenbus',     value: s.mailbox,             icon: '📬' },
+  { label: 'Bij buren',      value: s.neighbour,           icon: '🏠' },
+  { label: 'Retour',         value: s.returned,            icon: '🔙' },
+  { label: 'Mislukt',        value: s.failed,              icon: '❌' },
+  { label: 'Verhuisd',       value: s.moved,               icon: '📦' },
+  { label: 'Andere locatie', value: s.otherLocation,       icon: '🏥' },
+  { label: 'Bezorgd %',      value: `${s.deliveryRate}%`,  icon: '📊' },
+  { label: 'Gem. per dag',   value: s.avgPerDay,           icon: '📅' },
 ];
 
 // Auto-zoom map to fit all points
@@ -149,7 +151,7 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
       </div>
 
       {/* ── Statistiekenkaartjes ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {STAT_CARDS(stats).map(card => (
           <div
             key={card.label}
@@ -195,6 +197,57 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
           </div>
         </div>
       )}
+
+      {/* ── Niet-thuis rapportage ── */}
+      {(() => {
+        const notHomeStatuses = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION, PackageStatus.FAILED];
+        const notHomePkgs = periodPackages.filter(p => notHomeStatuses.includes(p.status));
+        if (notHomePkgs.length === 0) return null;
+        return (
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Niet-thuis rapportage</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">
+                {notHomePkgs.length} bezorgingen met afwijkende uitkomst
+              </p>
+            </div>
+            <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+              {notHomePkgs.map(p => (
+                <div key={p.id} className="px-5 py-3 flex items-start gap-3">
+                  <div className="shrink-0 mt-0.5">
+                    {p.status === PackageStatus.MOVED          && <span className="text-base">📦</span>}
+                    {p.status === PackageStatus.OTHER_LOCATION && <span className="text-base">🏥</span>}
+                    {p.status === PackageStatus.RETURN         && <span className="text-base">🔙</span>}
+                    {p.status === PackageStatus.FAILED         && <span className="text-base">❌</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-slate-900 leading-tight truncate">
+                      {p.address.street} {p.address.houseNumber}, {p.address.city}
+                    </p>
+                    {p.deliveryEvidence?.deliveryNote && (
+                      <p className="text-xs font-medium text-slate-500 mt-0.5 leading-snug">
+                        {p.deliveryEvidence.deliveryNote}
+                      </p>
+                    )}
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                      {new Date(p.createdAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                      {p.pharmacyName && ` · ${p.pharmacyName}`}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                    p.status === PackageStatus.MOVED          ? 'bg-purple-100 text-purple-700' :
+                    p.status === PackageStatus.OTHER_LOCATION ? 'bg-sky-100 text-sky-700' :
+                    p.status === PackageStatus.RETURN         ? 'bg-amber-100 text-amber-700' :
+                    'bg-red-100 text-red-600'
+                  }`}>
+                    {p.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Heatmap ── */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">

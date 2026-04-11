@@ -2,16 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Check, Mailbox, Users, Undo2, X, MoveRight, MapPin, PenLine } from 'lucide-react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
 
-type NotHomeStatus =
-  | PackageStatus.MAILBOX
-  | PackageStatus.NEIGHBOUR
-  | PackageStatus.RETURN
-  | PackageStatus.MOVED
-  | PackageStatus.OTHER_LOCATION;
-
 interface NotHomeSheetProps {
   pkg: PackageType;
-  onComplete: (status: NotHomeStatus, evidence: DeliveryEvidence) => void;
+  onComplete: (status: PackageStatus, evidence: DeliveryEvidence) => void;
   onCancel: () => void;
 }
 
@@ -26,7 +19,7 @@ interface Option {
   iconColor:  string;
   cardBorder: string;
   cardBg:     string;
-  status:     NotHomeStatus;
+  status:     PackageStatus;
   doneLabel:  string;
 }
 
