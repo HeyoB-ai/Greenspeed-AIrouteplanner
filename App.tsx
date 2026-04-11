@@ -176,22 +176,26 @@ const App: React.FC = () => {
       }
     }
 
+    // Haal altijd de verse sessie op om stale-closure problemen te voorkomen
+    const currentSession = getSession();
+    const isCourier = currentSession?.user?.role === UserRole.COURIER;
+
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      pharmacyId: currentPharmacy.id,
+      pharmacyId: currentSession?.user?.pharmacyId ?? currentPharmacy.id,
       pharmacyName: currentPharmacy.name,
       address,
-      status: PackageStatus.PENDING,
+      status: isCourier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
+      courierId:   isCourier ? currentSession!.user.courierId   : undefined,
+      courierName: isCourier ? currentSession!.user.name        : undefined,
       createdAt: new Date().toISOString(),
       priority: 3,
-      // Koerier scant voor zichzelf → koppel direct aan eigen courierId
-      ...(role === UserRole.COURIER && session?.user.courierId
-        ? { courierId: session.user.courierId }
-        : {}),
     };
+
     setPackages(prev => [pkg, ...prev]);
+    setShowScanner(false);
     await db.syncPackage(pkg);
-  }, [currentPharmacy, role, session]);
+  }, [currentPharmacy]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
@@ -273,6 +277,7 @@ const App: React.FC = () => {
   address JSONB,
   status TEXT,
   "courierId" TEXT,
+  "courierName" TEXT,
   "createdAt" TIMESTAMPTZ DEFAULT NOW(),
   "deliveredAt" TIMESTAMPTZ,
   "deliveryEvidence" JSONB,
