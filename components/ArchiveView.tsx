@@ -66,9 +66,8 @@ const getColor = (weight: number) => {
 const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
   const [activePeriod, setActivePeriod]         = useState<Period>('week');
   const [activePharmacyFilter, setActivePharmacyFilter] = useState<string>('all');
-  const [heatmapPoints, setHeatmapPoints]       = useState<HeatmapPoint[]>([]);
-  const [isLoadingMap, setIsLoadingMap]         = useState(false);
-  const [showMap, setShowMap]                   = useState(false);
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
+  const [showMap, setShowMap]             = useState(false);
 
   const filteredPharmacyId = pharmacyId ?? (activePharmacyFilter === 'all' ? undefined : activePharmacyFilter);
 
@@ -106,17 +105,10 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
     return new Date(dateStr).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
   };
 
-  // Laad heatmap punten als kaart geopend wordt of periode verandert
+  // Bereken heatmap-punten synchroon op basis van GPS uit deliveryEvidence
   useEffect(() => {
-    if (!showMap) return;
-    if (periodPackages.length === 0) { setHeatmapPoints([]); return; }
-    setIsLoadingMap(true);
-    setHeatmapPoints([]);
-    buildHeatmapPoints(periodPackages).then(points => {
-      setHeatmapPoints(points);
-      setIsLoadingMap(false);
-    });
-  }, [showMap, activePeriod, activePharmacyFilter]);
+    setHeatmapPoints(buildHeatmapPoints(periodPackages));
+  }, [activePeriod, activePharmacyFilter, packages]);
 
   const showChart = ['week', 'month', 'year'].includes(activePeriod) && chartData.length > 0;
 
@@ -234,27 +226,21 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"/>5+</span>
             </div>
 
-            {isLoadingMap ? (
-              <div className="h-80 flex items-center justify-center text-slate-400">
-                <div className="text-center">
-                  <div className="text-3xl mb-2">🗺️</div>
-                  <p className="font-bold text-sm">Adressen worden geladen...</p>
-                  <p className="text-xs mt-1 text-slate-400">Max 50 adressen · ca. 1 sec. per adres</p>
+            {heatmapPoints.length === 0 ? (
+              <div className="h-80 flex items-center justify-center">
+                <div className="text-center text-slate-400">
+                  <p className="text-3xl mb-2">📍</p>
+                  <p className="font-bold text-sm">Geen GPS-data voor deze periode</p>
+                  <p className="text-xs mt-1">
+                    GPS-locatie wordt opgeslagen bij bezorging via de koeriers-app
+                  </p>
                 </div>
-              </div>
-            ) : periodPackages.length === 0 ? (
-              <div className="h-80 flex items-center justify-center text-slate-400">
-                <p className="font-bold">Geen bezorgdata voor deze periode</p>
-              </div>
-            ) : heatmapPoints.length === 0 && !isLoadingMap ? (
-              <div className="h-80 flex items-center justify-center text-slate-400">
-                <p className="font-bold text-sm">Geocoding mislukt — controleer internetverbinding</p>
               </div>
             ) : (
               <div className="h-80">
                 <MapContainer
-                  center={[52.2, 5.3]}
-                  zoom={11}
+                  center={[52.228, 5.179]}
+                  zoom={12}
                   style={{ height: '100%', width: '100%' }}
                   scrollWheelZoom={false}
                 >
@@ -275,9 +261,17 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
                     >
                       <Popup>
                         <div className="font-bold text-sm">{point.address}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-slate-500 mt-1">
                           {point.weight} pakket{point.weight !== 1 ? 'jes' : ''}
                         </div>
+                        {point.deliveredAt && (
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {new Date(point.deliveredAt).toLocaleString('nl-NL', {
+                              day: 'numeric', month: 'short',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                          </div>
+                        )}
                       </Popup>
                     </CircleMarker>
                   ))}

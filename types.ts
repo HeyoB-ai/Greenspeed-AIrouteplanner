@@ -129,9 +129,10 @@ export interface DailyCount {
 }
 
 export interface HeatmapPoint {
-  lat:     number;
-  lng:     number;
-  weight:  number;         // aantal pakketjes op dit adres
-  address: string;
-  status:  PackageStatus;
+  lat:          number;
+  lng:          number;
+  weight:       number;    // aantal pakketjes op dit adres
+  address:      string;
+  status:       PackageStatus;
+  deliveredAt?: string;    // timestamp van eerste bezorging op dit punt
 }

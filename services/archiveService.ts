@@ -94,59 +94,34 @@ export function getDailyCounts(packages: Package[]): DailyCount[] {
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Module-level geocoding cache — survives tab switches
-const geocodeCache = new Map<string, { lat: number; lng: number } | null>();
+export function buildHeatmapPoints(packages: Package[]): HeatmapPoint[] {
+  // Gebruik alleen pakketjes met werkelijke GPS-coördinaten
+  const withGPS = packages.filter(
+    p => p.deliveryEvidence?.latitude &&
+         p.deliveryEvidence?.longitude &&
+         p.deliveryEvidence.latitude  !== 0 &&
+         p.deliveryEvidence.longitude !== 0
+  );
 
-export async function geocodePostcode(
-  postcode: string,
-  houseNumber: string
-): Promise<{ lat: number; lng: number } | null> {
-  const key = `${postcode}-${houseNumber}`;
-  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
-
-  try {
-    const query = `${postcode} ${houseNumber}, Netherlands`;
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=nl`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Greenspeed-Pharmacy-App/1.0' },
-    });
-    const data = await response.json();
-    if (data.length > 0) {
-      const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(key, result);
-      return result;
-    }
-  } catch { /* stil falen */ }
-
-  geocodeCache.set(key, null);
-  return null;
-}
-
-export async function buildHeatmapPoints(packages: Package[]): Promise<HeatmapPoint[]> {
-  // Groepeer op postcode + huisnummer om geocoding-calls te minimaliseren
+  // Groepeer op afgeronde coördinaten (±50m nauwkeurigheid)
   const grouped = new Map<string, Package[]>();
-  packages.forEach(pkg => {
-    const key = `${pkg.address.postalCode}-${pkg.address.houseNumber}`;
+  withGPS.forEach(pkg => {
+    const lat = Math.round(pkg.deliveryEvidence!.latitude  * 1000) / 1000;
+    const lng = Math.round(pkg.deliveryEvidence!.longitude * 1000) / 1000;
+    const key = `${lat},${lng}`;
     grouped.set(key, [...(grouped.get(key) ?? []), pkg]);
   });
 
-  const points: HeatmapPoint[] = [];
-  const entries = Array.from(grouped.entries()).slice(0, 50);
-
-  for (const [, pkgs] of entries) {
+  return Array.from(grouped.entries()).map(([key, pkgs]) => {
+    const [lat, lng] = key.split(',').map(Number);
     const pkg = pkgs[0];
-    const coords = await geocodePostcode(pkg.address.postalCode, pkg.address.houseNumber);
-    if (coords) {
-      points.push({
-        ...coords,
-        weight:  pkgs.length,
-        address: `${pkg.address.street} ${pkg.address.houseNumber}`,
-        status:  pkg.status,
-      });
-    }
-    // Nominatim rate limit: ≥1s tussen requests
-    await new Promise(r => setTimeout(r, 1100));
-  }
-
-  return points;
+    return {
+      lat,
+      lng,
+      weight:      pkgs.length,
+      address:     `${pkg.address.street} ${pkg.address.houseNumber}, ${pkg.address.city}`,
+      status:      pkg.status,
+      deliveredAt: pkg.deliveryEvidence?.timestamp,
+    };
+  });
 }
