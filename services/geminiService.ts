@@ -166,7 +166,7 @@ export async function answerPatientQuestion(
     const text = await callGemini({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
+      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
     });
     return { text: text ?? 'Er is iets misgegaan. Probeer het opnieuw.', hasRisk: false };
   } catch {

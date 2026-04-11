@@ -82,28 +82,31 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
     setConversation(next);
     setIsLoading(true);
 
-    const { text: reply, hasRisk } = await answerPatientQuestion(
-      text,
-      conversation.messages,
-      pharmacyName
-    );
+    try {
+      const { text: reply, hasRisk } = await answerPatientQuestion(
+        text,
+        conversation.messages,
+        pharmacyName
+      );
 
-    const assistantMsg: ChatMessage = {
-      id:        makeId(),
-      role:      'assistant',
-      text:      reply,
-      timestamp: new Date().toISOString(),
-    };
+      const assistantMsg: ChatMessage = {
+        id:        makeId(),
+        role:      'assistant',
+        text:      reply,
+        timestamp: new Date().toISOString(),
+      };
 
-    const final = {
-      ...next,
-      messages:      [...next.messages, assistantMsg],
-      hasRiskSignal: next.hasRiskSignal || hasRisk,
-      isRead:        false,
-    };
-    setConversation(final);
-    saveConv(final);
-    setIsLoading(false);
+      const final = {
+        ...next,
+        messages:      [...next.messages, assistantMsg],
+        hasRiskSignal: next.hasRiskSignal || hasRisk,
+        isRead:        false,
+      };
+      setConversation(final);
+      saveConv(final);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCallbackSubmit = () => {
