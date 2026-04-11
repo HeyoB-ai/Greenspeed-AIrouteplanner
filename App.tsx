@@ -24,7 +24,8 @@ const App: React.FC = () => {
   const [showManualForm, setShowManualForm] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [toast, setToast]                 = useState<string | null>(null);
+  const [isSyncing, setIsSyncing]         = useState(false);
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pharmacyMismatch, setPharmacyMismatch] = useState<string | null>(null);
@@ -69,15 +70,52 @@ const App: React.FC = () => {
     return pharmacies[0] || { id: 'ph-1', name: 'Apotheek de Kroon' };
   }, [session, role, pharmacies, superuserPharmacyId]);
 
-  // Load conversations for pharmacy staff roles, refresh every 30s
+  // Load conversations + realtime subscription voor pharmacy staff
   useEffect(() => {
     if (!session) return;
     const r = session.user.role;
     if (r !== UserRole.PHARMACY && r !== UserRole.ADMIN && r !== UserRole.SUPERUSER) return;
-    const load = () => db.fetchConversations(currentPharmacy.id).then(setConversations).catch(() => {});
-    load();
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
+
+    // Eerste load (localStorage + Supabase)
+    db.fetchConversations(currentPharmacy.id).then(setConversations).catch(() => {});
+
+    // Realtime subscription (alleen als Supabase beschikbaar is)
+    if (!supabase) return;
+    const channel = supabase
+      .channel('chat_conversations_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: `pharmacyId=eq.${currentPharmacy.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setConversations(prev => [payload.new as ChatConversation, ...prev]);
+            setToast('Nieuw patiëntgesprek ontvangen');
+            setTimeout(() => setToast(null), 4000);
+          }
+          if (payload.eventType === 'UPDATE') {
+            setConversations(prev =>
+              prev.map(c =>
+                c.id === (payload.new as ChatConversation).id
+                  ? (payload.new as ChatConversation)
+                  : c
+              )
+            );
+          }
+          if (payload.eventType === 'DELETE') {
+            setConversations(prev =>
+              prev.filter(c => c.id !== (payload.old as { id: string }).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [session, currentPharmacy.id]);
 
   const handleMarkConversationRead = (id: string) => {
@@ -244,7 +282,22 @@ const App: React.FC = () => {
 );
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public access" ON packages;
-CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
+CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);
+
+CREATE TABLE IF NOT EXISTS chat_conversations (
+  id TEXT PRIMARY KEY,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "expiresAt" TIMESTAMPTZ,
+  "pharmacyId" TEXT,
+  messages JSONB DEFAULT '[]',
+  "hasRiskSignal" BOOLEAN DEFAULT false,
+  "callbackRequest" JSONB,
+  "isRead" BOOLEAN DEFAULT false
+);
+ALTER TABLE chat_conversations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public access" ON chat_conversations;
+CREATE POLICY "Allow public access" ON chat_conversations FOR ALL USING (true);
+ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
     navigator.clipboard.writeText(sql);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -380,6 +433,13 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
       hideMobileNav={showScanner}
       extraHeaderContent={extraHeader}
     >
+      {/* Toast notificatie */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-black animate-in slide-in-from-top duration-300 whitespace-nowrap">
+          💬 {toast}
+        </div>
+      )}
+
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         {setupBanner}
 
