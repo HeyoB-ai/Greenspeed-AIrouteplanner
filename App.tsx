@@ -482,22 +482,16 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
           <AdminView
             packages={visiblePackages}
             pharmacyName={currentPharmacy.name}
-            onScanStart={() => setShowScanner(true)}
-            onManualAdd={() => setShowManualForm(true)}
-            onOptimize={handleOptimizeRoute}
-            isOptimizing={isOptimizing}
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}
             onMarkCallbackHandled={handleMarkCallbackHandled}
           />
         )}
 
-        {/* PHARMACY — scannen + chatbot, geen route-optimalisatie */}
+        {/* PHARMACY — overzicht + chats */}
         {role === UserRole.PHARMACY && (
           <PharmacyView
             packages={visiblePackages}
-            onScanStart={() => setShowScanner(true)}
-            onManualAdd={() => setShowManualForm(true)}
             pharmacyName={currentPharmacy.name}
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}

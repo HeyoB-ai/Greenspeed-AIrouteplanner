@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Package, Scan, MapPin, ArrowRight, CheckCircle2, ListChecks, Map,
-  Loader2, RefreshCw, Building2, MousePointerClick, Truck, ShieldCheck, Clock,
+  Package, MapPin, CheckCircle2,
+  RefreshCw, Building2, Truck, ShieldCheck, Clock,
   MessageCircle, Phone, AlertTriangle, ArrowLeft, ChevronRight
 } from 'lucide-react';
 import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
@@ -9,10 +9,6 @@ import ChatBot from './ChatBot';
 
 interface Props {
   packages: PackageType[];
-  onScanStart: () => void;
-  onManualAdd?: () => void;
-  onOptimize?: (selectedIds: string[]) => void;
-  isOptimizing?: boolean;
   pharmacyName: string;
   conversations?: ChatConversation[];
   onMarkConversationRead?: (id: string) => void;
@@ -34,20 +30,15 @@ const STATUS_STYLE: Record<string, string> = {
 
 const PharmacyView: React.FC<Props> = ({
   packages,
-  onScanStart,
-  onManualAdd,
-  onOptimize,
-  isOptimizing,
   pharmacyName,
   conversations = [],
   onMarkConversationRead,
   onMarkCallbackHandled,
 }) => {
-  const [selectedIds, setSelectedIds]           = useState<string[]>([]);
-  const [activeTab, setActiveTab]               = useState<'packages' | 'chats'>('packages');
-  const [selectedConv, setSelectedConv]         = useState<ChatConversation | null>(null);
+  const [activeTab, setActiveTab]       = useState<'packages' | 'chats'>('packages');
+  const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
 
-  const unreadCount = conversations.filter(c => !c.isRead).length;
+  const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
 
   const openConversation = (conv: ChatConversation) => {
@@ -55,14 +46,8 @@ const PharmacyView: React.FC<Props> = ({
     if (!conv.isRead && onMarkConversationRead) onMarkConversationRead(conv.id);
   };
 
-  const pendingPackages = packages.filter(p => p.status === PackageStatus.PENDING);
   const activeScansCount = packages.filter(p => p.status === PackageStatus.SCANNING).length;
-
-  const toggleSelect = (id: string) =>
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-
-  const selectAll = () =>
-    setSelectedIds(selectedIds.length === pendingPackages.length ? [] : pendingPackages.map(p => p.id));
+  const pendingPackages  = packages.filter(p => p.status === PackageStatus.PENDING);
 
   const sorted = [...packages].sort((a, b) => {
     if (a.orderIndex !== undefined && b.orderIndex !== undefined) return a.orderIndex - b.orderIndex;
@@ -71,12 +56,11 @@ const PharmacyView: React.FC<Props> = ({
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // ── Stats ────────────────────────────────────────────────────────
   const stats = [
-    { label: 'Totaal',      val: packages.length,                                                          icon: Package,     color: 'text-blue-600',    bg: 'bg-blue-50' },
-    { label: 'In transit',  val: packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP).length, icon: Truck,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
-    { label: 'Bezorgd',     val: packages.filter(p => p.status === PackageStatus.DELIVERED).length,        icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Wachten',     val: pendingPackages.length,                                                   icon: Clock,       color: 'text-amber-600',   bg: 'bg-amber-50' },
+    { label: 'Totaal',     val: packages.length,                                                                                              icon: Package,     color: 'text-blue-600',    bg: 'bg-blue-50' },
+    { label: 'In transit', val: packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP).length,     icon: Truck,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+    { label: 'Bezorgd',    val: packages.filter(p => p.status === PackageStatus.DELIVERED).length,                                            icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Wachten',    val: pendingPackages.length,                                                                                       icon: Clock,       color: 'text-amber-600',   bg: 'bg-amber-50' },
   ];
 
   return (
@@ -106,76 +90,8 @@ const PharmacyView: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* ── Acties kolom ── */}
-        <div className="lg:col-span-1 space-y-4">
-
-          {/* Scan knop */}
-          <div className="bg-blue-600 rounded-4xl p-7 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group">
-            <div className="relative z-10">
-              <div className="bg-white/20 w-10 h-10 rounded-2xl flex items-center justify-center mb-5">
-                <Scan size={22} />
-              </div>
-              <h2 className="text-2xl font-black tracking-tight mb-1 text-white">Scannen</h2>
-              <p className="text-blue-100 text-sm font-medium mb-6 leading-relaxed">
-                Scan labels snel achter elkaar.
-              </p>
-              <button
-                onClick={onScanStart}
-                className="w-full bg-white text-blue-600 h-12 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Start Scanner</span>
-                <ArrowRight size={18} />
-              </button>
-              {onManualAdd && (
-                <button
-                  onClick={onManualAdd}
-                  className="w-full mt-3 text-blue-200 hover:text-white text-xs font-bold transition-colors text-center py-1"
-                >
-                  ✏ Handmatig adres invoeren
-                </button>
-              )}
-            </div>
-            <Package className="absolute -bottom-10 -right-10 w-40 h-40 text-white/10 rotate-12 group-hover:rotate-45 transition-transform duration-1000" />
-          </div>
-
-          {/* Route plannen */}
-          {onOptimize && pendingPackages.length > 0 && (
-            <div className="bg-indigo-900 rounded-4xl p-7 text-white shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <ListChecks size={24} />
-                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-black">
-                  {selectedIds.length} geselecteerd
-                </span>
-              </div>
-              <h3 className="text-lg font-black mb-1">Route Plannen</h3>
-              <p className="text-indigo-200 text-xs mb-5 font-medium">
-                Selecteer adressen voor routeoptimalisatie.
-              </p>
-              <div className="space-y-2">
-                <button
-                  onClick={selectAll}
-                  className="w-full bg-indigo-800/50 text-indigo-100 h-11 rounded-xl font-bold text-xs hover:bg-indigo-800 border border-indigo-700 flex items-center justify-center space-x-2 transition-all"
-                >
-                  <MousePointerClick size={14} />
-                  <span>{selectedIds.length === pendingPackages.length ? 'Selectie Wissen' : 'Selecteer Alles'}</span>
-                </button>
-                <button
-                  onClick={() => onOptimize?.(selectedIds)}
-                  disabled={isOptimizing || selectedIds.length === 0}
-                  className="w-full bg-indigo-500 text-white h-12 rounded-2xl font-black text-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-400 transition-all"
-                >
-                  {isOptimizing ? <Loader2 className="animate-spin" size={18} /> : <Map size={18} />}
-                  <span>{isOptimizing ? 'Berekenen…' : 'Start Route Planning'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Pakkettenlijst / Chats ── */}
-        <div className="lg:col-span-2">
+      {/* ── Pakkettenlijst / Chats ── */}
+      <div className="w-full">
           <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden flex flex-col h-full">
             {/* Tab headers */}
             <div className="px-6 pt-5 pb-0 border-b border-slate-100 bg-slate-50/50">
@@ -431,7 +347,6 @@ const PharmacyView: React.FC<Props> = ({
             )}
           </div>
         </div>
-      </div>
 
       {/* ── Conversation detail overlay ── */}
       {selectedConv && (
