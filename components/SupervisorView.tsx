@@ -1,8 +1,9 @@
 
 
 import React, { useState } from 'react';
-import { Package as PackageType, User, PackageStatus } from '../types';
-import { Users, Package, ChevronRight, TrendingUp, MapPin, ShieldCheck, CreditCard, Download, Building2, ExternalLink, Archive } from 'lucide-react';
+import { Package as PackageType, User, PackageStatus, Pharmacy } from '../types';
+import { Users, Package, ChevronRight, TrendingUp, ShieldCheck, CreditCard, Download, Building2, ExternalLink, Archive } from 'lucide-react';
+import ArchiveView from './ArchiveView';
 
 const STATUS_STYLE: Record<string, string> = {
   [PackageStatus.SCANNING]:  'bg-blue-50 text-blue-500',
@@ -20,6 +21,7 @@ const STATUS_STYLE: Record<string, string> = {
 interface Props {
   packages: PackageType[];
   couriers: User[];
+  pharmacies?: Pharmacy[];
   onUpdateStatus: (ids: string[], status: PackageStatus) => void;
 }
 
@@ -28,8 +30,8 @@ interface BillingEntry {
   packages: PackageType[];
 }
 
-const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus }) => {
-  const [activeTab, setActiveTab] = useState<'log' | 'billing'>('log');
+const SupervisorView: React.FC<Props> = ({ packages, couriers, pharmacies, onUpdateStatus }) => {
+  const [activeTab, setActiveTab] = useState<'log' | 'billing' | 'archive'>('log');
   const delivered = packages.filter(p =>
     p.status === PackageStatus.DELIVERED ||
     p.status === PackageStatus.MAILBOX ||
@@ -103,22 +105,33 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-4xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-2 flex border-b border-slate-100 bg-slate-50/50">
-              <button 
+              <button
                 onClick={() => setActiveTab('log')}
                 className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'log' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}
               >
                 Totaal Logboek
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('billing')}
                 className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'billing' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}
               >
-                Financiële Afhandeling
+                Facturatie
+              </button>
+              <button
+                onClick={() => setActiveTab('archive')}
+                className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'archive' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}
+              >
+                Archief
               </button>
             </div>
             
             <div className="divide-y divide-slate-100 min-h-[500px]">
-              {activeTab === 'log' ? (
+              {activeTab === 'archive' && (
+                <div className="p-6">
+                  <ArchiveView packages={packages} pharmacyId={undefined} pharmacies={pharmacies} />
+                </div>
+              )}
+              {activeTab === 'log' && (
                 packages.length === 0 ? (
                   <div className="p-20 text-center text-slate-400 font-bold">Geen data beschikbaar</div>
                 ) : (
@@ -139,7 +152,7 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                           </div>
                         </div>
                         {p.deliveryEvidence && (
-                          <button 
+                          <button
                             onClick={() => window.open(`https://www.google.com/maps?q=${p.deliveryEvidence?.latitude},${p.deliveryEvidence?.longitude}`)}
                             className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors"
                           >
@@ -151,14 +164,14 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                     </div>
                   ))
                 )
-              ) : (
+              )}
+              {activeTab === 'billing' && (
                 Object.keys(billingData).length === 0 ? (
                   <div className="p-20 text-center text-slate-400 font-bold">
                     <CreditCard className="mx-auto mb-4 opacity-20" size={48} />
                     <p>Geen openstaande bezorgingen voor facturatie.</p>
                   </div>
                 ) : (
-                  // Explicitly casting Object.entries to fix property access on 'unknown' types for 'count' and 'packages'
                   (Object.entries(billingData) as [string, BillingEntry][]).map(([pharmacy, data]) => (
                     <div key={pharmacy} className="p-8 hover:bg-slate-50 transition-colors">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -179,14 +192,14 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Openstaand</p>
                           </div>
                           <div className="flex space-x-2">
-                            <button 
+                            <button
                               onClick={() => exportToCSV(pharmacy, data.packages)}
                               title="Download CSV"
                               className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all"
                             >
                               <Download size={20} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleBillPharmacy(pharmacy, data.packages)}
                               title="Markeer als gefactureerd"
                               className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"

@@ -471,6 +471,7 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
             <SupervisorView
               packages={packages}
               couriers={couriers}
+              pharmacies={pharmacies}
               onUpdateStatus={updateMultipleStatus}
             />
             <ChatBot packages={packages} pharmacyName="Greenspeed HQ" />

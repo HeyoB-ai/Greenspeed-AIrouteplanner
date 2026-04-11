@@ -108,3 +108,30 @@ export interface ChatConversation {
   callbackRequest?: CallbackRequest;
   isRead:           boolean;
 }
+
+export interface ArchiveStats {
+  period:        string;
+  totalPackages: number;
+  delivered:     number;
+  mailbox:       number;
+  neighbour:     number;
+  returned:      number;
+  failed:        number;
+  deliveryRate:  number;   // percentage succesvol bezorgd
+  avgPerDay:     number;   // gemiddeld per dag in periode
+}
+
+export interface DailyCount {
+  date:      string;       // "2026-04-11"
+  total:     number;
+  delivered: number;
+  failed:    number;
+}
+
+export interface HeatmapPoint {
+  lat:     number;
+  lng:     number;
+  weight:  number;         // aantal pakketjes op dit adres
+  address: string;
+  status:  PackageStatus;
+}

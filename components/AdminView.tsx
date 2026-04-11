@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive
 } from 'lucide-react';
 import ChatBot from './ChatBot';
+import ArchiveView from './ArchiveView';
 
 interface Props {
   packages: PackageType[];
@@ -31,7 +32,7 @@ const AdminView: React.FC<Props> = ({
   packages, pharmacyName,
   conversations = [], onMarkConversationRead, onMarkCallbackHandled,
 }) => {
-  const [activeTab, setActiveTab]       = useState<'packages' | 'chats'>('packages');
+  const [activeTab, setActiveTab]       = useState<'packages' | 'chats' | 'archive'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
@@ -140,6 +141,17 @@ const AdminView: React.FC<Props> = ({
                       </span>
                     )}
                   </button>
+                  <button
+                    onClick={() => setActiveTab('archive')}
+                    className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center space-x-1.5 ${
+                      activeTab === 'archive'
+                        ? 'bg-white border border-b-white border-slate-200 text-slate-900 -mb-px z-10'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Archive size={12} />
+                    <span>Archief</span>
+                  </button>
                 </div>
               </div>
 
@@ -157,6 +169,15 @@ const AdminView: React.FC<Props> = ({
                   <h3 className="text-base lg:text-lg font-black text-slate-900">Patiëntgesprekken</h3>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                     {conversations.length} gesprekken · {unreadCount} ongelezen
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'archive' && (
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h3 className="text-base lg:text-lg font-black text-slate-900">Archief &amp; statistieken</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Historische bezorgdata en trends
                   </p>
                 </div>
               )}
@@ -233,6 +254,13 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </>
                 )
+              )}
+
+              {/* ── Archive tab ── */}
+              {activeTab === 'archive' && (
+                <div className="p-6">
+                  <ArchiveView packages={packages} pharmacyId={undefined} />
+                </div>
               )}
 
               {/* ── Chats tab ── */}

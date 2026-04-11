@@ -58,3 +58,8 @@
 #loader-fallback {
   @apply fixed inset-0 flex items-center justify-center bg-white z-[10000] transition-opacity duration-500;
 }
+
+/* Leaflet map container z-index fix voor Vite */
+.leaflet-container {
+  z-index: 1;
+}
