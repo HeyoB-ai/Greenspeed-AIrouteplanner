@@ -83,3 +83,28 @@ export interface Pharmacy {
   name: string;
   address?: string;
 }
+
+export interface ChatMessage {
+  id:        string;
+  role:      'user' | 'assistant';
+  text:      string;
+  timestamp: string;
+}
+
+export interface CallbackRequest {
+  phoneNumber:   string;
+  preferredTime: string;
+  requestedAt:   string;
+  isHandled:     boolean;
+}
+
+export interface ChatConversation {
+  id:               string;
+  createdAt:        string;
+  expiresAt:        string;         // createdAt + 30 dagen
+  pharmacyId:       string;
+  messages:         ChatMessage[];
+  hasRiskSignal:    boolean;
+  callbackRequest?: CallbackRequest;
+  isRead:           boolean;
+}

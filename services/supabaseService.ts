@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Package } from '../types';
+import { Package, ChatConversation } from '../types';
 
 /**
  * Veilige helper om omgevingsvariabelen op te halen.
@@ -160,6 +160,49 @@ export const db = {
       }
     }
   },
+
+  async saveConversation(conv: ChatConversation) {
+    if (!supabase) return; // alleen opslaan als cloud beschikbaar
+    try {
+      await supabase.from('chat_conversations').upsert({
+        id:               conv.id,
+        createdAt:        conv.createdAt,
+        expiresAt:        conv.expiresAt,
+        pharmacyId:       conv.pharmacyId,
+        messages:         conv.messages,
+        hasRiskSignal:    conv.hasRiskSignal,
+        callbackRequest:  conv.callbackRequest ?? null,
+        isRead:           conv.isRead,
+      });
+    } catch (err) {
+      console.warn('Chat sync mislukt:', err);
+    }
+  },
+
+  async fetchConversations(pharmacyId: string): Promise<ChatConversation[]> {
+    if (!supabase) return [];
+    try {
+      const { data } = await supabase
+        .from('chat_conversations')
+        .select('*')
+        .eq('pharmacyId', pharmacyId)
+        .gt('expiresAt', new Date().toISOString())
+        .order('createdAt', { ascending: false });
+      return (data as ChatConversation[]) ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  async markConversationRead(id: string) {
+    if (!supabase) return;
+    try {
+      await supabase.from('chat_conversations').update({ isRead: true }).eq('id', id);
+    } catch (err) {
+      console.warn('markConversationRead mislukt:', err);
+    }
+  },
+
 
   async deleteData() {
     localStorage.removeItem(LOCAL_STORAGE_KEY);

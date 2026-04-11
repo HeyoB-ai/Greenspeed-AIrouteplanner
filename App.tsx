@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser } from './types';
+import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation } from './types';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -67,6 +68,28 @@ const App: React.FC = () => {
     }
     return pharmacies[0] || { id: 'ph-1', name: 'Apotheek de Kroon' };
   }, [session, role, pharmacies, superuserPharmacyId]);
+
+  // Load conversations for pharmacy staff roles
+  useEffect(() => {
+    if (!session) return;
+    const r = session.user.role;
+    if (r !== UserRole.PHARMACY && r !== UserRole.ADMIN && r !== UserRole.SUPERUSER) return;
+    db.fetchConversations(currentPharmacy.id).then(setConversations).catch(() => {});
+  }, [session, currentPharmacy.id]);
+
+  const handleMarkConversationRead = (id: string) => {
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, isRead: true } : c));
+    db.markConversationRead(id).catch(() => {});
+  };
+
+  const handleMarkCallbackHandled = (id: string) => {
+    setConversations(prev => prev.map(c => {
+      if (c.id !== id || !c.callbackRequest) return c;
+      const updated = { ...c, callbackRequest: { ...c.callbackRequest, isHandled: true } };
+      db.saveConversation(updated).catch(() => {});
+      return updated;
+    }));
+  };
 
   // Package filter per role
   const visiblePackages = useMemo(() => {
@@ -244,6 +267,7 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
     );
   }
 
+
   // ── Helpers for authenticated views ─────────────────────────────
   const syncIndicator = (
     <div className={`flex items-center space-x-2 px-3 py-1 border rounded-full transition-colors ${hasCloudConfig ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-100'}`}>
@@ -409,6 +433,9 @@ CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);`;
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}
             pharmacyName={currentPharmacy.name}
+            conversations={conversations}
+            onMarkConversationRead={handleMarkConversationRead}
+            onMarkCallbackHandled={handleMarkCallbackHandled}
           />
         )}
 

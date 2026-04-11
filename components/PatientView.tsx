@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package as PackageType, PackageStatus } from '../types';
-import { Search, Package, Truck, CheckCircle2, MapPin, Clock, AlertCircle } from 'lucide-react';
+import { Search, Package, Truck, CheckCircle2, MapPin, Clock, AlertCircle, MessageCircle } from 'lucide-react';
+import PatientChatbot from './PatientChatbot';
 
 interface Props {
   packages: PackageType[];
@@ -12,6 +13,7 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
   const [houseNumber, setHouseNumber]       = useState('');
   const [foundPackage, setFoundPackage]     = useState<PackageType | null>(null);
   const [error, setError]                   = useState<string | null>(null);
+  const [showChat, setShowChat]             = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -231,9 +233,25 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
                 <span className="font-black underline">{foundPackage.pharmacyName}</span>.
               </p>
             </div>
+
+            <button
+              onClick={() => setShowChat(true)}
+              className="w-full flex items-center justify-center space-x-2 h-12 bg-blue-600 text-white rounded-3xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all"
+            >
+              <MessageCircle size={18} />
+              <span>Vraag onze assistent</span>
+            </button>
           </div>
         )}
       </div>
+
+      {showChat && foundPackage && (
+        <PatientChatbot
+          pharmacyId={foundPackage.pharmacyId}
+          pharmacyName={foundPackage.pharmacyName}
+          onClose={() => setShowChat(false)}
+        />
+      )}
     </div>
   );
 };

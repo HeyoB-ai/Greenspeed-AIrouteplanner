@@ -1,4 +1,4 @@
-import { Address } from "../types";
+import { Address, ChatMessage } from "../types";
 
 export interface ScanResult {
   address: Address;
@@ -95,6 +95,86 @@ export async function extractAddressFromImage(
     throw err; // let processQueue handle and display it
   }
 }
+
+// ── Patiënt-chatbot ─────────────────────────────────────────────────
+
+const PATIENT_SYSTEM_PROMPT = `
+Je bent een vriendelijke informatie-assistent van een apotheek.
+
+WAT JE MAG DOEN:
+- Algemene informatie geven over medicijnen (zoals in bijsluiters staat)
+- Uitleggen wat een medicijn doet, voor welke klachten het gebruikt wordt
+- Algemene bewaartips geven
+- Uitleggen hoe een medicijn ingenomen wordt (algemeen, niet persoonlijk)
+- Vragen beantwoorden over de bezorgstatus
+- Doorverwijzen naar de apotheker voor persoonlijke vragen
+- Een terugbelverzoek aanbieden
+
+WAT JE NOOIT DOET — ABSOLUUT VERBODEN:
+- Persoonlijk doseeradvies geven
+- Medicijninteracties beoordelen voor een specifieke persoon
+- Zeggen of iemand een medicijn wel of niet moet gebruiken
+- Diagnoses stellen of bevestigen
+- Oordelen over behandelingen van artsen
+
+BIJ PERSOONLIJK MEDISCH ADVIES:
+Sluit je antwoord altijd af met:
+"Voor persoonlijk advies kunt u het beste contact opnemen met uw apotheker of huisarts."
+
+TOON:
+Vriendelijk, rustig, beknopt. Geen medisch jargon tenzij de gebruiker dat zelf gebruikt. Altijd in het Nederlands.
+
+Apotheek: [PHARMACY_INFO]
+`.trim();
+
+const RISK_KEYWORDS = [
+  'overdosis', 'teveel ingenomen', 'zelfmoord', 'zelfdoding',
+  'leven beëindigen', 'suïcide', 'pijnstillers allemaal',
+  'niet meer willen leven', 'per ongeluk teveel',
+];
+
+export function detectRisk(text: string): boolean {
+  const lower = text.toLowerCase();
+  return RISK_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+const EMERGENCY_RESPONSE =
+  'Dit klinkt als een noodgeval. Bel direct **112** of bel **113** voor de Zelfmoordpreventielijn (24/7 bereikbaar, ook via chat op 113.nl). Geef deze informatie ook door aan iemand in uw omgeving.';
+
+export async function answerPatientQuestion(
+  question: string,
+  history: ChatMessage[],
+  pharmacyName: string
+): Promise<{ text: string; hasRisk: boolean }> {
+  // Risicodetectie vóór elke Gemini-aanroep
+  if (detectRisk(question)) {
+    return { text: EMERGENCY_RESPONSE, hasRisk: true };
+  }
+
+  const systemPrompt = PATIENT_SYSTEM_PROMPT.replace('[PHARMACY_INFO]', pharmacyName);
+
+  // Gemini vereist afwisselende user/model beurt — map assistant → model
+  const contents = [
+    ...history.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.text }],
+    })),
+    { role: 'user', parts: [{ text: question }] },
+  ];
+
+  try {
+    const text = await callGemini({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
+    });
+    return { text: text ?? 'Er is iets misgegaan. Probeer het opnieuw.', hasRisk: false };
+  } catch {
+    return { text: 'Er is een fout opgetreden. Probeer het later opnieuw.', hasRisk: false };
+  }
+}
+
+// ── Route-optimalisatie ──────────────────────────────────────────────
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[]
