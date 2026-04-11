@@ -1,39 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, Mailbox, Users, Undo2, X } from 'lucide-react';
+import { Check, Mailbox, Users, Undo2, X, MoveRight, MapPin, PenLine } from 'lucide-react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
+
+type NotHomeStatus =
+  | PackageStatus.MAILBOX
+  | PackageStatus.NEIGHBOUR
+  | PackageStatus.RETURN
+  | PackageStatus.MOVED
+  | PackageStatus.OTHER_LOCATION;
 
 interface NotHomeSheetProps {
   pkg: PackageType;
-  onComplete: (
-    status: PackageStatus.MAILBOX | PackageStatus.NEIGHBOUR | PackageStatus.RETURN,
-    evidence: DeliveryEvidence
-  ) => void;
+  onComplete: (status: NotHomeStatus, evidence: DeliveryEvidence) => void;
   onCancel: () => void;
 }
 
-type Option = 'mailbox' | 'neighbour' | 'return';
+type OptionKey = 'mailbox' | 'neighbour' | 'return' | 'moved' | 'other_location' | 'custom';
 
-const OPTIONS: {
-  key: Option;
-  label: string;
-  sub: string;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
+interface Option {
+  key:        OptionKey;
+  label:      string;
+  sub:        string;
+  icon:       React.ElementType;
+  iconBg:     string;
+  iconColor:  string;
   cardBorder: string;
-  cardBg: string;
-  status: PackageStatus.MAILBOX | PackageStatus.NEIGHBOUR | PackageStatus.RETURN;
-  doneLabel: string;
-}[] = [
+  cardBg:     string;
+  status:     NotHomeStatus;
+  doneLabel:  string;
+}
+
+const OPTIONS: Option[] = [
   {
     key: 'mailbox',
     label: 'Brievenbus',
     sub: 'Pakket past in de brievenbus',
     icon: Mailbox,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    cardBorder: 'border-emerald-200',
-    cardBg: 'bg-emerald-50',
+    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    cardBorder: 'border-emerald-200', cardBg: 'bg-emerald-50',
     status: PackageStatus.MAILBOX,
     doneLabel: 'Brievenbus',
   },
@@ -42,10 +46,8 @@ const OPTIONS: {
     label: 'Bij buren',
     sub: 'Afgeven bij buren',
     icon: Users,
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600',
-    cardBorder: 'border-blue-200',
-    cardBg: 'bg-blue-50',
+    iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
+    cardBorder: 'border-blue-200', cardBg: 'bg-blue-50',
     status: PackageStatus.NEIGHBOUR,
     doneLabel: 'Bij buren',
   },
@@ -54,22 +56,64 @@ const OPTIONS: {
     label: 'Terug naar apotheek',
     sub: 'Pakket niet kwijt kunnen',
     icon: Undo2,
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-    cardBorder: 'border-amber-200',
-    cardBg: 'bg-amber-50',
+    iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
+    cardBorder: 'border-amber-200', cardBg: 'bg-amber-50',
     status: PackageStatus.RETURN,
     doneLabel: 'Retour apotheek',
   },
+  {
+    key: 'moved',
+    label: 'Verhuisd',
+    sub: 'Patiënt woont niet meer op dit adres',
+    icon: MoveRight,
+    iconBg: 'bg-purple-100', iconColor: 'text-purple-600',
+    cardBorder: 'border-purple-200', cardBg: 'bg-purple-50',
+    status: PackageStatus.MOVED,
+    doneLabel: 'Verhuisd',
+  },
+  {
+    key: 'other_location',
+    label: 'Andere locatie',
+    sub: 'Patiënt verblijft tijdelijk elders',
+    icon: MapPin,
+    iconBg: 'bg-sky-100', iconColor: 'text-sky-600',
+    cardBorder: 'border-sky-200', cardBg: 'bg-sky-50',
+    status: PackageStatus.OTHER_LOCATION,
+    doneLabel: 'Andere locatie',
+  },
+  {
+    key: 'custom',
+    label: 'Andere reden',
+    sub: 'Typ een toelichting',
+    icon: PenLine,
+    iconBg: 'bg-slate-100', iconColor: 'text-slate-600',
+    cardBorder: 'border-slate-200', cardBg: 'bg-slate-50',
+    status: PackageStatus.RETURN, // gaat terug naar apotheek
+    doneLabel: 'Andere reden',
+  },
 ];
 
+const getNoteForOption = (option: OptionKey, extra?: string): string => {
+  switch (option) {
+    case 'mailbox':        return 'Achtergelaten in brievenbus';
+    case 'neighbour':      return `Afgegeven bij buren${extra ? ` nr. ${extra}` : ''}`;
+    case 'return':         return 'Retour naar apotheek';
+    case 'moved':          return 'Patiënt verhuisd — retour apotheek';
+    case 'other_location': return 'Patiënt verblijft op andere locatie — retour apotheek';
+    case 'custom':         return extra?.trim() || 'Andere reden';
+    default:               return '';
+  }
+};
+
 const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }) => {
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [selected, setSelected] = useState<Option | null>(null);
+  const [location, setLocation]     = useState<{ latitude: number; longitude: number } | null>(null);
+  const [selected, setSelected]     = useState<OptionKey | null>(null);
   const [neighbourNr, setNeighbourNr] = useState('');
-  const [phase, setPhase] = useState<'choose' | 'done'>('choose');
-  const [doneLabel, setDoneLabel] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [customNote, setCustomNote] = useState('');
+  const [phase, setPhase]           = useState<'choose' | 'done'>('choose');
+  const [doneLabel, setDoneLabel]   = useState('');
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // GPS ophalen zodra sheet opent — niet wachten op keuze
   useEffect(() => {
@@ -81,43 +125,40 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
     );
   }, []);
 
-  // Focus het invulveld zodra "Buren" geselecteerd wordt
+  // Focus hulpvelden zodra ze zichtbaar worden
   useEffect(() => {
-    if (selected === 'neighbour') {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (selected === 'neighbour') setTimeout(() => inputRef.current?.focus(), 50);
+    if (selected === 'custom')    setTimeout(() => textareaRef.current?.focus(), 50);
   }, [selected]);
 
-  const commit = (option: typeof OPTIONS[number]) => {
+  const commit = (option: Option, extraNote?: string) => {
     const gps = location ?? { latitude: 0, longitude: 0 };
-    const noteBase = option.key === 'neighbour' && neighbourNr.trim()
-      ? `Buren nr. ${neighbourNr.trim()}`
-      : undefined;
-    const note = !location
-      ? [noteBase, '(GPS niet beschikbaar)'].filter(Boolean).join(' ')
-      : noteBase;
+    let note = getNoteForOption(option.key, extraNote);
+    if (!location) note += ' (GPS niet beschikbaar)';
 
     const evidence: DeliveryEvidence = {
       ...gps,
-      timestamp: new Date().toISOString(),
+      timestamp:     new Date().toISOString(),
       notHomeOption: option.key,
-      ...(note ? { deliveryNote: note } : {}),
+      deliveryNote:  note,
     };
 
     setDoneLabel(option.doneLabel);
     setPhase('done');
-
-    setTimeout(() => {
-      onComplete(option.status, evidence);
-    }, 1500);
+    setTimeout(() => onComplete(option.status, evidence), 1500);
   };
 
-  const handleSelect = (option: typeof OPTIONS[number]) => {
-    if (option.key === 'neighbour') {
-      setSelected('neighbour');
+  const handleSelect = (option: Option) => {
+    if (option.key === 'neighbour' || option.key === 'custom') {
+      setSelected(option.key);
     } else {
       commit(option);
     }
+  };
+
+  const handleConfirmCustom = () => {
+    const opt = OPTIONS.find(o => o.key === 'custom')!;
+    commit(opt, customNote);
   };
 
   return (
@@ -130,7 +171,7 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
 
       {/* Sheet */}
       <div
-        className="relative bg-white rounded-t-3xl shadow-2xl z-10 animate-in slide-in-from-bottom duration-300"
+        className="relative bg-white rounded-t-3xl shadow-2xl z-10 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         {phase === 'choose' ? (
@@ -193,12 +234,33 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                           className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                         />
                         <button
-                          onClick={() => commit(opt)}
+                          onClick={() => commit(opt, neighbourNr)}
                           className="px-5 h-12 bg-blue-600 text-white rounded-2xl font-black text-sm active:scale-95 transition-all shrink-0"
                         >
                           Bevestig
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Inline tekstveld bij "Andere reden" */}
+                  {opt.key === 'custom' && selected === 'custom' && (
+                    <div className="mt-2 px-1 animate-in slide-in-from-top-2 duration-200">
+                      <textarea
+                        ref={textareaRef}
+                        value={customNote}
+                        onChange={e => setCustomNote(e.target.value)}
+                        placeholder="Beschrijf wat er aan de hand is..."
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                      />
+                      <button
+                        onClick={handleConfirmCustom}
+                        disabled={!customNote.trim()}
+                        className="w-full mt-2 h-12 bg-blue-600 text-white rounded-2xl font-black text-sm disabled:opacity-40 transition-all active:scale-[0.98]"
+                      >
+                        Bevestigen
+                      </button>
                     </div>
                   )}
                 </div>

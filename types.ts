@@ -36,9 +36,11 @@ export enum PackageStatus {
   DELIVERED = 'BEZORGD',
   MAILBOX   = 'BRIEVENBUS',
   NEIGHBOUR = 'BIJ BUREN',
-  RETURN    = 'RETOUR APOTHEEK',
-  BILLED    = 'GEFACTUREERD',
-  FAILED    = 'MISLUKT',
+  RETURN          = 'RETOUR APOTHEEK',
+  BILLED          = 'GEFACTUREERD',
+  FAILED          = 'MISLUKT',
+  MOVED           = 'VERHUISD',
+  OTHER_LOCATION  = 'ANDERE LOCATIE',
 }
 
 export interface Address {
@@ -53,7 +55,7 @@ export interface DeliveryEvidence {
   longitude: number;
   timestamp: string;
   deliveryNote?: string;
-  notHomeOption?: 'mailbox' | 'neighbour' | 'return';
+  notHomeOption?: 'mailbox' | 'neighbour' | 'return' | 'moved' | 'other_location' | 'custom';
 }
 
 export interface Package {

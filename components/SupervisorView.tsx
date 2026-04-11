@@ -6,16 +6,18 @@ import { Users, Package, ChevronRight, TrendingUp, ShieldCheck, CreditCard, Down
 import ArchiveView from './ArchiveView';
 
 const STATUS_STYLE: Record<string, string> = {
-  [PackageStatus.SCANNING]:  'bg-blue-50 text-blue-500',
-  [PackageStatus.PENDING]:   'bg-slate-100 text-slate-500',
-  [PackageStatus.ASSIGNED]:  'bg-indigo-100 text-indigo-600',
-  [PackageStatus.PICKED_UP]: 'bg-indigo-100 text-indigo-600',
-  [PackageStatus.DELIVERED]: 'bg-emerald-100 text-emerald-600',
-  [PackageStatus.MAILBOX]:   'bg-emerald-100 text-emerald-600',
-  [PackageStatus.NEIGHBOUR]: 'bg-blue-100 text-blue-700',
-  [PackageStatus.RETURN]:    'bg-amber-100 text-amber-700',
-  [PackageStatus.FAILED]:    'bg-red-100 text-red-600',
-  [PackageStatus.BILLED]:    'bg-slate-100 text-slate-400',
+  [PackageStatus.SCANNING]:        'bg-blue-50 text-blue-500',
+  [PackageStatus.PENDING]:         'bg-slate-100 text-slate-500',
+  [PackageStatus.ASSIGNED]:        'bg-indigo-100 text-indigo-600',
+  [PackageStatus.PICKED_UP]:       'bg-indigo-100 text-indigo-600',
+  [PackageStatus.DELIVERED]:       'bg-emerald-100 text-emerald-600',
+  [PackageStatus.MAILBOX]:         'bg-emerald-100 text-emerald-600',
+  [PackageStatus.NEIGHBOUR]:       'bg-blue-100 text-blue-700',
+  [PackageStatus.RETURN]:          'bg-amber-100 text-amber-700',
+  [PackageStatus.FAILED]:          'bg-red-100 text-red-600',
+  [PackageStatus.BILLED]:          'bg-slate-100 text-slate-400',
+  [PackageStatus.MOVED]:           'bg-purple-100 text-purple-700',
+  [PackageStatus.OTHER_LOCATION]:  'bg-sky-100 text-sky-700',
 };
 
 interface Props {
