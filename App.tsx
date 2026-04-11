@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation } from './types';
+import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation, Address } from './types';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
@@ -165,31 +165,25 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNewScan = useCallback(async ({ address, pharmacyName: scannedPharmacy }: ScanResult) => {
-    // Apotheekherkenning: vergelijk gescande naam met actieve apotheek
-    if (scannedPharmacy) {
-      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const a = normalize(scannedPharmacy);
-      const b = normalize(currentPharmacy.name);
-      if (!a.includes(b) && !b.includes(a)) {
-        setPharmacyMismatch(scannedPharmacy);
-      }
-    }
-
-    // Haal altijd de verse sessie op om stale-closure problemen te voorkomen
+  const handleNewScan = useCallback(async (address: Address) => {
     const currentSession = getSession();
-    const isCourier = currentSession?.user?.role === UserRole.COURIER;
 
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId: currentSession?.user?.pharmacyId ?? currentPharmacy.id,
       pharmacyName: currentPharmacy.name,
       address,
-      status: isCourier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
-      courierId:   isCourier ? currentSession!.user.courierId   : undefined,
-      courierName: isCourier ? currentSession!.user.name        : undefined,
+      status: currentSession?.user?.role === UserRole.COURIER
+        ? PackageStatus.PICKED_UP
+        : PackageStatus.PENDING,
+      courierId: currentSession?.user?.role === UserRole.COURIER
+        ? currentSession.user.courierId
+        : undefined,
+      courierName: currentSession?.user?.role === UserRole.COURIER
+        ? currentSession.user.name
+        : undefined,
       createdAt: new Date().toISOString(),
-      priority: 3,
+      priority: 3
     };
 
     setPackages(prev => [pkg, ...prev]);
@@ -540,14 +534,14 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
 
       {showScanner && (
         <Scanner
-          onScanComplete={handleNewScan}
+          onScanComplete={result => handleNewScan(result.address)}
           onCancel={() => setShowScanner(false)}
         />
       )}
 
       {showManualForm && (
         <ManualAddressForm
-          onComplete={result => { handleNewScan(result); setShowManualForm(false); }}
+          onComplete={result => { handleNewScan(result.address); setShowManualForm(false); }}
           onCancel={() => setShowManualForm(false)}
         />
       )}
