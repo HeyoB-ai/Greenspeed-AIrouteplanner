@@ -4,6 +4,19 @@ import React, { useState } from 'react';
 import { Package as PackageType, User, PackageStatus } from '../types';
 import { Users, Package, ChevronRight, TrendingUp, MapPin, ShieldCheck, CreditCard, Download, Building2, ExternalLink, Archive } from 'lucide-react';
 
+const STATUS_STYLE: Record<string, string> = {
+  [PackageStatus.SCANNING]:  'bg-blue-50 text-blue-500',
+  [PackageStatus.PENDING]:   'bg-slate-100 text-slate-500',
+  [PackageStatus.ASSIGNED]:  'bg-indigo-100 text-indigo-600',
+  [PackageStatus.PICKED_UP]: 'bg-indigo-100 text-indigo-600',
+  [PackageStatus.DELIVERED]: 'bg-emerald-100 text-emerald-600',
+  [PackageStatus.MAILBOX]:   'bg-emerald-100 text-emerald-600',
+  [PackageStatus.NEIGHBOUR]: 'bg-blue-100 text-blue-700',
+  [PackageStatus.RETURN]:    'bg-amber-100 text-amber-700',
+  [PackageStatus.FAILED]:    'bg-red-100 text-red-600',
+  [PackageStatus.BILLED]:    'bg-slate-100 text-slate-400',
+};
+
 interface Props {
   packages: PackageType[];
   couriers: User[];
@@ -17,7 +30,11 @@ interface BillingEntry {
 
 const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus }) => {
   const [activeTab, setActiveTab] = useState<'log' | 'billing'>('log');
-  const delivered = packages.filter(p => p.status === PackageStatus.DELIVERED);
+  const delivered = packages.filter(p =>
+    p.status === PackageStatus.DELIVERED ||
+    p.status === PackageStatus.MAILBOX ||
+    p.status === PackageStatus.NEIGHBOUR
+  );
   const billed = packages.filter(p => p.status === PackageStatus.BILLED);
   
   const billingData = delivered.reduce((acc, pkg) => {
@@ -109,10 +126,7 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                     <div key={p.id} className="p-6 hover:bg-slate-50 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center space-x-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            p.status === PackageStatus.DELIVERED ? 'bg-emerald-100 text-emerald-600' : 
-                            p.status === PackageStatus.BILLED ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-400'
-                          }`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${STATUS_STYLE[p.status] || 'bg-blue-50 text-blue-400'}`}>
                             <Package size={18} />
                           </div>
                           <div>
@@ -120,7 +134,7 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, onUpdateStatus })
                             <div className="flex items-center space-x-2 mt-1 text-[10px] font-bold uppercase tracking-widest">
                               <span className="text-blue-600">{p.pharmacyName}</span>
                               <span className="text-slate-300">•</span>
-                              <span className={p.status === PackageStatus.DELIVERED ? 'text-emerald-600' : 'text-slate-400'}>{p.status}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-400'}`}>{p.status}</span>
                             </div>
                           </div>
                         </div>

@@ -45,14 +45,29 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
     }
   };
 
+  const patientStatusText: Partial<Record<PackageStatus, string>> = {
+    [PackageStatus.SCANNING]:  'Bij de apotheek',
+    [PackageStatus.PENDING]:   'Bij de apotheek',
+    [PackageStatus.ASSIGNED]:  'In bezorging',
+    [PackageStatus.PICKED_UP]: 'In bezorging',
+    [PackageStatus.DELIVERED]: 'Afgeleverd',
+    [PackageStatus.MAILBOX]:   'Afgeleverd in uw brievenbus',
+    [PackageStatus.NEIGHBOUR]: 'Afgeleverd bij de buren',
+    [PackageStatus.RETURN]:    'Retour bij apotheek — neem contact op',
+    [PackageStatus.FAILED]:    'Bezorging mislukt — neem contact op',
+  };
+
   const getStatusStep = (status: PackageStatus) => {
     switch (status) {
       case PackageStatus.SCANNING:
       case PackageStatus.PENDING:   return 1;
       case PackageStatus.ASSIGNED:
       case PackageStatus.PICKED_UP: return 2;
-      case PackageStatus.DELIVERED: return 3;
-      default:                       return 1;
+      case PackageStatus.DELIVERED:
+      case PackageStatus.MAILBOX:
+      case PackageStatus.NEIGHBOUR:
+      case PackageStatus.RETURN:    return 3;
+      default:                      return 1;
     }
   };
 
@@ -128,7 +143,9 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</p>
-                  <h2 className="text-xl font-black text-slate-900 mt-0.5">{foundPackage.status}</h2>
+                  <h2 className="text-xl font-black text-slate-900 mt-0.5 leading-tight">
+                    {patientStatusText[foundPackage.status] ?? foundPackage.status}
+                  </h2>
                 </div>
                 <button
                   onClick={() => setFoundPackage(null)}
@@ -192,9 +209,14 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tijdstip</p>
                     <p className="text-sm font-bold text-slate-900">
                       {foundPackage.deliveredAt
-                        ? `Bezorgd om ${new Date(foundPackage.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        ? `${new Date(foundPackage.deliveredAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })} om ${new Date(foundPackage.deliveredAt).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`
                         : 'Verwachte bezorging vandaag'}
                     </p>
+                    {foundPackage.deliveryEvidence?.deliveryNote && (
+                      <p className="text-xs font-bold text-slate-400 mt-0.5">
+                        {foundPackage.deliveryEvidence.deliveryNote}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

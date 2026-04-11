@@ -29,13 +29,16 @@ export enum CourierStatus {
 }
 
 export enum PackageStatus {
-  SCANNING = 'ANALYSEREN...',
-  PENDING = 'WACHTEN',
-  ASSIGNED = 'TOEGEWEZEN',
+  SCANNING  = 'ANALYSEREN...',
+  PENDING   = 'WACHTEN',
+  ASSIGNED  = 'TOEGEWEZEN',
   PICKED_UP = 'OPGEHAALD',
   DELIVERED = 'BEZORGD',
-  BILLED = 'GEFACTUREERD',
-  FAILED = 'MISLUKT'
+  MAILBOX   = 'BRIEVENBUS',
+  NEIGHBOUR = 'BIJ BUREN',
+  RETURN    = 'RETOUR APOTHEEK',
+  BILLED    = 'GEFACTUREERD',
+  FAILED    = 'MISLUKT',
 }
 
 export interface Address {
@@ -49,6 +52,8 @@ export interface DeliveryEvidence {
   latitude: number;
   longitude: number;
   timestamp: string;
+  deliveryNote?: string;
+  notHomeOption?: 'mailbox' | 'neighbour' | 'return';
 }
 
 export interface Package {

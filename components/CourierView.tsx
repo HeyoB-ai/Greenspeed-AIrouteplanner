@@ -3,8 +3,9 @@ import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../type
 import {
   Navigation, CheckCircle, Map as MapIcon, X, Clock, Building2,
   RotateCcw, Pencil, Truck, Scan, ArrowRight, Loader2,
-  MousePointerClick, CheckCircle2, MapPin
+  MousePointerClick, CheckCircle2, MapPin, DoorClosed
 } from 'lucide-react';
+import NotHomeSheet from './NotHomeSheet';
 
 interface Props {
   packages: PackageType[];
@@ -40,6 +41,7 @@ const CourierView: React.FC<Props> = ({
   const [editingReturn, setEditingReturn]       = useState(false);
   const [returnAddr, setReturnAddr]             = useState(pharmacyAddress || pharmacyName);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
+  const [notHomeStop, setNotHomeStop] = useState<Stop | null>(null);
 
   const totalAssigned = packages.filter(
     p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP
@@ -307,14 +309,14 @@ const CourierView: React.FC<Props> = ({
               </div>
 
               {/* Actieknoppen — minimaal 56px hoog voor touch */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={() => window.open(
                     `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
                       `${stop.address.street} ${stop.address.houseNumber} ${stop.address.city}`
                     )}&travelmode=bicycling`
                   )}
-                  className="flex items-center justify-center space-x-2 bg-slate-50 text-slate-900 h-14 rounded-2xl font-black text-sm border border-slate-200 active:scale-95 transition-all"
+                  className="flex-1 flex items-center justify-center space-x-2 bg-slate-50 text-slate-900 h-14 rounded-2xl font-black text-sm border border-slate-200 active:scale-95 transition-all"
                 >
                   <Navigation size={18} />
                   <span>Navigeer</span>
@@ -322,17 +324,38 @@ const CourierView: React.FC<Props> = ({
                 <button
                   onClick={() => handleDeliverStop(stop)}
                   disabled={!!isCapturingGPS}
-                  className="flex items-center justify-center space-x-2 bg-green-600 text-white h-14 rounded-2xl font-black text-sm shadow-lg active:scale-95 disabled:opacity-50 transition-all"
+                  className="flex-1 flex items-center justify-center space-x-2 bg-emerald-600 text-white h-14 rounded-2xl font-black text-sm shadow-lg active:scale-95 disabled:opacity-50 transition-all"
                 >
                   {isCapturingGPS === stop.addressKey
                     ? <Clock className="animate-spin" size={18} />
                     : <CheckCircle size={18} />}
-                  <span>Lever Af</span>
+                  <span>Afgeleverd</span>
+                </button>
+                <button
+                  onClick={() => setNotHomeStop(stop)}
+                  disabled={!!isCapturingGPS}
+                  aria-label="Niet thuis"
+                  title="Niet thuis"
+                  className="w-14 h-14 flex items-center justify-center bg-amber-100 text-amber-700 rounded-2xl border border-amber-200 active:scale-95 disabled:opacity-50 transition-all shrink-0"
+                >
+                  <DoorClosed size={22} />
                 </button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── Niet-thuis sheet ── */}
+      {notHomeStop && (
+        <NotHomeSheet
+          pkg={notHomeStop.packages[0]}
+          onComplete={(status, evidence) => {
+            onUpdateMany(notHomeStop.packages.map(p => p.id), status, evidence);
+            setNotHomeStop(null);
+          }}
+          onCancel={() => setNotHomeStop(null)}
+        />
       )}
 
       {/* ── Route-modal ── */}
