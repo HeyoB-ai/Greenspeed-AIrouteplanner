@@ -36,6 +36,7 @@ const AdminView: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab]       = useState<'packages' | 'chats' | 'archive'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
+  const [activeCourier, setActiveCourier] = useState<string>('all');
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -58,14 +59,28 @@ const AdminView: React.FC<Props> = ({
     { label: 'Mislukt',    val: failed.length,     icon: AlertTriangle, color: 'text-red-500',     bg: 'bg-red-50' },
   ];
 
+  const activeCouriers = useMemo(() => {
+    const map = new Map<string, string>();
+    packages.forEach(pkg => {
+      if (pkg.courierId && pkg.courierName) map.set(pkg.courierId, pkg.courierName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [packages]);
+
+  const filteredPackages = useMemo(() => {
+    if (activeCourier === 'all')        return packages;
+    if (activeCourier === 'unassigned') return packages.filter(p => !p.courierId);
+    return packages.filter(p => p.courierId === activeCourier);
+  }, [packages, activeCourier]);
+
   const sorted = useMemo(() =>
-    [...packages].sort((a, b) => {
+    [...filteredPackages].sort((a, b) => {
       if (a.orderIndex !== undefined && b.orderIndex !== undefined) return a.orderIndex - b.orderIndex;
       if (a.orderIndex !== undefined) return -1;
       if (b.orderIndex !== undefined) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }),
-    [packages]
+    [filteredPackages]
   );
 
   const exportCSV = () => {
@@ -185,8 +200,48 @@ const AdminView: React.FC<Props> = ({
               )}
 
               {/* ── Packages tab ── */}
+              {activeTab === 'packages' && (activeCouriers.length > 0 || packages.some(p => !p.courierId)) && (
+                <div className="px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  <button
+                    onClick={() => setActiveCourier('all')}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                      activeCourier === 'all'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    Alle ({packages.length})
+                  </button>
+                  {packages.some(p => !p.courierId) && (
+                    <button
+                      onClick={() => setActiveCourier('unassigned')}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                        activeCourier === 'unassigned'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      Niet toegewezen ({packages.filter(p => !p.courierId).length})
+                    </button>
+                  )}
+                  {activeCouriers.map(courier => (
+                    <button
+                      key={courier.id}
+                      onClick={() => setActiveCourier(courier.id)}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                        activeCourier === courier.id
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      {courier.name} ({packages.filter(p => p.courierId === courier.id).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {activeTab === 'packages' && (
-                packages.length === 0 ? (
+                filteredPackages.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
                     <Package className="text-slate-200 mb-4" size={40} />
                     <p className="text-slate-900 font-black">Geen pakketten</p>
