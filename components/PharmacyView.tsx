@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Package, MapPin, CheckCircle2,
+  Package, MapPin,
   RefreshCw, Building2, Truck, ShieldCheck, Clock,
   MessageCircle, Phone, AlertTriangle, ArrowLeft, ChevronRight
 } from 'lucide-react';
@@ -126,21 +126,11 @@ const PharmacyView: React.FC<Props> = ({
             </div>
 
             {activeTab === 'packages' && (
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <h3 className="text-base font-black text-slate-900 lg:text-xl">Zendingen</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                    {pendingPackages.length} WACHTEN OP PLANNING
-                  </p>
-                </div>
-                {pendingPackages.length > 0 && (
-                  <button
-                    onClick={selectAll}
-                    className="text-[10px] font-black text-blue-600 uppercase tracking-tighter hover:underline"
-                  >
-                    {selectedIds.length === pendingPackages.length ? 'Deselecteer alles' : 'Alles selecteren'}
-                  </button>
-                )}
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="text-base font-black text-slate-900 lg:text-xl">Zendingen</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  {pendingPackages.length} WACHTEN OP PLANNING
+                </p>
               </div>
             )}
 
@@ -178,13 +168,7 @@ const PharmacyView: React.FC<Props> = ({
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {sorted.map(p => (
-                          <tr
-                            key={p.id}
-                            onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
-                            className={`transition-colors cursor-pointer hover:bg-slate-50 ${
-                              selectedIds.includes(p.id) ? 'bg-blue-50/60' : ''
-                            }`}
-                          >
+                          <tr key={p.id} className="transition-colors hover:bg-slate-50">
                             <td className="px-4 py-3">
                               {p.displayIndex ? (
                                 <div className="w-7 h-7 bg-blue-600 text-white rounded-lg flex items-center justify-center font-black text-xs">
@@ -192,12 +176,6 @@ const PharmacyView: React.FC<Props> = ({
                                 </div>
                               ) : p.status === PackageStatus.SCANNING ? (
                                 <RefreshCw className="animate-spin text-blue-400" size={16} />
-                              ) : p.status === PackageStatus.PENDING ? (
-                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
-                                  selectedIds.includes(p.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
-                                }`}>
-                                  {selectedIds.includes(p.id) && <CheckCircle2 size={12} className="text-white" />}
-                                </div>
                               ) : (
                                 <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center">
                                   <MapPin size={14} className="text-slate-400" />
@@ -236,10 +214,9 @@ const PharmacyView: React.FC<Props> = ({
                     {sorted.map(p => (
                       <div
                         key={p.id}
-                        onClick={() => p.status === PackageStatus.PENDING && toggleSelect(p.id)}
-                        className={`px-4 py-4 flex items-center justify-between transition-colors cursor-pointer ${
-                          selectedIds.includes(p.id) ? 'bg-blue-50/50' : ''
-                        } ${p.status === PackageStatus.SCANNING ? 'animate-pulse bg-slate-50' : ''}`}
+                        className={`px-4 py-4 flex items-center justify-between transition-colors ${
+                          p.status === PackageStatus.SCANNING ? 'animate-pulse bg-slate-50' : ''
+                        }`}
                       >
                         <div className="flex items-center space-x-3 min-w-0">
                           {p.displayIndex ? (
@@ -248,12 +225,6 @@ const PharmacyView: React.FC<Props> = ({
                             </div>
                           ) : p.status === PackageStatus.SCANNING ? (
                             <RefreshCw className="animate-spin text-blue-400 shrink-0" size={22} />
-                          ) : p.status === PackageStatus.PENDING ? (
-                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${
-                              selectedIds.includes(p.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'
-                            }`}>
-                              {selectedIds.includes(p.id) && <CheckCircle2 size={13} />}
-                            </div>
                           ) : (
                             <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
                               <MapPin size={18} className="text-slate-400" />
