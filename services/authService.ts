@@ -39,6 +39,12 @@ const DEMO_USERS: AuthUser[] = [
     courierId: 'k2',
     passwordHash: 'koerier456',
   },
+  {
+    id: 'u6',
+    name: 'Lisa Supervisor',
+    role: UserRole.SUPERVISOR,
+    passwordHash: 'supervisor123',
+  },
 ];
 
 export { DEMO_USERS };
