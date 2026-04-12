@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
 import {
   Navigation, CheckCircle, Map as MapIcon, X, Clock, Check,
-  RotateCcw, Pencil, Truck, Scan, ArrowRight, Loader2,
+  RotateCcw, Pencil, Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed, ChevronDown
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
@@ -203,40 +203,39 @@ const CourierView: React.FC<Props> = ({
       )}
 
       {/* ── Header: titel + actieknoppen ── */}
-      <div className="flex items-center justify-between mb-5 gap-3">
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 lg:text-3xl tracking-tight">Jouw Rit</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">
-            {sortedPackages.length} PAKKETTEN OVER &bull; {stops.length} STOPS
+          <h1 className="text-2xl font-black text-slate-900">Jouw Rit</h1>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+            {sortedPackages.length} pakketten · {stops.length} stops
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {onScanStart && (
-            <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2">
+            {onScanStart && (
               <button
                 onClick={onScanStart}
-                className="flex items-center space-x-2 bg-slate-900 text-white px-4 h-12 rounded-2xl font-bold shadow-lg"
+                className="flex items-center gap-2 px-4 h-11 bg-indigo-900 text-white rounded-2xl font-black text-sm"
               >
-                <Scan size={18} />
-                <span className="text-sm">Scan</span>
+                <ScanLine size={16} />
+                Scan
               </button>
-              {onManualAdd && (
-                <button
-                  onClick={onManualAdd}
-                  className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors px-1"
-                >
-                  ✏ Handmatig
-                </button>
-              )}
-            </div>
-          )}
-          {stops.length > 0 && (
+            )}
             <button
               onClick={() => setShowMapModal(true)}
-              className="flex items-center space-x-2 bg-blue-600 text-white px-5 h-12 rounded-2xl font-bold shadow-lg"
+              className="flex items-center gap-2 px-4 h-11 bg-blue-600 text-white rounded-2xl font-black text-sm"
             >
-              <MapIcon size={18} />
-              <span className="text-sm">Route</span>
+              <MapIcon size={16} />
+              Route
+            </button>
+          </div>
+          {onManualAdd && (
+            <button
+              onClick={onManualAdd}
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+            >
+              <PenLine size={11} />
+              Handmatig
             </button>
           )}
         </div>
@@ -322,8 +321,8 @@ const CourierView: React.FC<Props> = ({
       ) : (
         <>
           {/* Legenda hint */}
-          <div className="flex items-center gap-3 px-1 mb-3 text-xs text-slate-400">
-            <span className="bg-slate-900 text-white px-2 py-0.5 rounded-lg font-black text-[10px]">Pakje #</span>
+          <div className="flex items-center gap-2 mb-4 text-xs text-slate-400">
+            <span className="bg-indigo-900 text-white px-2 py-0.5 rounded-lg font-black text-[10px]">Pakje #</span>
             <span>= op het pakje</span>
             <span className="mx-1">·</span>
             <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg font-black text-[10px]">Stop #</span>
@@ -342,8 +341,8 @@ const CourierView: React.FC<Props> = ({
                   className="flex items-center gap-3 p-4 cursor-pointer active:scale-[0.99] transition-transform select-none"
                 >
                   {/* Pakje # badge */}
-                  <div className="flex flex-col items-center bg-slate-900 text-white rounded-2xl w-14 h-14 justify-center shrink-0">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 leading-none">Pakje</span>
+                  <div className="flex flex-col items-center bg-indigo-900 text-white rounded-2xl w-14 h-14 justify-center shrink-0">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-indigo-300 leading-none">Pakje</span>
                     <span className="text-2xl font-black leading-tight">
                       {pkg.scanNumber ?? '—'}
                     </span>
