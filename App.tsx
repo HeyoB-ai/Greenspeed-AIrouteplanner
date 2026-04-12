@@ -66,7 +66,15 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsSyncing(true);
       const [pkgs, pharms] = await Promise.all([db.fetchPackages(), db.fetchPharmacies()]);
-      setPackages(pkgs.map(enrichWithHistory));
+
+      // Wijs scanNumber retroactief toe op basis van aanmaakdatum (per apotheek)
+      const enriched = pkgs
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .map((pkg, index) => enrichWithHistory({
+          ...pkg,
+          scanNumber: pkg.scanNumber ?? index + 1,
+        }));
+      setPackages(enriched);
       setPharmacies(pharms);
       if (pharms.length > 0 && !superuserPharmacyId) {
         setSuperuserPharmacyId(pharms[0].id);

@@ -78,14 +78,19 @@ const CourierView: React.FC<Props> = ({
 
   // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden
   const sortedPackages = useMemo(() => {
-    const visible = packages.filter(p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING);
-    return [...visible].sort((a, b) => {
+    const filteredPackages = packages.filter(
+      p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING
+    );
+    return [...filteredPackages].sort((a, b) => {
       const aDone = !isActionable(a);
       const bDone = !isActionable(b);
       if (aDone !== bDone) return aDone ? 1 : -1;
-      const aIdx = a.routeIndex ?? a.displayIndex ?? a.scanNumber ?? 999;
-      const bIdx = b.routeIndex ?? b.displayIndex ?? b.scanNumber ?? 999;
-      return aIdx - bIdx;
+      // Na optimalisatie: op routeIndex
+      if (a.routeIndex && b.routeIndex) return a.routeIndex - b.routeIndex;
+      // Vóór optimalisatie: op scanNumber
+      const aNum = a.scanNumber ?? a.displayIndex ?? 999;
+      const bNum = b.scanNumber ?? b.displayIndex ?? 999;
+      return aNum - bNum;
     });
   }, [packages]);
 
@@ -299,6 +304,38 @@ const CourierView: React.FC<Props> = ({
         </div>
       )}
 
+      {/* ── Volgende stop banner ── */}
+      {(() => {
+        const nextStop = sortedPackages.find(p => isActionable(p));
+        if (!nextStop) return null;
+        return (
+          <div className="bg-indigo-900 text-white rounded-2xl p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-indigo-300 text-[10px] font-black uppercase tracking-widest mb-1">
+                  {nextStop.routeIndex
+                    ? `Stop ${nextStop.routeIndex} · Pakje #${nextStop.scanNumber ?? '?'}`
+                    : `Pakje #${nextStop.scanNumber ?? '?'}`}
+                </p>
+                <p className="font-black text-lg leading-tight truncate">
+                  {nextStop.address.street} {nextStop.address.houseNumber}
+                </p>
+                <p className="text-indigo-300 text-sm">
+                  {nextStop.address.postalCode} · {nextStop.address.city}
+                </p>
+              </div>
+              <button
+                onClick={() => handleNavigate(nextStop)}
+                className="ml-4 bg-blue-500 active:scale-95 rounded-2xl w-16 h-16 shrink-0 flex flex-col items-center justify-center transition-all"
+              >
+                <Navigation size={22} className="text-white mb-0.5" />
+                <span className="text-[9px] font-black text-blue-100 uppercase tracking-wide">Navigeer</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Pakketkaartjes ── */}
       {sortedPackages.length === 0 ? (
         <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-slate-200 text-center">
@@ -318,13 +355,25 @@ const CourierView: React.FC<Props> = ({
               {/* Info sectie */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
 
-                {/* Stop nummer */}
-                <div className="bg-blue-600 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-[8px] font-black text-blue-200 uppercase leading-none">Stop</span>
-                  <span className="text-lg font-black leading-none">
-                    {pkg.routeIndex ?? pkg.displayIndex ?? '?'}
-                  </span>
-                </div>
+                {/* Vóór optimalisatie: scanNumber badge */}
+                {!pkg.routeIndex && (
+                  <div className="bg-indigo-900 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-[8px] font-black text-indigo-300 uppercase leading-none">Pakje</span>
+                    <span className="text-lg font-black leading-none">
+                      {pkg.scanNumber ?? '?'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Na optimalisatie: routeIndex badge */}
+                {pkg.routeIndex && (
+                  <div className="bg-blue-600 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-[8px] font-black text-blue-200 uppercase leading-none">Stop</span>
+                    <span className="text-lg font-black leading-none">
+                      {pkg.routeIndex}
+                    </span>
+                  </div>
+                )}
 
                 {/* Adres */}
                 <div className="flex-1 min-w-0">
@@ -333,7 +382,7 @@ const CourierView: React.FC<Props> = ({
                   </p>
                   <p className="text-xs text-slate-400 font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
-                    {pkg.scanNumber !== undefined && (
+                    {pkg.scanNumber && (
                       <span className="ml-2 text-slate-300">#{pkg.scanNumber}</span>
                     )}
                   </p>
