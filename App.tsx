@@ -186,11 +186,26 @@ const App: React.FC = () => {
   const handleNewScan = useCallback(async (address: Address) => {
     const currentSession = getSession();
     const isKoerier = currentSession?.user?.role === UserRole.COURIER;
-    const courierId = isKoerier ? currentSession?.user?.courierId : undefined;
+    const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
+    const pharmacyId = currentSession?.user?.pharmacyId ?? currentPharmacy.id;
+
+    // Scannummer = hoeveel pakketjes al gescand vandaag voor deze apotheek + 1
+    const today = new Date().toDateString();
+    const todayCount = packages.filter(p =>
+      new Date(p.createdAt).toDateString() === today &&
+      p.pharmacyId === pharmacyId
+    ).length;
+    const scanNumber = todayCount + 1;
+
+    // Als er al een geoptimaliseerde route is → voeg toe als extra stop
+    const hasRoute = packages.some(p => p.routeIndex !== undefined);
+    const routeIndex = hasRoute
+      ? Math.max(0, ...packages.filter(p => p.routeIndex !== undefined).map(p => p.routeIndex!)) + 1
+      : undefined;
 
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      pharmacyId: currentSession?.user?.pharmacyId ?? currentPharmacy.id,
+      pharmacyId,
       pharmacyName: currentPharmacy.name,
       address,
       status: isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
@@ -198,6 +213,8 @@ const App: React.FC = () => {
       courierName: courierId ? (COURIER_NAMES[courierId] ?? currentSession?.user?.name ?? courierId) : undefined,
       createdAt: new Date().toISOString(),
       priority: 3,
+      scanNumber,
+      routeIndex,
       statusHistory: [{
         status:    isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
         timestamp: new Date().toISOString(),
@@ -206,8 +223,14 @@ const App: React.FC = () => {
 
     setPackages(prev => [pkg, ...prev]);
     setShowScanner(false);
+
+    if (hasRoute && routeIndex !== undefined) {
+      setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
+      setTimeout(() => setToast(null), 4000);
+    }
+
     await db.syncPackage(pkg);
-  }, [currentPharmacy]);
+  }, [currentPharmacy, packages]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
     setIsOptimizing(true);
@@ -240,7 +263,7 @@ const App: React.FC = () => {
           (stopsMap.get(key) || []).forEach(id => {
             const pkgIndex = updatedPackages.findIndex(p => p.id === id);
             if (pkgIndex !== -1) {
-              const updatedPkg = { ...updatedPackages[pkgIndex], status: PackageStatus.ASSIGNED, orderIndex: index, displayIndex: index + 1 };
+              const updatedPkg = { ...updatedPackages[pkgIndex], status: PackageStatus.ASSIGNED, orderIndex: index, displayIndex: index + 1, routeIndex: index + 1 };
               updatedPackages[pkgIndex] = updatedPkg;
               pkgsToSync.push(updatedPkg);
             }
@@ -306,8 +329,12 @@ const App: React.FC = () => {
   "deliveryEvidence" JSONB,
   priority INTEGER,
   "orderIndex" INTEGER,
-  "displayIndex" INTEGER
+  "displayIndex" INTEGER,
+  "scanNumber" INTEGER,
+  "routeIndex" INTEGER
 );
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS "scanNumber" INTEGER;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS "routeIndex" INTEGER;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public access" ON packages;
 CREATE POLICY "Allow public access" ON packages FOR ALL USING (true);
@@ -565,6 +592,12 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
         <Scanner
           onScanComplete={result => handleNewScan(result.address)}
           onCancel={() => setShowScanner(false)}
+          nextScanNumber={
+            packages.filter(p =>
+              new Date(p.createdAt).toDateString() === new Date().toDateString() &&
+              p.pharmacyId === (session?.user?.pharmacyId ?? currentPharmacy.id)
+            ).length + 1
+          }
         />
       )}
 

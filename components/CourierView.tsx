@@ -278,6 +278,16 @@ const CourierView: React.FC<Props> = ({
           <p className="text-slate-400 text-sm mt-1">Geen openstaande bezorgingen.</p>
         </div>
       ) : (
+        <>
+          {/* Legenda hint */}
+          <div className="mb-4 px-4 py-3 bg-slate-50 rounded-2xl flex items-center gap-3 text-xs text-slate-500">
+            <span className="bg-slate-900 text-white px-2 py-0.5 rounded-lg font-black">Pakje #</span>
+            <span>= nummer op het pakje</span>
+            <span className="mx-1">·</span>
+            <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg font-black">Stop #</span>
+            <span>= rijvolgorde</span>
+          </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {stops.map((stop, i) => (
             <div
@@ -286,18 +296,28 @@ const CourierView: React.FC<Props> = ({
                 i === 0 ? 'border-blue-600 ring-4 ring-blue-50' : 'border-slate-100'
               }`}
             >
-              {/* Stop header */}
-              <div className="flex items-start space-x-4 mb-4">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shrink-0 ${
-                  i === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {stop.displayIndex}
+              {/* Stop header — scannummer + ritnummer + adres */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex flex-col items-center bg-slate-900 text-white rounded-2xl px-4 py-2 min-w-[64px] shrink-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none">Pakje</span>
+                  <span className="text-3xl font-black leading-tight">
+                    {stop.packages[0].scanNumber ?? '—'}
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-black text-lg lg:text-xl text-slate-900 leading-tight truncate">
+                <ArrowRight size={16} className="text-slate-300 shrink-0" />
+                <div className={`flex flex-col items-center text-white rounded-2xl px-4 py-2 min-w-[64px] shrink-0 ${
+                  i === 0 ? 'bg-blue-600' : 'bg-slate-500'
+                }`}>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 leading-none">Stop</span>
+                  <span className="text-3xl font-black leading-tight">
+                    {stop.packages[0].routeIndex ?? stop.displayIndex ?? '—'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-base text-slate-900 leading-tight truncate">
                     {stop.address.street} {stop.address.houseNumber}
                   </h3>
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">
                     {stop.address.postalCode} {stop.address.city}
                   </p>
                 </div>
@@ -307,6 +327,11 @@ const CourierView: React.FC<Props> = ({
               <div className="mb-4 space-y-2">
                 {stop.packages.map(p => (
                   <div key={p.id} className="flex items-center space-x-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                    {p.scanNumber !== undefined && (
+                      <div className="w-8 h-8 bg-slate-800 text-white rounded-lg flex items-center justify-center text-xs font-black shrink-0">
+                        #{p.scanNumber}
+                      </div>
+                    )}
                     <div className="w-8 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-blue-600 shrink-0">
                       <Building2 size={16} />
                     </div>
@@ -361,6 +386,7 @@ const CourierView: React.FC<Props> = ({
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* ── Niet-thuis sheet ── */}

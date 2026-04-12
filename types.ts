@@ -77,7 +77,9 @@ export interface Package {
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
-  displayIndex?: number; // Permanent stopnummer
+  displayIndex?: number; // Backwards compat
+  scanNumber?:  number;  // Permanent volgnummer bij scannen (op pakje geschreven)
+  routeIndex?:  number;  // Positie in geoptimaliseerde route (kan wijzigen)
   statusHistory?: StatusEvent[];
 }
 

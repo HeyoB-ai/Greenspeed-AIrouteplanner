@@ -282,13 +282,13 @@ const AdminView: React.FC<Props> = ({
                     {/* Rijen */}
                     {sorted.map(p => (
                       <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-default">
-                        {p.displayIndex ? (
-                          <div className="w-7 h-7 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
-                            {p.displayIndex}
-                          </div>
-                        ) : p.status === PackageStatus.SCANNING ? (
+                        {p.status === PackageStatus.SCANNING ? (
                           <div className="w-7 h-7 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
                             <RefreshCw size={12} className="text-blue-400 animate-spin" />
+                          </div>
+                        ) : p.scanNumber ? (
+                          <div className="w-7 h-7 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
+                            {p.scanNumber}
                           </div>
                         ) : (
                           <div className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -296,9 +296,16 @@ const AdminView: React.FC<Props> = ({
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-900 text-sm truncate">
-                            {p.address.street} {p.address.houseNumber}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-slate-900 text-sm truncate">
+                              {p.address.street} {p.address.houseNumber}
+                            </p>
+                            {p.routeIndex && (
+                              <span className="shrink-0 bg-blue-100 text-blue-600 text-[9px] font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
+                                →{p.routeIndex}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-slate-400 mt-0.5">
                             {p.address.postalCode} {p.address.city}
                           </p>
