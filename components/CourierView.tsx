@@ -3,7 +3,7 @@ import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../type
 import {
   Navigation, CheckCircle, Map as MapIcon, X, Clock, Check,
   RotateCcw, Pencil, Truck, ScanLine, PenLine, ArrowRight, Loader2,
-  MousePointerClick, CheckCircle2, MapPin, DoorClosed, ChevronDown
+  MousePointerClick, CheckCircle2, MapPin, DoorClosed
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -19,37 +19,40 @@ interface Props {
   isOptimizing?: boolean;
 }
 
-// Stop interface — alleen gebruikt voor route-modal URL opbouw
+// Stop interface — alleen voor Google Maps URL opbouw
 interface Stop {
   addressKey: string;
   address: PackageType['address'];
   packages: PackageType[];
   orderIndex: number;
-  displayIndex: number;
 }
 
-const STATUS_CONFIG: Record<string, { className: string; label: string }> = {
-  [PackageStatus.SCANNING]:        { className: 'bg-blue-50 text-blue-600',        label: 'Analyseren'     },
-  [PackageStatus.PENDING]:         { className: 'bg-amber-100 text-amber-700',     label: 'Wachten'        },
-  [PackageStatus.ASSIGNED]:        { className: 'bg-indigo-100 text-indigo-700',   label: 'Toegewezen'     },
-  [PackageStatus.PICKED_UP]:       { className: 'bg-indigo-100 text-indigo-700',   label: 'Opgehaald'      },
-  [PackageStatus.DELIVERED]:       { className: 'bg-emerald-100 text-emerald-700', label: 'Bezorgd'        },
-  [PackageStatus.MAILBOX]:         { className: 'bg-emerald-100 text-emerald-700', label: 'Brievenbus'     },
-  [PackageStatus.NEIGHBOUR]:       { className: 'bg-blue-100 text-blue-700',       label: 'Bij buren'      },
-  [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',     label: 'Retour'         },
-  [PackageStatus.FAILED]:          { className: 'bg-red-100 text-red-600',         label: 'Mislukt'        },
-  [PackageStatus.BILLED]:          { className: 'bg-purple-100 text-purple-700',   label: 'Gefactureerd'   },
-  [PackageStatus.MOVED]:           { className: 'bg-purple-100 text-purple-700',   label: 'Verhuisd'       },
-  [PackageStatus.OTHER_LOCATION]:  { className: 'bg-sky-100 text-sky-700',         label: 'Andere locatie' },
+// Pakket heeft een directe actie nodig (te bezorgen)
+const isActionable = (pkg: PackageType): boolean =>
+  [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(pkg.status);
+
+const getStatusLabel = (status: PackageStatus): string => {
+  switch (status) {
+    case PackageStatus.DELIVERED:      return '✓ Bezorgd';
+    case PackageStatus.MAILBOX:        return '✓ Brievenbus';
+    case PackageStatus.NEIGHBOUR:      return '✓ Buren';
+    case PackageStatus.RETURN:         return '↩ Retour';
+    case PackageStatus.MOVED:          return '↩ Verhuisd';
+    case PackageStatus.OTHER_LOCATION: return '↩ Andere locatie';
+    case PackageStatus.FAILED:         return '✕ Mislukt';
+    case PackageStatus.ASSIGNED:       return 'Te bezorgen';
+    case PackageStatus.PICKED_UP:      return 'Onderweg';
+    default:                           return status;
+  }
 };
 
-const StatusBadge: React.FC<{ status: PackageStatus }> = ({ status }) => {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' };
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${cfg.className}`}>
-      {cfg.label}
-    </span>
-  );
+const getStatusStyle = (status: PackageStatus): string => {
+  const done = [PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR];
+  const back = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION];
+  if (done.includes(status)) return 'bg-emerald-100 text-emerald-700';
+  if (back.includes(status)) return 'bg-amber-100 text-amber-700';
+  if (status === PackageStatus.FAILED) return 'bg-red-100 text-red-600';
+  return 'bg-slate-100 text-slate-500';
 };
 
 const CourierView: React.FC<Props> = ({
@@ -69,42 +72,46 @@ const CourierView: React.FC<Props> = ({
   const [returnAddr, setReturnAddr]             = useState(pharmacyAddress || pharmacyName);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [notHomePkg, setNotHomePkg]             = useState<PackageType | null>(null);
-  const [expandedId, setExpandedId]             = useState<string | null>(null);
 
-  const delivered = packages.filter(p => p.status === PackageStatus.DELIVERED).length;
+  // PENDING pakketten — voor route-optimalisatie
+  const pendingPackages = useMemo(
+    () => packages.filter(p => p.status === PackageStatus.PENDING),
+    [packages]
+  );
 
-  // Actieve pakketten als platte lijst — gesorteerd op routeIndex → displayIndex → scanNumber
+  // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden
   const sortedPackages = useMemo(() => {
-    const active = packages.filter(
-      p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP
-    );
-    return [...active].sort((a, b) => {
+    const visible = packages.filter(p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING);
+    return [...visible].sort((a, b) => {
+      const aDone = !isActionable(a);
+      const bDone = !isActionable(b);
+      if (aDone !== bDone) return aDone ? 1 : -1;
       const aIdx = a.routeIndex ?? a.displayIndex ?? a.scanNumber ?? 999;
       const bIdx = b.routeIndex ?? b.displayIndex ?? b.scanNumber ?? 999;
       return aIdx - bIdx;
     });
   }, [packages]);
 
-  // Stops — alleen voor Google Maps URL opbouw in de route-modal
+  // Stops — voor Google Maps URL opbouw
   const stops: Stop[] = useMemo(() => {
+    const active = sortedPackages.filter(isActionable);
     const stopsMap = new Map<string, Stop>();
-    sortedPackages.forEach(p => {
+    active.forEach(p => {
       const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
       const existing = stopsMap.get(key);
       if (existing) {
         existing.packages.push(p);
       } else {
-        stopsMap.set(key, {
-          addressKey: key,
-          address: p.address,
-          packages: [p],
-          orderIndex: p.orderIndex ?? 999,
-          displayIndex: p.displayIndex ?? 0,
-        });
+        stopsMap.set(key, { addressKey: key, address: p.address, packages: [p], orderIndex: p.orderIndex ?? 999 });
       }
     });
     return Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
   }, [sortedPackages]);
+
+  const actionableCount = sortedPackages.filter(isActionable).length;
+  const doneCount       = sortedPackages.filter(p => !isActionable(p)).length;
+  const totalCount      = actionableCount + doneCount;
+  const percentage      = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   const handleDeliverPkg = (pkg: PackageType) => {
     setIsCapturingGPS(pkg.id);
@@ -122,7 +129,6 @@ const CourierView: React.FC<Props> = ({
         };
         onUpdateMany([pkg.id], PackageStatus.DELIVERED, evidence);
         setIsCapturingGPS(null);
-        setExpandedId(null);
       },
       () => {
         alert('Locatie vastleggen mislukt.');
@@ -153,11 +159,6 @@ const CourierView: React.FC<Props> = ({
     return `https://www.google.com/maps/dir/?api=1&destination=${dest}&waypoints=${waypoints}&travelmode=bicycling`;
   };
 
-  const pendingPackages = useMemo(
-    () => packages.filter(p => p.status === PackageStatus.PENDING),
-    [packages]
-  );
-
   const toggleSelect = (id: string) => {
     setSelectedPendingIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -170,101 +171,100 @@ const CourierView: React.FC<Props> = ({
     );
   };
 
-  const totalStops = stops.length + delivered;
-  const progressPct = totalStops > 0 ? Math.round((delivered / totalStops) * 100) : 0;
-
   return (
     <div className="pb-24 lg:pb-8">
 
-      {/* ── Progressiebalk ── */}
-      {totalStops > 0 && (
-        <div className="mb-6 bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <Truck size={18} className="text-blue-600" />
-              <span className="text-sm font-black text-slate-900">
-                {delivered} van {totalStops} afgeleverd
+      {/* ── Voortgangsbalk ── */}
+      {totalCount > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Truck size={16} className="text-blue-600" />
+              <span className="font-black text-slate-900 text-sm">
+                {doneCount} van {totalCount} bezorgd
               </span>
             </div>
-            <span className="text-sm font-black text-blue-600">{progressPct}%</span>
+            <span className="font-black text-blue-600 text-sm">{percentage}%</span>
           </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
+              style={{ width: `${percentage}%` }}
             />
           </div>
-          {stops.length > 0 && (
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-              {stops.length} stop{stops.length !== 1 ? 's' : ''} te gaan
+          {actionableCount > 0 && (
+            <p className="text-xs text-slate-400 font-bold mt-2">
+              {actionableCount} stops te gaan
             </p>
           )}
         </div>
       )}
 
-      {/* ── Header: titel + actieknoppen ── */}
-      <div className="flex items-start justify-between mb-4">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Jouw Rit</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-            {sortedPackages.length} pakketten · {stops.length} stops
+          <h1 className="text-xl font-black text-slate-900">Jouw Rit</h1>
+          <p className="text-xs text-slate-400 font-bold mt-0.5">
+            {actionableCount} te gaan · {doneCount} klaar
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-2">
-            {onScanStart && (
-              <button
-                onClick={onScanStart}
-                className="flex items-center gap-2 px-4 h-11 bg-indigo-900 text-white rounded-2xl font-black text-sm"
-              >
-                <ScanLine size={16} />
-                Scan
-              </button>
-            )}
+        <div className="flex gap-2">
+          {onScanStart && (
             <button
-              onClick={() => setShowMapModal(true)}
-              className="flex items-center gap-2 px-4 h-11 bg-blue-600 text-white rounded-2xl font-black text-sm"
+              onClick={onScanStart}
+              className="flex items-center gap-1.5 px-3 h-10 bg-indigo-900 text-white rounded-xl font-black text-xs"
             >
-              <MapIcon size={16} />
-              Route
-            </button>
-          </div>
-          {onManualAdd && (
-            <button
-              onClick={onManualAdd}
-              className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
-            >
-              <PenLine size={11} />
-              Handmatig
+              <ScanLine size={14} />
+              Scan
             </button>
           )}
+          <button
+            onClick={() => setShowMapModal(true)}
+            className="flex items-center gap-1.5 px-3 h-10 bg-blue-600 text-white rounded-xl font-black text-xs"
+          >
+            <MapIcon size={14} />
+            Route
+          </button>
         </div>
       </div>
 
+      {/* Handmatig — als kleine tekstlink onder de knoppen */}
+      {onManualAdd && (
+        <div className="flex justify-end mb-4 -mt-2">
+          <button
+            onClick={onManualAdd}
+            className="text-xs text-slate-400 hover:text-slate-600 font-bold flex items-center gap-1 transition-colors"
+          >
+            <PenLine size={10} />
+            Handmatig invoeren
+          </button>
+        </div>
+      )}
+
       {/* ── Wachtende pakketten: selecteren + route plannen ── */}
       {pendingPackages.length > 0 && (
-        <div className="mb-6 bg-white border-2 border-amber-200 rounded-3xl p-5 shadow-sm">
+        <div className="mb-4 bg-white border-2 border-amber-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <MapPin size={18} className="text-amber-500" />
+            <div className="flex items-center gap-2">
+              <MapPin size={16} className="text-amber-500" />
               <span className="text-sm font-black text-slate-900">
-                {pendingPackages.length} pakket{pendingPackages.length !== 1 ? 'ten' : ''} wachten op route
+                {pendingPackages.length} pakket{pendingPackages.length !== 1 ? 'ten' : ''} zonder route
               </span>
             </div>
             <button
               onClick={toggleSelectAll}
               className="text-xs font-black text-blue-600 active:opacity-70"
             >
-              {selectedPendingIds.length === pendingPackages.length ? 'Deselecteer alle' : 'Selecteer alle'}
+              {selectedPendingIds.length === pendingPackages.length ? 'Deselecteer' : 'Alles'}
             </button>
           </div>
 
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2 mb-3">
             {pendingPackages.map(p => (
               <button
                 key={p.id}
                 onClick={() => toggleSelect(p.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-[0.98] ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all active:scale-[0.98] ${
                   selectedPendingIds.includes(p.id)
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-slate-100 bg-slate-50'
@@ -294,11 +294,11 @@ const CourierView: React.FC<Props> = ({
             <button
               onClick={() => selectedPendingIds.length > 0 && onOptimize(selectedPendingIds)}
               disabled={isOptimizing || selectedPendingIds.length === 0}
-              className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white h-14 rounded-2xl font-black text-sm shadow-lg active:scale-95 disabled:opacity-40 transition-all"
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white h-12 rounded-xl font-black text-sm shadow-sm active:scale-95 disabled:opacity-40 transition-all"
             >
               {isOptimizing
-                ? <Loader2 size={18} className="animate-spin" />
-                : <MousePointerClick size={18} />}
+                ? <Loader2 size={16} className="animate-spin" />
+                : <MousePointerClick size={16} />}
               <span>
                 {isOptimizing
                   ? 'Optimaliseren…'
@@ -313,71 +313,83 @@ const CourierView: React.FC<Props> = ({
 
       {/* ── Pakketkaartjes ── */}
       {sortedPackages.length === 0 ? (
-        <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
-          <CheckCircle className="text-green-500 mx-auto mb-4" size={40} />
+        <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-slate-200 text-center">
+          <CheckCircle className="text-emerald-500 mx-auto mb-4" size={40} />
           <p className="text-slate-900 font-black text-xl">Lekker bezig!</p>
           <p className="text-slate-400 text-sm mt-1">Geen openstaande bezorgingen.</p>
         </div>
       ) : (
-        <>
-          {/* Legenda hint */}
-          <div className="flex items-center gap-2 mb-4 text-xs text-slate-400">
-            <span className="bg-indigo-900 text-white px-2 py-0.5 rounded-lg font-black text-[10px]">Pakje #</span>
-            <span>= op het pakje</span>
-            <span className="mx-1">·</span>
-            <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg font-black text-[10px]">Stop #</span>
-            <span>= rijvolgorde</span>
-          </div>
+        <div className="space-y-2">
+          {sortedPackages.map(pkg => (
+            <div
+              key={pkg.id}
+              className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-opacity ${
+                !isActionable(pkg) ? 'opacity-60 border-slate-100' : 'border-slate-200'
+              }`}
+            >
+              {/* Info sectie */}
+              <div className="flex items-center gap-3 px-4 pt-4 pb-3">
 
-          <div className="space-y-3">
-            {sortedPackages.map(pkg => (
-              <div
-                key={pkg.id}
-                className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
-              >
-                {/* Klikbaar basiskaartje */}
-                <div
-                  onClick={() => setExpandedId(expandedId === pkg.id ? null : pkg.id)}
-                  className="flex items-center gap-3 p-4 cursor-pointer active:scale-[0.99] transition-transform select-none"
-                >
-                  {/* Pakje # badge */}
-                  <div className="flex flex-col items-center bg-indigo-900 text-white rounded-2xl w-14 h-14 justify-center shrink-0">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-indigo-300 leading-none">Pakje</span>
-                    <span className="text-2xl font-black leading-tight">
-                      {pkg.scanNumber ?? '—'}
-                    </span>
-                  </div>
-
-                  {/* Adres */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-slate-900 text-base leading-tight truncate">
-                      {pkg.address.street} {pkg.address.houseNumber}
-                    </p>
-                    <p className="text-sm text-slate-400 mt-0.5">
-                      {pkg.address.postalCode} {pkg.address.city}
-                    </p>
-                  </div>
-
-                  {/* Stop # badge + chevron */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex flex-col items-center bg-blue-600 text-white rounded-2xl w-12 h-12 justify-center">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-blue-200 leading-none">Stop</span>
-                      <span className="text-xl font-black leading-tight">
-                        {pkg.routeIndex ?? pkg.displayIndex ?? '—'}
-                      </span>
-                    </div>
-                    <ChevronDown
-                      size={16}
-                      className={`text-slate-300 transition-transform duration-200 ${
-                        expandedId === pkg.id ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
+                {/* Stop nummer */}
+                <div className="bg-blue-600 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
+                  <span className="text-[8px] font-black text-blue-200 uppercase leading-none">Stop</span>
+                  <span className="text-lg font-black leading-none">
+                    {pkg.routeIndex ?? pkg.displayIndex ?? '?'}
+                  </span>
                 </div>
 
-                {/* Status badge onder het adres */}
+                {/* Adres */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-slate-900 text-base leading-tight truncate">
+                    {pkg.address.street} {pkg.address.houseNumber}
+                  </p>
+                  <p className="text-xs text-slate-400 font-bold mt-0.5">
+                    {pkg.address.postalCode} · {pkg.address.city}
+                    {pkg.scanNumber !== undefined && (
+                      <span className="ml-2 text-slate-300">#{pkg.scanNumber}</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Navigeer knop */}
+                <button
+                  onClick={() => handleNavigate(pkg)}
+                  className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-200 active:scale-95 transition-all shrink-0"
+                  title="Navigeer"
+                >
+                  <Navigation size={18} />
+                </button>
+              </div>
+
+              {/* Actie sectie — alleen voor te-bezorgen pakketten */}
+              {isActionable(pkg) && (
+                <div className="flex gap-2 px-4 pb-4">
+                  <button
+                    onClick={() => handleDeliverPkg(pkg)}
+                    disabled={!!isCapturingGPS}
+                    className="flex-1 h-11 bg-emerald-500 text-white rounded-xl font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all shadow-sm shadow-emerald-200"
+                  >
+                    {isCapturingGPS === pkg.id
+                      ? <Clock size={15} className="animate-spin" />
+                      : <Check size={16} strokeWidth={3} />}
+                    Afgeleverd
+                  </button>
+                  <button
+                    onClick={() => setNotHomePkg(pkg)}
+                    disabled={!!isCapturingGPS}
+                    className="h-11 px-4 bg-amber-50 text-amber-700 rounded-xl font-black text-sm border border-amber-200 active:scale-95 disabled:opacity-50 transition-all"
+                  >
+                    Niet thuis
+                  </button>
+                </div>
+              )}
+
+              {/* Status — voor afgeronde pakketten */}
+              {!isActionable(pkg) && (
                 <div className="px-4 pb-3 flex items-center gap-2">
-                  <StatusBadge status={pkg.status} />
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-full ${getStatusStyle(pkg.status)}`}>
+                    {getStatusLabel(pkg.status)}
+                  </span>
                   {pkg.deliveryEvidence?.timestamp && (
                     <span className="text-xs text-slate-400 font-bold">
                       {new Date(pkg.deliveryEvidence.timestamp).toLocaleTimeString('nl-NL', {
@@ -386,46 +398,10 @@ const CourierView: React.FC<Props> = ({
                     </span>
                   )}
                 </div>
-
-                {/* Uitklapbaar detail met actieknoppen */}
-                {expandedId === pkg.id && (
-                  <div className="border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
-                    <div className="flex gap-2 p-4">
-                      <button
-                        onClick={e => { e.stopPropagation(); handleNavigate(pkg); }}
-                        className="flex-1 h-12 bg-slate-100 text-slate-700 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-200 active:scale-95 transition-all"
-                      >
-                        <Navigation size={16} />
-                        Navigeer
-                      </button>
-
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDeliverPkg(pkg); }}
-                        disabled={!!isCapturingGPS}
-                        className="flex-1 h-12 bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
-                      >
-                        {isCapturingGPS === pkg.id
-                          ? <Clock className="animate-spin" size={16} />
-                          : <Check size={16} />}
-                        Afgeleverd
-                      </button>
-
-                      <button
-                        onClick={e => { e.stopPropagation(); setNotHomePkg(pkg); }}
-                        disabled={!!isCapturingGPS}
-                        aria-label="Niet thuis"
-                        title="Niet thuis"
-                        className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center border border-amber-200 active:scale-95 disabled:opacity-50 transition-all shrink-0"
-                      >
-                        <DoorClosed size={20} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ── Niet-thuis sheet ── */}
@@ -435,7 +411,6 @@ const CourierView: React.FC<Props> = ({
           onComplete={(status, evidence) => {
             onUpdateMany([notHomePkg.id], status, evidence);
             setNotHomePkg(null);
-            setExpandedId(null);
           }}
           onCancel={() => setNotHomePkg(null)}
         />
