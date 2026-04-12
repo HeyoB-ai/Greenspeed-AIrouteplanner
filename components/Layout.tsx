@@ -1,7 +1,6 @@
 import React from 'react';
 import {
-  ShieldCheck, LogOut, Shield, Package, Truck, LayoutDashboard,
-  Search, Scan, Map, Building2, Users, CreditCard, Download
+  ShieldCheck, LogOut, Shield, Package, Truck, LayoutDashboard, Search
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -13,14 +12,14 @@ interface LayoutProps {
   extraHeaderContent?: React.ReactNode;
 }
 
-// Rol-specifieke nav-items (visuele context, geen sub-routing)
+// Eén actief item per rol — alleen items met een echte functie
 const NAV_ITEMS: Record<string, { icon: React.ElementType; label: string }[]> = {
-  SUPERUSER:  [{ icon: LayoutDashboard, label: 'Dashboard'   }, { icon: Building2, label: 'Apotheken' }, { icon: Users,         label: 'Gebruikers' }],
-  ADMIN:      [{ icon: Package,         label: 'Pakketten'   }, { icon: Map,        label: 'Route'     }, { icon: Download,      label: 'Rapporten'  }],
-  APOTHEEK:   [{ icon: Package,         label: 'Pakketten'   }, { icon: Scan,       label: 'Scanner'   }],
-  KOERIER:    [{ icon: Truck,           label: 'Mijn Rit'    }, { icon: Map,        label: 'Navigatie' }],
-  SUPERVISOR: [{ icon: LayoutDashboard, label: 'Logboek'     }, { icon: CreditCard, label: 'Facturatie'}],
-  PATIENT:    [{ icon: Search,          label: 'Traceren'    }],
+  SUPERUSER:  [{ icon: LayoutDashboard, label: 'Dashboard' }],
+  ADMIN:      [{ icon: Package,         label: 'Pakketten' }],
+  APOTHEEK:   [{ icon: Package,         label: 'Pakketten' }],
+  KOERIER:    [{ icon: Truck,           label: 'Mijn Rit'  }],
+  SUPERVISOR: [{ icon: LayoutDashboard, label: 'Logboek'   }],
+  PATIENT:    [{ icon: Search,          label: 'Traceren'  }],
 };
 
 const ROLE_LABELS: Record<string, string> = {
