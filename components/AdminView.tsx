@@ -36,19 +36,28 @@ const getStatusIcon = (status: PackageStatus): string => {
   }
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  [PackageStatus.SCANNING]:        'bg-blue-50 text-blue-600',
-  [PackageStatus.PENDING]:         'bg-amber-100 text-amber-700',
-  [PackageStatus.ASSIGNED]:        'bg-indigo-100 text-indigo-700',
-  [PackageStatus.PICKED_UP]:       'bg-indigo-100 text-indigo-700',
-  [PackageStatus.DELIVERED]:       'bg-emerald-100 text-emerald-700',
-  [PackageStatus.MAILBOX]:         'bg-emerald-100 text-emerald-700',
-  [PackageStatus.NEIGHBOUR]:       'bg-blue-100 text-blue-700',
-  [PackageStatus.RETURN]:          'bg-amber-100 text-amber-700',
-  [PackageStatus.FAILED]:          'bg-red-100 text-red-600',
-  [PackageStatus.BILLED]:          'bg-purple-100 text-purple-700',
-  [PackageStatus.MOVED]:           'bg-purple-100 text-purple-700',
-  [PackageStatus.OTHER_LOCATION]:  'bg-sky-100 text-sky-700',
+const STATUS_CONFIG: Record<string, { className: string; label: string }> = {
+  [PackageStatus.SCANNING]:        { className: 'bg-blue-50 text-blue-600',       label: 'Analyseren'     },
+  [PackageStatus.PENDING]:         { className: 'bg-amber-100 text-amber-700',    label: 'Wachten'        },
+  [PackageStatus.ASSIGNED]:        { className: 'bg-indigo-100 text-indigo-700',  label: 'Toegewezen'     },
+  [PackageStatus.PICKED_UP]:       { className: 'bg-indigo-100 text-indigo-700',  label: 'Opgehaald'      },
+  [PackageStatus.DELIVERED]:       { className: 'bg-emerald-100 text-emerald-700',label: 'Bezorgd'        },
+  [PackageStatus.MAILBOX]:         { className: 'bg-emerald-100 text-emerald-700',label: 'Brievenbus'     },
+  [PackageStatus.NEIGHBOUR]:       { className: 'bg-blue-100 text-blue-700',      label: 'Bij buren'      },
+  [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',    label: 'Retour'         },
+  [PackageStatus.FAILED]:          { className: 'bg-red-100 text-red-600',        label: 'Mislukt'        },
+  [PackageStatus.BILLED]:          { className: 'bg-purple-100 text-purple-700',  label: 'Gefactureerd'   },
+  [PackageStatus.MOVED]:           { className: 'bg-purple-100 text-purple-700',  label: 'Verhuisd'       },
+  [PackageStatus.OTHER_LOCATION]:  { className: 'bg-sky-100 text-sky-700',        label: 'Andere locatie' },
+};
+
+const StatusBadge: React.FC<{ status: PackageStatus }> = ({ status }) => {
+  const config = STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' };
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${config.className}`}>
+      {config.label}
+    </span>
+  );
 };
 
 const AdminView: React.FC<Props> = ({
@@ -226,143 +235,94 @@ const AdminView: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* ── Packages tab ── */}
-              {activeTab === 'packages' && (activeCouriers.length > 0 || packages.some(p => !p.courierId)) && (
-                <div className="px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  <button
-                    onClick={() => setActiveCourier('all')}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                      activeCourier === 'all'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                    }`}
-                  >
-                    Alle ({packages.length})
-                  </button>
-                  {packages.some(p => !p.courierId) && (
-                    <button
-                      onClick={() => setActiveCourier('unassigned')}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                        activeCourier === 'unassigned'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      Niet toegewezen ({packages.filter(p => !p.courierId).length})
-                    </button>
-                  )}
-                  {activeCouriers.map(courier => (
-                    <button
-                      key={courier.id}
-                      onClick={() => setActiveCourier(courier.id)}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                        activeCourier === courier.id
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      {courier.name} ({packages.filter(p => p.courierId === courier.id).length})
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* ── Packages tab — koerier tabs ── */}
+              {activeTab === 'packages' && (activeCouriers.length > 0 || packages.some(p => !p.courierId)) && (() => {
+                const tabs = [
+                  { id: 'all',        label: 'Alle',             count: packages.length },
+                  ...(packages.some(p => !p.courierId) ? [{ id: 'unassigned', label: 'Niet toegewezen', count: packages.filter(p => !p.courierId).length }] : []),
+                  ...activeCouriers.map(c => ({ id: c.id, label: c.name, count: packages.filter(p => p.courierId === c.id).length })),
+                ];
+                return (
+                  <div className="px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                    {tabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveCourier(tab.id)}
+                        className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wide transition-all border ${
+                          activeCourier === tab.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {tab.label}
+                        <span className={`ml-1.5 text-[10px] ${activeCourier === tab.id ? 'text-blue-200' : 'text-slate-400'}`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {activeTab === 'packages' && (
-                filteredPackages.length === 0 ? (
+                sorted.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
                     <Package className="text-slate-200 mb-4" size={40} />
                     <p className="text-slate-900 font-black">Geen pakketten</p>
                     <p className="text-slate-400 text-sm mt-1">Scan een label om te beginnen.</p>
                   </div>
                 ) : (
-                  <>
-                    {/* Desktop tabel */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-slate-100 bg-slate-50/50">
-                            <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-8"></th>
-                            <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Adres</th>
-                            <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {sorted.map(p => (
-                            <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3">
-                                {p.displayIndex ? (
-                                  <div className="w-7 h-7 bg-blue-600 text-white rounded-lg flex items-center justify-center font-black text-xs">{p.displayIndex}</div>
-                                ) : p.status === PackageStatus.SCANNING ? (
-                                  <RefreshCw className="animate-spin text-blue-400" size={16} />
-                                ) : (
-                                  <MapPin size={14} className="text-slate-300" />
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="font-extrabold text-sm text-slate-900">{p.address.street} {p.address.houseNumber}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">{p.address.postalCode} {p.address.city}</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
-                                    {p.status}
-                                  </span>
-                                  {p.statusHistory && p.statusHistory.length > 0 && (
-                                    <span className="text-xs text-slate-400 font-bold">
-                                      {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={() => setTimelinePkg(p)}
-                                    className="text-[10px] text-slate-400 hover:text-blue-600 font-bold underline underline-offset-2 transition-colors"
-                                  >
-                                    Historie
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden m-4">
+                    {/* Lijstheader */}
+                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200">
+                      <div className="w-7 shrink-0" />
+                      <p className="flex-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Adres</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Status</p>
                     </div>
-
-                    {/* Mobiel: kaarten */}
-                    <div className="lg:hidden divide-y divide-slate-100">
-                      {sorted.map(p => (
-                        <div key={p.id} className="px-4 py-4 flex items-center justify-between">
-                          <div className="flex items-center space-x-3 min-w-0">
-                            {p.displayIndex ? (
-                              <div className="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-black text-sm shrink-0">{p.displayIndex}</div>
-                            ) : p.status === PackageStatus.SCANNING ? (
-                              <RefreshCw className="animate-spin text-blue-400 shrink-0" size={20} />
-                            ) : (
-                              <MapPin size={18} className="text-slate-300 shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-extrabold text-sm text-slate-900 truncate">{p.address.street} {p.address.houseNumber}</p>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{p.address.postalCode} {p.address.city}</p>
-                            </div>
+                    {/* Rijen */}
+                    {sorted.map(p => (
+                      <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-default">
+                        {p.displayIndex ? (
+                          <div className="w-7 h-7 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
+                            {p.displayIndex}
                           </div>
-                          <div className="ml-2 flex flex-col items-end gap-1 shrink-0">
-                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[p.status] || 'bg-slate-100 text-slate-500'}`}>
-                              {p.status}
-                            </span>
+                        ) : p.status === PackageStatus.SCANNING ? (
+                          <div className="w-7 h-7 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+                            <RefreshCw size={12} className="text-blue-400 animate-spin" />
+                          </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                            <MapPin size={12} className="text-slate-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-900 text-sm truncate">
+                            {p.address.street} {p.address.houseNumber}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {p.address.postalCode} {p.address.city}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <StatusBadge status={p.status} />
+                          <div className="flex items-center gap-2">
                             {p.statusHistory && p.statusHistory.length > 0 && (
-                              <span className="text-[10px] text-slate-400 font-bold">
+                              <span className="text-[11px] text-slate-400 font-bold">
                                 {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                             <button
                               onClick={() => setTimelinePkg(p)}
-                              className="text-[10px] text-slate-400 hover:text-blue-600 font-bold underline underline-offset-2 transition-colors"
+                              className="text-[11px] text-blue-500 hover:text-blue-700 font-bold flex items-center gap-0.5 transition-colors"
                             >
                               Historie
+                              <ChevronRight size={10} />
                             </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </>
+                      </div>
+                    ))}
+                  </div>
                 )
               )}
 
