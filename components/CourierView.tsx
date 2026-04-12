@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
 import {
-  Navigation, CheckCircle, Map as MapIcon, X, Clock, Check,
-  RotateCcw, Pencil, Truck, ScanLine, PenLine, ArrowRight, Loader2,
+  Navigation, CheckCircle, X, Clock, Check, List,
+  Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
@@ -65,13 +65,10 @@ const CourierView: React.FC<Props> = ({
   onOptimize,
   isOptimizing = false,
 }) => {
-  const [showMapModal, setShowMapModal]         = useState(false);
-  const [isCapturingGPS, setIsCapturingGPS]     = useState<string | null>(null);
-  const [returnToPharmacy, setReturnToPharmacy] = useState(false);
-  const [editingReturn, setEditingReturn]       = useState(false);
-  const [returnAddr, setReturnAddr]             = useState(pharmacyAddress || pharmacyName);
+  const [showOverview, setShowOverview]             = useState(false);
+  const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
-  const [notHomePkg, setNotHomePkg]             = useState<PackageType | null>(null);
+  const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
 
   // PENDING pakketten — voor route-optimalisatie
   const pendingPackages = useMemo(
@@ -139,24 +136,15 @@ const CourierView: React.FC<Props> = ({
   };
 
   const handleNavigate = (pkg: PackageType) => {
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-        `${pkg.address.street} ${pkg.address.houseNumber} ${pkg.address.city}`
-      )}&travelmode=bicycling`
+    const { street, houseNumber, postalCode, city } = pkg.address;
+    const destination = encodeURIComponent(
+      `${street} ${houseNumber}, ${postalCode} ${city}, Netherlands`
     );
-  };
-
-  const getFullRouteUrl = () => {
-    if (stops.length === 0) return '';
-    const stopStrs = stops.map(s =>
-      encodeURIComponent(`${s.address.street} ${s.address.houseNumber} ${s.address.city}`)
-    );
-    if (returnToPharmacy) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(returnAddr)}&waypoints=${stopStrs.join('|')}&travelmode=bicycling`;
-    }
-    const waypoints = stopStrs.slice(0, -1).join('|');
-    const dest = stopStrs[stopStrs.length - 1];
-    return `https://www.google.com/maps/dir/?api=1&destination=${dest}&waypoints=${waypoints}&travelmode=bicycling`;
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&destination=${destination}` +
+      `&travelmode=bicycling`;
+    window.open(url, '_blank');
   };
 
   const toggleSelect = (id: string) => {
@@ -219,11 +207,11 @@ const CourierView: React.FC<Props> = ({
             </button>
           )}
           <button
-            onClick={() => setShowMapModal(true)}
+            onClick={() => setShowOverview(true)}
             className="flex items-center gap-1.5 px-3 h-10 bg-blue-600 text-white rounded-xl font-black text-xs"
           >
-            <MapIcon size={14} />
-            Route
+            <List size={14} />
+            Overzicht
           </button>
         </div>
       </div>
@@ -416,94 +404,72 @@ const CourierView: React.FC<Props> = ({
         />
       )}
 
-      {/* ── Route-modal ── */}
-      {showMapModal && (
-        <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex flex-col p-6">
-          <div className="flex items-center justify-between text-white mb-6">
-            <h3 className="text-xl font-black">Route Overzicht</h3>
+      {/* ── Overzicht modal — stop-voor-stop met Navigeer per stop ── */}
+      {showOverview && (
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex flex-col animate-in fade-in duration-200">
+          <div className="flex items-center justify-between px-5 pt-safe pt-6 pb-4 text-white">
+            <div>
+              <h3 className="text-lg font-black">Overzicht</h3>
+              <p className="text-xs text-white/50 font-bold mt-0.5">
+                {stops.length} stops te gaan
+              </p>
+            </div>
             <button
-              onClick={() => setShowMapModal(false)}
-              className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center"
+              onClick={() => setShowOverview(false)}
+              className="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center active:scale-90 transition-all"
             >
-              <X size={24} />
+              <X size={22} />
             </button>
           </div>
 
-          <div className="flex-1 flex items-center justify-center">
-            <div className="bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl">
-
-              <div className="px-8 pt-8 pb-4">
-                <MapIcon size={36} className="text-blue-600 mb-4" />
-                <p className="text-slate-900 font-black text-xl mb-1">Google Maps</p>
-                <p className="text-slate-400 text-sm font-medium">
-                  {stops.length} stops in geoptimaliseerde volgorde
-                </p>
+          <div className="flex-1 overflow-y-auto px-5 pb-safe pb-8 space-y-2">
+            {stops.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-white/40">
+                <CheckCircle size={40} className="mb-3" />
+                <p className="font-black text-sm">Alle stops afgerond</p>
               </div>
-
-              {/* Terug-naar-apotheek toggle */}
-              <div className="mx-6 mb-4 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
-                <button
-                  onClick={() => setReturnToPharmacy(p => !p)}
-                  className="w-full flex items-center justify-between px-5 py-4"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                      returnToPharmacy ? 'bg-blue-600' : 'bg-slate-200'
-                    }`}>
-                      <RotateCcw size={18} className={returnToPharmacy ? 'text-white' : 'text-slate-400'} />
+            ) : (
+              stops.map((stop, i) => (
+                <div key={stop.addressKey} className="bg-white rounded-2xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    {/* Stop nummer */}
+                    <div className="bg-blue-600 text-white rounded-xl w-10 h-10 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[7px] font-black text-blue-200 uppercase leading-none">Stop</span>
+                      <span className="text-base font-black leading-none">
+                        {stop.packages[0].routeIndex ?? stop.packages[0].displayIndex ?? i + 1}
+                      </span>
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-slate-900 leading-none">Terug naar apotheek</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                        {returnToPharmacy ? 'Aan' : 'Uit'}
+
+                    {/* Adres */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-900 text-sm leading-tight truncate">
+                        {stop.address.street} {stop.address.houseNumber}
+                      </p>
+                      <p className="text-xs text-slate-400 font-bold mt-0.5">
+                        {stop.address.postalCode} · {stop.address.city}
+                        {stop.packages.length > 1 && (
+                          <span className="ml-2 text-slate-300">{stop.packages.length}×</span>
+                        )}
                       </p>
                     </div>
-                  </div>
-                  <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${
-                    returnToPharmacy ? 'bg-blue-600' : 'bg-slate-300'
-                  }`}>
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                      returnToPharmacy ? 'left-7' : 'left-1'
-                    }`} />
-                  </div>
-                </button>
 
-                {returnToPharmacy && (
-                  <div className="px-5 pb-4 border-t border-slate-200 pt-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                      Terugkeeradres
-                    </p>
-                    {editingReturn ? (
-                      <input
-                        type="text"
-                        value={returnAddr}
-                        onChange={e => setReturnAddr(e.target.value)}
-                        onBlur={() => setEditingReturn(false)}
-                        autoFocus
-                        className="w-full bg-white border border-blue-400 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setEditingReturn(true)}
-                        className="flex items-center space-x-2 text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors w-full"
-                      >
-                        <span className="flex-1 text-left truncate">{returnAddr}</span>
-                        <Pencil size={14} className="text-slate-400 shrink-0" />
-                      </button>
-                    )}
+                    {/* Navigeer knop */}
+                    <button
+                      onClick={() => {
+                        handleNavigate(stop.packages[0]);
+                        setShowOverview(false);
+                      }}
+                      className="flex flex-col items-center justify-center bg-blue-600 active:bg-blue-500 active:scale-95 rounded-2xl w-14 h-14 shrink-0 transition-all"
+                    >
+                      <Navigation size={20} className="text-white mb-0.5" />
+                      <span className="text-[8px] font-black text-blue-100 uppercase tracking-wide">
+                        Navigeer
+                      </span>
+                    </button>
                   </div>
-                )}
-              </div>
-
-              <div className="px-6 pb-8">
-                <button
-                  onClick={() => { window.open(getFullRouteUrl()); setShowMapModal(false); }}
-                  className="w-full bg-blue-600 text-white h-14 rounded-2xl font-black shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
-                >
-                  Start Navigatie
-                </button>
-              </div>
-            </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
