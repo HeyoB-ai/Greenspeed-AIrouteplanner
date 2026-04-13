@@ -5,7 +5,6 @@ import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
 import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
-import CourierPharmacyLink from './components/CourierPharmacyLink';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
@@ -56,7 +55,6 @@ const App: React.FC = () => {
 
   // Courier: welke apotheek is actief voor deze rit
   const [courierActivePharmacyId, setCourierActivePharmacyId] = useState<string | null>(null);
-  const [showPharmacyLink, setShowPharmacyLink] = useState(false);
 
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
@@ -237,19 +235,11 @@ const App: React.FC = () => {
     [session, packages],
   );
 
-  const handleLogin = (user: AuthUser) => {
+  const handleLogin = (user: AuthUser, activePharmacyId?: string) => {
     const sess = { user, loggedInAt: new Date().toISOString() };
     setSession(sess);
-    // Koerier: controleer of apotheek al gekoppeld is
-    if (user.role === UserRole.COURIER) {
-      const ids = user.pharmacyIds ?? (user.pharmacyId ? [user.pharmacyId] : []);
-      if (ids.length === 0) {
-        setShowPharmacyLink(true);
-      } else if (ids.length === 1) {
-        setCourierActivePharmacyId(ids[0]);
-      } else {
-        setShowPharmacyLink(true); // laat koerier kiezen
-      }
+    if (activePharmacyId) {
+      setCourierActivePharmacyId(activePharmacyId);
     }
   };
 
@@ -259,7 +249,6 @@ const App: React.FC = () => {
       setSession(null);
       setPackages([]);
       setCourierActivePharmacyId(null);
-      setShowPharmacyLink(false);
     }
   };
 
@@ -485,37 +474,6 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
       />
     );
   }
-
-  // ── Render: courier pharmacy linking / selection ─────────────────
-  if (session && role === UserRole.COURIER && showPharmacyLink) {
-    const courierLinkedIds = session.user.pharmacyIds
-      ?? (session.user.pharmacyId ? [session.user.pharmacyId] : []);
-    return (
-      <CourierPharmacyLink
-        pharmacies={pharmacies}
-        linkedIds={courierLinkedIds}
-        onLinked={(pharmacyId) => {
-          // Update local session with new pharmacyId
-          const updatedUser: AuthUser = {
-            ...session.user,
-            pharmacyId,
-            pharmacyIds: [...(session.user.pharmacyIds ?? []), pharmacyId]
-              .filter((v, i, a) => a.indexOf(v) === i),
-          };
-          const updatedSession = { ...session, user: updatedUser };
-          setSession(updatedSession);
-          saveSession(updatedUser);
-          setCourierActivePharmacyId(pharmacyId);
-        }}
-        onChoose={(pharmacyId) => {
-          setCourierActivePharmacyId(pharmacyId);
-          setShowPharmacyLink(false);
-        }}
-        onSkip={courierLinkedIds.length > 0 ? () => setShowPharmacyLink(false) : undefined}
-      />
-    );
-  }
-
 
   // ── Helpers for authenticated views ─────────────────────────────
   const syncIndicator = (
