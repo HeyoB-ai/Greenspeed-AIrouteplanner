@@ -234,28 +234,17 @@ const CourierView: React.FC<Props> = ({
               {isOptimizing ? 'Bezig...' : 'Route'}
             </button>
           )}
-          <button
-            onClick={() => setShowOverview(true)}
-            className="flex items-center gap-1.5 px-3 h-10 bg-blue-600 text-white rounded-xl font-black text-xs"
-          >
-            <List size={14} />
-            Overzicht
-          </button>
+          {onManualAdd && (
+            <button
+              onClick={onManualAdd}
+              className="flex items-center gap-1.5 px-3 h-10 bg-blue-700 text-white rounded-xl font-black text-xs hover:bg-blue-800 transition-all active:scale-95"
+            >
+              <PenLine size={14} />
+              Invoeren
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Handmatig — als kleine tekstlink onder de knoppen */}
-      {onManualAdd && (
-        <div className="flex justify-end mb-4 -mt-2">
-          <button
-            onClick={onManualAdd}
-            className="text-xs text-slate-400 hover:text-slate-600 font-bold flex items-center gap-1 transition-colors"
-          >
-            <PenLine size={10} />
-            Handmatig invoeren
-          </button>
-        </div>
-      )}
 
       {/* ── Wachtende pakketten: selecteren + route plannen ── */}
       {pendingPackages.length > 0 && (
@@ -326,36 +315,6 @@ const CourierView: React.FC<Props> = ({
           )}
         </div>
       )}
-
-      {/* ── Volgende stop banner ── */}
-      {(() => {
-        const nextStop = sortedPackages.find(p => isActionable(p));
-        if (!nextStop) return null;
-        return (
-          <div className="bg-indigo-900 text-white rounded-2xl p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-indigo-300 text-[10px] font-black uppercase tracking-widest mb-1">
-                  Pakje #{nextStop.scanNumber ?? '?'} — eerst bezorgen
-                </p>
-                <p className="font-black text-lg leading-tight truncate">
-                  {nextStop.address.street} {nextStop.address.houseNumber}
-                </p>
-                <p className="text-indigo-300 text-sm">
-                  {nextStop.address.postalCode} · {nextStop.address.city}
-                </p>
-              </div>
-              <button
-                onClick={() => handleNavigate(nextStop)}
-                className="ml-4 bg-blue-500 active:scale-95 rounded-2xl w-16 h-16 shrink-0 flex flex-col items-center justify-center transition-all"
-              >
-                <Navigation size={22} className="text-white mb-0.5" />
-                <span className="text-[9px] font-black text-blue-100 uppercase tracking-wide">Navigeer</span>
-              </button>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── Pakketkaartjes ── */}
       {sortedPackages.length === 0 ? (
