@@ -141,16 +141,13 @@ export async function registerCourier(
 ): Promise<AuthUser | null> {
   if (!supabase) return null;
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error || !data.user) return null;
-
-  const { error: profileError } = await supabase.from('user_profiles').insert({
-    id:           data.user.id,
-    name,
-    role:         'courier',
-    pharmacy_ids: [],
+  // Geef naam en rol mee als metadata — trigger in de DB maakt user_profiles record aan
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name, role: 'courier' } },
   });
-  if (profileError) return null;
+  if (error || !data.user) return null;
 
   const user: AuthUser = {
     id:        data.user.id,
@@ -182,19 +179,15 @@ export async function acceptInvitation(
 
   if (inviteError || !invite) return null;
 
-  // Maak account aan
-  const { data, error } = await supabase.auth.signUp({ email: invite.email, password });
-  if (error || !data.user) return null;
-
   const pharmacyIds = invite.pharmacy_id ? [invite.pharmacy_id] : [];
 
-  // Maak profiel aan
-  await supabase.from('user_profiles').insert({
-    id:           data.user.id,
-    name,
-    role:         invite.role,
-    pharmacy_ids: pharmacyIds,
+  // Geef naam, rol en apotheken mee als metadata — trigger maakt user_profiles aan
+  const { data, error } = await supabase.auth.signUp({
+    email:    invite.email,
+    password,
+    options:  { data: { name, role: invite.role, pharmacy_ids: pharmacyIds } },
   });
+  if (error || !data.user) return null;
 
   // Markeer uitnodiging als geaccepteerd
   await supabase
