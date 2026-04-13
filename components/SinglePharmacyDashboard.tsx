@@ -226,16 +226,18 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Courier filter tabs */}
-            {activeTab === 'packages' && (activeCouriers.length > 0 || packages.some(p => !p.courierId)) && (() => {
-              const tabs = [
+            {/* Courier filter tabs + Optimaliseer route knop */}
+            {activeTab === 'packages' && (() => {
+              const showTabs = activeCouriers.length > 0 || packages.some(p => !p.courierId);
+              const tabs = showTabs ? [
                 { id: 'all',        label: 'Alle',             count: packages.length },
                 ...(packages.some(p => !p.courierId) ? [{ id: 'unassigned', label: 'Niet toegewezen', count: packages.filter(p => !p.courierId).length }] : []),
                 ...activeCouriers.map(c => ({ id: c.id, label: c.name, count: packages.filter(p => p.courierId === c.id).length })),
-              ];
+              ] : [];
               const optimizableIds = filteredPackages
                 .filter(p => p.status === PackageStatus.PENDING || p.status === PackageStatus.ASSIGNED)
                 .map(p => p.id);
+              if (!showTabs && !onOptimize) return null;
               return (
                 <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3">
                   <div className="flex gap-2 overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
