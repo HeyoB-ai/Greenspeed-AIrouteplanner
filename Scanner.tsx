@@ -95,6 +95,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   // Blokkeer dubbele capture-aanroepen binnen 500ms
   const isCapturing = useRef(false);
 
+  // Adres-dedup binnen de scanner: voorkomt dat twee items
+  // met hetzelfde adres allebei onScanComplete aanroepen
+  const completedAddresses = useRef(new Map<string, number>());
+
   // Camera setup
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -137,6 +141,19 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
     try {
       const result = await extractAddressFromImage(item.base64);
       if (result?.address?.street && result.address.houseNumber) {
+        // Adres-dedup: voorkomt dat twee parallelle Gemini-calls voor hetzelfde adres
+        // allebei onScanComplete aanroepen (15s venster)
+        const addrKey = `${result.address.street}-${result.address.houseNumber}-${result.address.postalCode}`
+          .toLowerCase().replace(/\s+/g, '');
+        const now = Date.now();
+        const lastSeen = completedAddresses.current.get(addrKey);
+        if (lastSeen && now - lastSeen < 15000) {
+          // Duplicaat binnen 15s — markeer als fout zodat de koerier weet wat er is gebeurd
+          updateQueueItem(item.id, 'error');
+          return;
+        }
+        completedAddresses.current.set(addrKey, now);
+
         updateQueueItem(item.id, 'success', result.address);
         playSound('success');
 
