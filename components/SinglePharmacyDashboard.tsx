@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X, Map,
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X, Map as MapIcon,
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
@@ -267,7 +267,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                       {isOptimizing ? (
                         <><RefreshCw size={13} className="animate-spin" /> Bezig...</>
                       ) : (
-                        <><Map size={13} /> Optimaliseer route</>
+                        <><MapIcon size={13} /> Optimaliseer route</>
                       )}
                     </button>
                   )}
