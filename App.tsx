@@ -6,6 +6,7 @@ import PharmacyView from './components/PharmacyView';
 import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
+import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
 import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
@@ -403,28 +404,8 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
     </div>
   );
 
-  // Superuser pharmacy picker (shown in header)
-  const superuserPharmacyPicker = role === UserRole.SUPERUSER ? (
-    <div className="flex items-center space-x-2">
-      <select
-        value={superuserPharmacyId}
-        onChange={e => setSuperuserPharmacyId(e.target.value)}
-        className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
-      >
-        {pharmacies.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-      <button
-        onClick={handleAddPharmacy}
-        className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 hover:bg-emerald-100 transition-all"
-      >
-        + Nieuw
-      </button>
-    </div>
-  ) : null;
-
   const extraHeader = (
     <div className="flex items-center space-x-3">
-      {superuserPharmacyPicker}
       {syncIndicator}
     </div>
   );
@@ -530,15 +511,11 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
 
         {/* SUPERUSER — systeem-breed overzicht */}
         {role === UserRole.SUPERUSER && (
-          <>
-            <SupervisorView
-              packages={packages}
-              couriers={couriers}
-              pharmacies={pharmacies}
-              onUpdateStatus={updateMultipleStatus}
-            />
-            <ChatBot packages={packages} pharmacyName="Greenspeed HQ" />
-          </>
+          <SuperuserView
+            packages={packages}
+            pharmacies={pharmacies}
+            onUpdateStatus={updateMultipleStatus}
+          />
         )}
 
         {/* ADMIN — één apotheek beheren */}
