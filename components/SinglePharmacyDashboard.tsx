@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X, Map,
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
@@ -14,6 +14,8 @@ interface Props {
   conversations?:          ChatConversation[];
   onMarkConversationRead?: (id: string) => void;
   onMarkCallbackHandled?:  (id: string) => void;
+  onOptimize?:             (ids: string[]) => Promise<void>;
+  isOptimizing?:           boolean;
 }
 
 const COURIER_NAMES: Record<string, string> = {
@@ -67,6 +69,8 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   conversations = [],
   onMarkConversationRead,
   onMarkCallbackHandled,
+  onOptimize,
+  isOptimizing = false,
 }) => {
   const [activeTab, setActiveTab]       = useState<'packages' | 'chats' | 'archive'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
@@ -229,24 +233,42 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                 ...(packages.some(p => !p.courierId) ? [{ id: 'unassigned', label: 'Niet toegewezen', count: packages.filter(p => !p.courierId).length }] : []),
                 ...activeCouriers.map(c => ({ id: c.id, label: c.name, count: packages.filter(p => p.courierId === c.id).length })),
               ];
+              const optimizableIds = filteredPackages
+                .filter(p => p.status === PackageStatus.PENDING || p.status === PackageStatus.ASSIGNED)
+                .map(p => p.id);
               return (
-                <div className="px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  {tabs.map(tab => (
+                <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3">
+                  <div className="flex gap-2 overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
+                    {tabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveCourier(tab.id)}
+                        className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wide transition-all border ${
+                          activeCourier === tab.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {tab.label}
+                        <span className={`ml-1.5 text-[10px] ${activeCourier === tab.id ? 'text-blue-200' : 'text-slate-400'}`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {onOptimize && (
                     <button
-                      key={tab.id}
-                      onClick={() => setActiveCourier(tab.id)}
-                      className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wide transition-all border ${
-                        activeCourier === tab.id
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
-                      }`}
+                      onClick={() => onOptimize(optimizableIds)}
+                      disabled={isOptimizing || optimizableIds.length === 0}
+                      className="shrink-0 flex items-center gap-2 px-4 h-9 bg-indigo-900 text-white rounded-2xl font-black text-xs disabled:opacity-40 transition-all hover:bg-indigo-800 shadow-sm"
                     >
-                      {tab.label}
-                      <span className={`ml-1.5 text-[10px] ${activeCourier === tab.id ? 'text-blue-200' : 'text-slate-400'}`}>
-                        {tab.count}
-                      </span>
+                      {isOptimizing ? (
+                        <><RefreshCw size={13} className="animate-spin" /> Bezig...</>
+                      ) : (
+                        <><Map size={13} /> Optimaliseer route</>
+                      )}
                     </button>
-                  ))}
+                  )}
                 </div>
               );
             })()}

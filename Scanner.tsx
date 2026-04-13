@@ -87,7 +87,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
   const nextScanNumberRef = useRef(nextScanNumber);
   useEffect(() => { nextScanNumberRef.current = nextScanNumber; }, [nextScanNumber]);
-  const successCountRef = useRef(0);
+  const successCountRef   = useRef(0);
+
+  // Voorkom dat hetzelfde item twee keer tegelijk verwerkt wordt
+  const processingIds = useRef(new Set<string>());
 
   // Camera setup
   useEffect(() => {
@@ -125,6 +128,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   }, []);
 
   const processItem = useCallback(async (item: QueueItem) => {
+    // Voorkom dubbele verwerking van hetzelfde item
+    if (processingIds.current.has(item.id)) return;
+    processingIds.current.add(item.id);
     try {
       const result = await extractAddressFromImage(item.base64);
       if (result?.address?.street && result.address.houseNumber) {
@@ -148,6 +154,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
     } catch {
       updateQueueItem(item.id, 'error');
       playSound('error');
+    } finally {
+      processingIds.current.delete(item.id);
     }
   }, [updateQueueItem]);
 

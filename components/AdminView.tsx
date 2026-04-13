@@ -10,6 +10,8 @@ interface Props {
   conversations?:          ChatConversation[];
   onMarkConversationRead?: (id: string) => void;
   onMarkCallbackHandled?:  (id: string) => void;
+  onOptimize?:             (ids: string[]) => Promise<void>;
+  isOptimizing?:           boolean;
 }
 
 const AdminView: React.FC<Props> = ({
@@ -18,6 +20,8 @@ const AdminView: React.FC<Props> = ({
   conversations = [],
   onMarkConversationRead,
   onMarkCallbackHandled,
+  onOptimize,
+  isOptimizing,
 }) => {
   const isMulti = pharmacies.length > 1;
   const [selected, setSelected] = useState<string | null>(null);
@@ -69,6 +73,8 @@ const AdminView: React.FC<Props> = ({
         conversations={phConversations}
         onMarkConversationRead={onMarkConversationRead}
         onMarkCallbackHandled={onMarkCallbackHandled}
+        onOptimize={onOptimize}
+        isOptimizing={isOptimizing}
       />
     </>
   );

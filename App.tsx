@@ -236,7 +236,20 @@ const App: React.FC = () => {
     }
   };
 
+  const recentScans = useRef<Map<string, number>>(new Map());
+
   const handleNewScan = useCallback(async (address: Address) => {
+    // Deduplicatie: zelfde adres binnen 5 seconden wordt genegeerd
+    const key = `${address.street}-${address.houseNumber}-${address.postalCode}`
+      .toLowerCase().replace(/\s/g, '');
+    const now  = Date.now();
+    const last = recentScans.current.get(key);
+    if (last && now - last < 5000) {
+      console.log('Duplicaat scan genegeerd:', key);
+      return;
+    }
+    recentScans.current.set(key, now);
+
     const currentSession = getSession();
     const isKoerier = currentSession?.user?.role === UserRole.COURIER;
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
@@ -582,6 +595,8 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}
             onMarkCallbackHandled={handleMarkCallbackHandled}
+            onOptimize={handleOptimizeRoute}
+            isOptimizing={isOptimizing}
           />
         )}
 
