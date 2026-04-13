@@ -84,11 +84,9 @@ const CourierView: React.FC<Props> = ({
     const actionable = visible.filter(p => isActionable(p));
     const done       = visible.filter(p => !isActionable(p));
 
-    // Te bezorgen: routeIndex > geen routeIndex > scanNumber
+    // Na optimalisatie: routeIndex; vóór optimalisatie: scanNumber
     const sortedActionable = [...actionable].sort((a, b) => {
       if (a.routeIndex && b.routeIndex) return a.routeIndex - b.routeIndex;
-      if (a.routeIndex && !b.routeIndex) return -1;
-      if (!a.routeIndex && b.routeIndex) return 1;
       return (a.scanNumber ?? 999) - (b.scanNumber ?? 999);
     });
 
@@ -194,7 +192,7 @@ const CourierView: React.FC<Props> = ({
           </div>
           {actionableCount > 0 && (
             <p className="text-xs text-slate-400 font-bold mt-2">
-              {actionableCount} stops te gaan
+              {actionableCount} pakket{actionableCount !== 1 ? 'jes' : 'je'} te bezorgen
             </p>
           )}
         </div>
@@ -205,7 +203,7 @@ const CourierView: React.FC<Props> = ({
         <div>
           <h1 className="text-xl font-black text-slate-900">Jouw Rit</h1>
           <p className="text-xs text-slate-400 font-bold mt-0.5">
-            {actionableCount} te gaan · {doneCount} klaar
+            {actionableCount} te bezorgen · {doneCount} klaar
           </p>
         </div>
         <div className="flex gap-2">
@@ -320,9 +318,7 @@ const CourierView: React.FC<Props> = ({
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-indigo-300 text-[10px] font-black uppercase tracking-widest mb-1">
-                  {nextStop.routeIndex
-                    ? `Stop ${nextStop.routeIndex} · Pakje #${nextStop.scanNumber ?? '?'}`
-                    : `Pakje #${nextStop.scanNumber ?? '?'}`}
+                  Pakje #{nextStop.scanNumber ?? '?'} — eerst bezorgen
                 </p>
                 <p className="font-black text-lg leading-tight truncate">
                   {nextStop.address.street} {nextStop.address.houseNumber}
@@ -362,25 +358,13 @@ const CourierView: React.FC<Props> = ({
               {/* Info sectie */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
 
-                {/* Vóór optimalisatie: scanNumber badge */}
-                {!pkg.routeIndex && (
-                  <div className="bg-indigo-900 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
-                    <span className="text-[8px] font-black text-indigo-300 uppercase leading-none">Pakje</span>
-                    <span className="text-lg font-black leading-none">
-                      {pkg.scanNumber ?? '?'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Na optimalisatie: routeIndex badge */}
-                {pkg.routeIndex && (
-                  <div className="bg-blue-600 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
-                    <span className="text-[8px] font-black text-blue-200 uppercase leading-none">Stop</span>
-                    <span className="text-lg font-black leading-none">
-                      {pkg.routeIndex}
-                    </span>
-                  </div>
-                )}
+                {/* Pakjenummer badge — altijd het scannummer */}
+                <div className="bg-indigo-900 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
+                  <span className="text-[8px] font-black text-indigo-300 uppercase leading-none">#</span>
+                  <span className="text-lg font-black leading-none">
+                    {pkg.scanNumber ?? '?'}
+                  </span>
+                </div>
 
                 {/* Adres */}
                 <div className="flex-1 min-w-0">
@@ -389,9 +373,6 @@ const CourierView: React.FC<Props> = ({
                   </p>
                   <p className="text-xs text-slate-400 font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
-                    {pkg.scanNumber && (
-                      <span className="ml-2 text-slate-300">#{pkg.scanNumber}</span>
-                    )}
                   </p>
                 </div>
 
@@ -467,7 +448,7 @@ const CourierView: React.FC<Props> = ({
             <div>
               <h3 className="text-lg font-black">Overzicht</h3>
               <p className="text-xs text-white/50 font-bold mt-0.5">
-                {stops.length} stops te gaan
+                {stops.length} pakket{stops.length !== 1 ? 'jes' : 'je'} te bezorgen
               </p>
             </div>
             <button
@@ -485,15 +466,16 @@ const CourierView: React.FC<Props> = ({
                 <p className="font-black text-sm">Alle stops afgerond</p>
               </div>
             ) : (
-              stops.map((stop, i) => (
+              stops.map(stop => (
                 <div key={stop.addressKey} className="bg-white rounded-2xl overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3.5">
-                    {/* Stop nummer */}
-                    <div className="bg-blue-600 text-white rounded-xl w-10 h-10 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[7px] font-black text-blue-200 uppercase leading-none">Stop</span>
-                      <span className="text-base font-black leading-none">
-                        {stop.packages[0].routeIndex ?? stop.packages[0].displayIndex ?? i + 1}
-                      </span>
+                    {/* Pakjenummer(s) */}
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {stop.packages.map(p => (
+                        <div key={p.id} className="bg-indigo-900 text-white rounded-xl w-10 h-8 flex items-center justify-center">
+                          <span className="text-sm font-black leading-none">#{p.scanNumber ?? '?'}</span>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Adres */}
@@ -503,9 +485,6 @@ const CourierView: React.FC<Props> = ({
                       </p>
                       <p className="text-xs text-slate-400 font-bold mt-0.5">
                         {stop.address.postalCode} · {stop.address.city}
-                        {stop.packages.length > 1 && (
-                          <span className="ml-2 text-slate-300">{stop.packages.length}×</span>
-                        )}
                       </p>
                     </div>
 
