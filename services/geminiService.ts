@@ -183,21 +183,51 @@ export async function answerPatientQuestion(
 }
 
 // ── Route-optimalisatie ──────────────────────────────────────────────
+//
+// REGEL 1: Alle adressen in dezelfde straat worden ALTIJD aaneengesloten
+//          geplaatst. Straatnaam-matching is hoofdlettergevoelig.
+//          Binnen een straat: oplopend huisnummer.
+// REGEL 2: Gemini optimaliseert daarna alleen de volgorde van straatgroepen.
+
+const parseHouseNumber = (hn: string): number => parseInt(hn, 10) || 0;
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[]
 ): Promise<string[]> {
+  if (addresses.length === 0) return [];
+
+  // ── Stap 1: Groepeer per straatnaam (hoofdlettergevoelig) ──────────
+  const streetGroups = new Map<string, (Address & { id: string })[]>();
+  for (const addr of addresses) {
+    if (!streetGroups.has(addr.street)) streetGroups.set(addr.street, []);
+    streetGroups.get(addr.street)!.push(addr);
+  }
+
+  // ── Stap 2: Sorteer binnen elke straat op oplopend huisnummer ──────
+  for (const group of streetGroups.values()) {
+    group.sort((a, b) => parseHouseNumber(a.houseNumber) - parseHouseNumber(b.houseNumber));
+  }
+
+  // ── Stap 3: Bouw vertegenwoordigers — één per straat voor Gemini ───
+  const streets = Array.from(streetGroups.keys());
+
+  if (streets.length === 1) {
+    // Maar één straat — geen globale optimalisatie nodig
+    return streetGroups.get(streets[0])!.map(a => a.id);
+  }
+
+  const representatives = streets.map(street => {
+    const first = streetGroups.get(street)![0];
+    return { street, postalCode: first.postalCode, city: first.city };
+  });
+
   try {
     const text = await callGemini({
-      contents: [
-        {
-          parts: [
-            {
-              text: `Optimaliseer de meest logische fietsroute langs deze adressen, beginnend in het centrum van de stad. Geef ALLE IDs terug in de nieuwe volgorde. INPUT: ${JSON.stringify(addresses)}`,
-            },
-          ],
-        },
-      ],
+      contents: [{
+        parts: [{
+          text: `Optimaliseer de meest logische fietsroute langs deze straatgroepen voor een fietskoerier, beginnend in het centrum van de stad. Geef ALLE straatnamen terug in de optimale volgorde — geen toevoegingen, exact zoals aangeleverd. INPUT: ${JSON.stringify(representatives)}`,
+        }],
+      }],
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -207,10 +237,33 @@ export async function optimizeRoute(
       },
     });
 
-    if (!text) return addresses.map(a => a.id);
-    return JSON.parse(text);
+    const orderedStreets: string[] = text ? JSON.parse(text) : streets;
+
+    // ── Stap 4: Bouw definitieve ID-volgorde op ──────────────────────
+    const remaining = new Map(streetGroups);
+    const result: string[] = [];
+
+    for (const street of orderedStreets) {
+      const group = remaining.get(street);
+      if (group) {
+        result.push(...group.map(a => a.id));
+        remaining.delete(street);
+      }
+    }
+    // Voeg straten toe die Gemini eventueel oversloeg
+    for (const group of remaining.values()) {
+      result.push(...group.map(a => a.id));
+    }
+
+    return result;
+
   } catch (error: any) {
     console.error('AI Route Error:', error);
-    return addresses.map(a => a.id);
+    // Fallback: straten in oorspronkelijke invoervolgorde, huisnummers gesorteerd
+    const result: string[] = [];
+    for (const group of streetGroups.values()) {
+      result.push(...group.map(a => a.id));
+    }
+    return result;
   }
 }
