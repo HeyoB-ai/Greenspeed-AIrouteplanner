@@ -183,87 +183,58 @@ export async function answerPatientQuestion(
 }
 
 // ── Route-optimalisatie ──────────────────────────────────────────────
-//
-// REGEL 1: Alle adressen in dezelfde straat worden ALTIJD aaneengesloten
-//          geplaatst. Straatnaam-matching is hoofdlettergevoelig.
-//          Binnen een straat: oplopend huisnummer.
-// REGEL 2: Gemini optimaliseert daarna alleen de volgorde van straatgroepen.
-
-const parseHouseNumber = (hn: string): number => parseInt(hn, 10) || 0;
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[]
 ): Promise<string[]> {
   if (addresses.length === 0) return [];
 
-  // ── Stap 1: Groepeer per straatnaam (hoofdlettergevoelig) ──────────
-  const streetGroups = new Map<string, (Address & { id: string })[]>();
-  for (const addr of addresses) {
-    if (!streetGroups.has(addr.street)) streetGroups.set(addr.street, []);
-    streetGroups.get(addr.street)!.push(addr);
-  }
-
-  // ── Stap 2: Sorteer binnen elke straat op oplopend huisnummer ──────
-  for (const group of streetGroups.values()) {
-    group.sort((a, b) => parseHouseNumber(a.houseNumber) - parseHouseNumber(b.houseNumber));
-  }
-
-  // ── Stap 3: Bouw vertegenwoordigers — één per straat voor Gemini ───
-  const streets = Array.from(streetGroups.keys());
-
-  if (streets.length === 1) {
-    // Maar één straat — geen globale optimalisatie nodig
-    return streetGroups.get(streets[0])!.map(a => a.id);
-  }
-
-  const representatives = streets.map(street => {
-    const first = streetGroups.get(street)![0];
-    return { street, postalCode: first.postalCode, city: first.city };
-  });
+  const addressList = addresses
+    .map((addr, i) => `${i}: ${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.city}`)
+    .join('\n');
 
   try {
     const text = await callGemini({
       contents: [{
         parts: [{
-          text: `Optimaliseer de meest logische fietsroute langs deze straatgroepen voor een fietskoerier, beginnend in het centrum van de stad. Geef ALLE straatnamen terug in de optimale volgorde — geen toevoegingen, exact zoals aangeleverd. INPUT: ${JSON.stringify(representatives)}`,
+          text: `Je bent een routeplanner voor een Nederlandse fietskoerier die medicijnen bezorgt.
+
+Hier zijn alle bezorgadressen, genummerd 0 t/m ${addresses.length - 1}:
+${addressList}
+
+Sorteer deze adressen in de optimale fietsvolgorde. Regels:
+- Minimaliseer de totale fietsafstand
+- Geografische nabijheid is ALTIJD leidend
+- Sla nooit een dichtstbijzijnd adres over om een straat "af te maken"
+- Adressen in dezelfde straat mogen gesplitst worden als een ander adres geografisch ertussen ligt
+- Gebruik postcodes en straatnamen alleen als hulpmiddel bij gelijke afstand
+
+Geef ALLEEN de nummers terug in de optimale volgorde, gescheiden door komma's. Geen uitleg.
+Voorbeeld output: 3,0,5,2,1,4`,
         }],
       }],
       generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'ARRAY',
-          items: { type: 'STRING' },
-        },
+        responseMimeType: 'text/plain',
       },
     });
 
-    const orderedStreets: string[] = text ? JSON.parse(text) : streets;
+    if (!text) throw new Error('Geen response van Gemini');
 
-    // ── Stap 4: Bouw definitieve ID-volgorde op ──────────────────────
-    const remaining = new Map(streetGroups);
-    const result: string[] = [];
+    const orderedIndices = text
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n) && n >= 0 && n < addresses.length);
 
-    for (const street of orderedStreets) {
-      const group = remaining.get(street);
-      if (group) {
-        result.push(...group.map(a => a.id));
-        remaining.delete(street);
-      }
-    }
-    // Voeg straten toe die Gemini eventueel oversloeg
-    for (const group of remaining.values()) {
-      result.push(...group.map(a => a.id));
+    // Voeg eventueel door Gemini overgeslagen indices toe aan het einde
+    const seen = new Set(orderedIndices);
+    for (let i = 0; i < addresses.length; i++) {
+      if (!seen.has(i)) orderedIndices.push(i);
     }
 
-    return result;
+    return orderedIndices.map(i => addresses[i].id);
 
   } catch (error: any) {
     console.error('AI Route Error:', error);
-    // Fallback: straten in oorspronkelijke invoervolgorde, huisnummers gesorteerd
-    const result: string[] = [];
-    for (const group of streetGroups.values()) {
-      result.push(...group.map(a => a.id));
-    }
-    return result;
+    return addresses.map(a => a.id);
   }
 }
