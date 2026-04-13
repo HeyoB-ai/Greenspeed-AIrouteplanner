@@ -11,9 +11,11 @@ interface Props {
   onUpdateStatus:  (ids: string[], status: PackageStatus) => void;
   canAddPharmacy?: boolean;
   onAddPharmacy?:  (pharmacy: Pharmacy) => Promise<void>;
+  onOptimize?:     (ids: string[]) => Promise<void>;
+  isOptimizing?:   boolean;
 }
 
-const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, canAddPharmacy, onAddPharmacy }) => {
+const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, canAddPharmacy, onAddPharmacy, onOptimize, isOptimizing }) => {
   const [selected, setSelected]     = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
 
@@ -36,6 +38,8 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, 
           packages={phPackages}
           pharmacy={pharmacy}
           conversations={[]}
+          onOptimize={onOptimize}
+          isOptimizing={isOptimizing}
         />
       </>
     );

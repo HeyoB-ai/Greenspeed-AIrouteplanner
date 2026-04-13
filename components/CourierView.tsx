@@ -92,9 +92,10 @@ const CourierView: React.FC<Props> = ({
       return (a.scanNumber ?? 999) - (b.scanNumber ?? 999);
     });
 
-    // Afgerond: nieuwste eerst
+    // Afgerond: nieuwste bezorging eerst
     const sortedDone = [...done].sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(b.deliveredAt ?? b.createdAt).getTime() -
+      new Date(a.deliveredAt ?? a.createdAt).getTime()
     );
 
     return [...sortedActionable, ...sortedDone];

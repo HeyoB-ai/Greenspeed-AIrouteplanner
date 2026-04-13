@@ -92,6 +92,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   // Voorkom dat hetzelfde item twee keer tegelijk verwerkt wordt
   const processingIds = useRef(new Set<string>());
 
+  // Blokkeer dubbele capture-aanroepen binnen 500ms
+  const isCapturing = useRef(false);
+
   // Camera setup
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -166,6 +169,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
 
   // Capture: foto direct in queue, camera meteen weer vrij
   const capture = useCallback(() => {
+    if (isCapturing.current) return; // blokkeer dubbele aanroep binnen 500ms
+    isCapturing.current = true;
+    setTimeout(() => { isCapturing.current = false; }, 500);
+
     if (!cameraReady || cameraError) return;
     if (!videoRef.current || !canvasRef.current) return;
     if (!videoRef.current.videoWidth || videoRef.current.videoWidth === 0) return;

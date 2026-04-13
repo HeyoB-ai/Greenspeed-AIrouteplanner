@@ -244,7 +244,7 @@ const App: React.FC = () => {
       .toLowerCase().replace(/\s/g, '');
     const now  = Date.now();
     const last = recentScans.current.get(key);
-    if (last && now - last < 5000) {
+    if (last && now - last < 10000) {
       console.log('Duplicaat scan genegeerd:', key);
       return;
     }
@@ -298,14 +298,13 @@ const App: React.FC = () => {
     await db.syncPackage(pkg);
   }, [currentPharmacy, packages]);
 
-  const handleOptimizeRoute = async (selectedIds: string[]) => {
+  const handleOptimizeRoute = useCallback(async (selectedIds: string[]) => {
     if (selectedIds.length === 0) return;
     setIsOptimizing(true);
 
     try {
       const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
 
-      // Stuur alle geselecteerde pakketten naar de AI
       const stops = selectedPackages.map(p => ({
         id:          p.id,
         street:      p.address.street,
@@ -324,22 +323,26 @@ const App: React.FC = () => {
         if (pkg) console.log(`Stop ${i + 1}: ${pkg.address.street} ${pkg.address.houseNumber}`);
       });
 
-      // Wijs routeIndex toe op basis van positie in orderedIds
-      const updatedPackages = packages.map(pkg => {
-        const routePos = orderedIds.indexOf(pkg.id);
-        if (routePos === -1) return pkg; // niet in de selectie
+      // indexMap: id → 1-gebaseerde positie
+      const indexMap = new Map<string, number>();
+      orderedIds.forEach((id, i) => indexMap.set(id, i + 1));
 
-        return {
+      const toSync: Package[] = [];
+      const updatedPackages = packages.map(pkg => {
+        if (!indexMap.has(pkg.id)) return pkg;
+        const pos = indexMap.get(pkg.id)!;
+        const updated = {
           ...pkg,
           status:       PackageStatus.ASSIGNED,
-          routeIndex:   routePos + 1,   // 1-gebaseerd voor weergave
-          displayIndex: routePos + 1,
-          orderIndex:   routePos,       // 0-gebaseerd voor sortering
+          routeIndex:   pos,
+          displayIndex: pos,
+          orderIndex:   pos - 1, // 0-gebaseerd voor overzicht-sort
         };
+        toSync.push(updated);
+        return updated;
       });
 
-      const toSync = updatedPackages.filter(p => selectedIds.includes(p.id));
-      console.log('Gesynchroniseerd:', toSync.map(p => `${p.id}: stop ${p.routeIndex}`));
+      console.log('Gesynchroniseerd:', toSync.map(p => `stop ${p.routeIndex}: ${p.address.street} ${p.address.houseNumber}`));
 
       setPackages(updatedPackages);
       await db.syncMultiplePackages(toSync);
@@ -350,7 +353,7 @@ const App: React.FC = () => {
     } finally {
       setIsOptimizing(false);
     }
-  };
+  }, [packages]);
 
   const updateMultipleStatus = async (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => {
     const pkgsToSync: Package[] = [];
@@ -590,6 +593,8 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}
+            onOptimize={handleOptimizeRoute}
+            isOptimizing={isOptimizing}
           />
         )}
 
@@ -640,6 +645,8 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}
+            onOptimize={handleOptimizeRoute}
+            isOptimizing={isOptimizing}
           />
         )}
 
