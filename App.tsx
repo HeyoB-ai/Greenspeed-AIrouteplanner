@@ -643,6 +643,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
           <SuperuserView
             packages={accessiblePackages}
             pharmacies={accessiblePharmacies}
+            userRole={UserRole.SUPERUSER}
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}
@@ -699,6 +700,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
           <SuperuserView
             packages={accessiblePackages}
             pharmacies={accessiblePharmacies}
+            userRole={UserRole.SUPERVISOR}
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Package as PackageType, PackageStatus, Pharmacy } from '../types';
+import { Package as PackageType, PackageStatus, Pharmacy, UserRole } from '../types';
 import { ChevronLeft } from 'lucide-react';
 import PharmacyOverview from './PharmacyOverview';
 import SinglePharmacyDashboard from './SinglePharmacyDashboard';
 import ExportModal from './ExportModal';
+import UserManagementPanel from './UserManagementPanel';
 
 interface Props {
   packages:        PackageType[];
   pharmacies:      Pharmacy[];
+  userRole?:       UserRole;
   onUpdateStatus:  (ids: string[], status: PackageStatus) => void;
   canAddPharmacy?: boolean;
   onAddPharmacy?:  (pharmacy: Pharmacy) => Promise<void>;
@@ -15,7 +17,10 @@ interface Props {
   isOptimizing?:   boolean;
 }
 
-const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, canAddPharmacy, onAddPharmacy, onOptimize, isOptimizing }) => {
+const SuperuserView: React.FC<Props> = ({
+  packages, pharmacies, userRole, onUpdateStatus,
+  canAddPharmacy, onAddPharmacy, onOptimize, isOptimizing,
+}) => {
   const [selected, setSelected]     = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
 
@@ -46,8 +51,10 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, 
   }
 
   // ── Layer 1: overzicht ─────────────────────────────────────────
+  const effectiveRole = userRole ?? UserRole.SUPERUSER;
+
   return (
-    <div className="max-w-6xl mx-auto animate-in fade-in duration-300 pb-24 lg:pb-8">
+    <div className="max-w-6xl mx-auto animate-in fade-in duration-300 pb-24 lg:pb-8 space-y-6">
       <PharmacyOverview
         packages={packages}
         pharmacies={pharmacies}
@@ -56,6 +63,14 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, 
         canAddPharmacy={canAddPharmacy}
         onAddPharmacy={onAddPharmacy}
       />
+
+      {/* Gebruikersbeheer */}
+      {pharmacies.length > 0 && (
+        <UserManagementPanel
+          pharmacies={pharmacies}
+          userRole={effectiveRole}
+        />
+      )}
 
       {showExport && (
         <ExportModal

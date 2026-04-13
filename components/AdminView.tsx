@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
+import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy, UserRole } from '../types';
 import { ChevronLeft } from 'lucide-react';
 import PharmacyOverview from './PharmacyOverview';
 import SinglePharmacyDashboard from './SinglePharmacyDashboard';
+import UserManagementPanel from './UserManagementPanel';
 
 interface Props {
   packages:                PackageType[];
@@ -31,11 +32,15 @@ const AdminView: React.FC<Props> = ({
   // Multi-pharmacy: toon overzicht totdat een apotheek is gekozen
   if (isMulti && !selected) {
     return (
-      <div className="max-w-6xl mx-auto animate-in fade-in duration-300 pb-24 lg:pb-8">
+      <div className="max-w-6xl mx-auto animate-in fade-in duration-300 pb-24 lg:pb-8 space-y-6">
         <PharmacyOverview
           packages={packages}
           pharmacies={pharmacies}
           onSelectPharmacy={setSelected}
+        />
+        <UserManagementPanel
+          pharmacies={pharmacies}
+          userRole={UserRole.ADMIN}
         />
       </div>
     );
@@ -55,7 +60,7 @@ const AdminView: React.FC<Props> = ({
     : conversations;
 
   return (
-    <>
+    <div className="space-y-6 pb-24 lg:pb-8">
       {/* Terugknop (alleen bij multi-apotheek) */}
       {isMulti && (
         <button
@@ -76,7 +81,14 @@ const AdminView: React.FC<Props> = ({
         onOptimize={onOptimize}
         isOptimizing={isOptimizing}
       />
-    </>
+
+      {/* Gebruikersbeheer — altijd zichtbaar voor admin */}
+      <UserManagementPanel
+        pharmacies={[pharmacy]}
+        userRole={UserRole.ADMIN}
+        defaultPharmacyId={pharmacy.id}
+      />
+    </div>
   );
 };
 
