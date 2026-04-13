@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, Check, AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { Camera, X, Check, AlertCircle, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
 import { extractAddressFromImage, ScanResult } from './services/geminiService';
+import { validateAddress } from './services/addressValidation';
 import { Address } from './types';
 
 interface ScannerProps {
@@ -14,6 +15,7 @@ type QueueItem = {
   base64: string;
   status: 'pending' | 'success' | 'error';
   address?: Address;
+  addressWarning?: boolean;
 };
 
 // Één gedeelde AudioContext — iOS Safari crasht bij meerdere instanties
@@ -167,6 +169,20 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
         await new Promise(r => setTimeout(r, 1500));
         setOverlayNumber(null);
         onScanCompleteRef.current(result);
+
+        // Adresvalidatie op de achtergrond — blokkeert UI nooit
+        validateAddress(
+          result.address.street,
+          result.address.houseNumber,
+          result.address.postalCode ?? '',
+          result.address.city
+        ).then(validation => {
+          if (!validation.valid) {
+            setQueue(prev => prev.map(q =>
+              q.id === item.id ? { ...q, addressWarning: true } : q
+            ));
+          }
+        }).catch(() => {});
       } else {
         updateQueueItem(item.id, 'error');
         playSound('error');
@@ -312,7 +328,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
                   key={item.id}
                   onClick={() => item.status === 'error' ? retryItem(item) : undefined}
                   disabled={item.status !== 'error'}
-                  className={`flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all duration-300 ${
+                  className={`relative flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all duration-300 ${
                     item.status === 'pending'
                       ? 'bg-slate-700/90 border-slate-500'
                       : item.status === 'success'
@@ -329,6 +345,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
                   {item.status === 'pending' && <Loader2 size={18} className="text-slate-300 animate-spin" />}
                   {item.status === 'success' && <Check size={18} className="text-emerald-400" />}
                   {item.status === 'error' && <RotateCcw size={18} className="text-red-400" />}
+                  {item.addressWarning && (
+                    <div
+                      className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center"
+                      title="Adres niet herkend in Nederland"
+                    >
+                      <AlertTriangle size={9} className="text-white" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>

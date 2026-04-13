@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, PenLine, ArrowRight } from 'lucide-react';
+import { X, PenLine, ArrowRight, Loader2 } from 'lucide-react';
 import { ScanResult } from '../services/geminiService';
+import { validateAddress } from '../services/addressValidation';
 
 interface ManualAddressFormProps {
   onComplete: (result: ScanResult) => void;
@@ -21,6 +22,8 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
   const [city, setCity]               = useState('');
   const [pharmacyName, setPharmacyName] = useState('');
   const [errors, setErrors]           = useState<Record<string, string>>({});
+  const [addressWarning, setAddressWarning] = useState<string | null>(null);
+  const [isValidating, setIsValidating]     = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
   const validate = () => {
@@ -32,6 +35,21 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
     if (!city.trim())        e.city        = 'Stad is verplicht';
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  const handlePostalCodeBlur = async () => {
+    if (!postalCode || postalCode.replace(/\s/g, '').length < 6) return;
+    setIsValidating(true);
+    setAddressWarning(null);
+    const result = await validateAddress(street, houseNumber, postalCode, city);
+    setIsValidating(false);
+    if (!result.valid) {
+      setAddressWarning(
+        result.suggestion
+          ? `Adres niet gevonden. Bedoelt u: ${result.suggestion}?`
+          : 'Adres niet gevonden in Nederland.'
+      );
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,15 +139,21 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
           <div className="flex gap-3">
             <div className="w-36 space-y-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Postcode</label>
-              <input
-                type="text"
-                inputMode="text"
-                value={postalCode}
-                onChange={e => { setPostalCode(formatPostalCode(e.target.value)); setErrors(p => ({ ...p, postalCode: '' })); }}
-                placeholder="1234 AB"
-                required
-                className={errors.postalCode ? inputErr : inputOk}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={postalCode}
+                  onChange={e => { setPostalCode(formatPostalCode(e.target.value)); setErrors(p => ({ ...p, postalCode: '' })); setAddressWarning(null); }}
+                  onBlur={handlePostalCodeBlur}
+                  placeholder="1234 AB"
+                  required
+                  className={errors.postalCode ? inputErr : inputOk}
+                />
+                {isValidating && (
+                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin pointer-events-none" />
+                )}
+              </div>
               {errors.postalCode && <p className="text-[10px] font-bold text-red-500 ml-1">Ongeldig</p>}
             </div>
             <div className="flex-1 space-y-1">
@@ -145,6 +169,13 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
               {errors.city && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.city}</p>}
             </div>
           </div>
+
+          {/* PDOK adreswaarschuwing */}
+          {addressWarning && (
+            <p className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 leading-snug">
+              ⚠️ {addressWarning}
+            </p>
+          )}
 
           {/* Apotheeknaam (optioneel) */}
           <div className="space-y-1">
