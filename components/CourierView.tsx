@@ -4,7 +4,7 @@ import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed,
-  Map as MapIcon, RefreshCw
+  Map as MapIcon, RefreshCw, Building2
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -202,6 +202,12 @@ const CourierView: React.FC<Props> = ({
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-4">
         <div>
+          {pharmacyName && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full w-fit mb-1">
+              <Building2 size={12} />
+              {pharmacyName}
+            </div>
+          )}
           <h1 className="text-xl font-black text-slate-900">Jouw Rit</h1>
           <p className="text-xs text-slate-400 font-bold mt-0.5">
             {actionableCount} te bezorgen · {doneCount} klaar
