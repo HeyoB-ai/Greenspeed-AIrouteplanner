@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
-import ExportModal from './ExportModal';h
+import ExportModal from './ExportModal';
 
 interface Props {
   packages:                PackageType[];
