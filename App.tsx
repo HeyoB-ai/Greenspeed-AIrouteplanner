@@ -77,6 +77,14 @@ const App: React.FC = () => {
           scanNumber: pkg.scanNumber ?? index + 1,
         }));
       setPackages(enriched);
+
+      // Initialiseer de atomische scanNumber teller op basis van vandaag
+      const today = new Date().toDateString();
+      const todayMax = enriched
+        .filter(p => new Date(p.createdAt).toDateString() === today)
+        .reduce((max, p) => Math.max(max, p.scanNumber ?? 0), 0);
+      nextScanNumberRef.current = todayMax + 1;
+
       setPharmacies(pharms);
       if (pharms.length > 0 && !superuserPharmacyId) {
         setSuperuserPharmacyId(pharms[0].id);
@@ -236,7 +244,8 @@ const App: React.FC = () => {
     }
   };
 
-  const recentScans = useRef<Map<string, number>>(new Map());
+  const recentScans        = useRef<Map<string, number>>(new Map());
+  const nextScanNumberRef  = useRef<number>(1);
 
   const handleNewScan = useCallback(async (address: Address) => {
     // Deduplicatie: zelfde adres binnen 5 seconden wordt genegeerd
@@ -255,13 +264,8 @@ const App: React.FC = () => {
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
     const pharmacyId = currentSession?.user?.pharmacyId ?? currentPharmacy.id;
 
-    // Scannummer = hoeveel pakketjes al gescand vandaag voor deze apotheek + 1
-    const today = new Date().toDateString();
-    const todayCount = packages.filter(p =>
-      new Date(p.createdAt).toDateString() === today &&
-      p.pharmacyId === pharmacyId
-    ).length;
-    const scanNumber = todayCount + 1;
+    // Atomisch scanNumber — ref verhoogt direct zodat parallelle aanroepen altijd unieke nummers krijgen
+    const scanNumber = nextScanNumberRef.current++;
 
     // Als er al een geoptimaliseerde route is → voeg toe als extra stop
     const hasRoute = packages.some(p => p.routeIndex !== undefined);
@@ -660,12 +664,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
         <Scanner
           onScanComplete={result => handleNewScan(result.address)}
           onCancel={() => setShowScanner(false)}
-          nextScanNumber={
-            packages.filter(p =>
-              new Date(p.createdAt).toDateString() === new Date().toDateString() &&
-              p.pharmacyId === (session?.user?.pharmacyId ?? currentPharmacy.id)
-            ).length + 1
-          }
+          nextScanNumber={nextScanNumberRef.current}
         />
       )}
 
