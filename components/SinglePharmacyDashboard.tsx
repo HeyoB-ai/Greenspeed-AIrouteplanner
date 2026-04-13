@@ -258,19 +258,6 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
-                  {onOptimize && (
-                    <button
-                      onClick={() => onOptimize(optimizableIds)}
-                      disabled={isOptimizing || optimizableIds.length === 0}
-                      className="shrink-0 flex items-center gap-2 px-4 h-9 bg-indigo-900 text-white rounded-2xl font-black text-xs disabled:opacity-40 transition-all hover:bg-indigo-800 shadow-sm"
-                    >
-                      {isOptimizing ? (
-                        <><RefreshCw size={13} className="animate-spin" /> Bezig...</>
-                      ) : (
-                        <><MapIcon size={13} /> Optimaliseer route</>
-                      )}
-                    </button>
-                  )}
                 </div>
               );
             })()}
