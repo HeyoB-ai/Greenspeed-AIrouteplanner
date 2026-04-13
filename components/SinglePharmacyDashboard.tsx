@@ -100,7 +100,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   ];
 
   const activeCouriers = useMemo(() => {
-    const map = new Map() as Map<string, string>;
+    const map = new Map();
     packages.forEach(pkg => {
       if (pkg.courierId) {
         map.set(pkg.courierId, pkg.courierName ?? COURIER_NAMES[pkg.courierId] ?? pkg.courierId);
