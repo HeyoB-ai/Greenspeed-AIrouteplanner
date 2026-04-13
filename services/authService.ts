@@ -52,7 +52,7 @@ const DEMO_USERS: AuthUser[] = [
     id:           'u7',
     name:         'Lisa Supervisor',
     role:         UserRole.SUPERVISOR,
-    pharmacyIds:  ['ph-1', 'ph-2'],  // haar apotheken; leeg = alle
+    // Geen pharmacyIds → ziet alle apotheken
     passwordHash: 'supervisor123',
   },
 ];

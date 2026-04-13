@@ -101,7 +101,7 @@ export const db = {
 
       return [
         { id: 'ph-1', name: 'Apotheek de Kroon' },
-        { id: 'ph-2', name: 'Apotheek Hilversum Noord' },
+        { id: 'ph-2', name: 'Lamberts Apotheek' },
       ];
     } catch (err) {
       const localData = localStorage.getItem(PHARMACIES_KEY);

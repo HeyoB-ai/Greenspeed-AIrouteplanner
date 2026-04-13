@@ -5,12 +5,21 @@ import { AuthUser, Package, Pharmacy, UserRole } from '../types';
  * null = geen beperking (superuser ziet alles).
  */
 export function getAccessiblePharmacyIds(user: AuthUser): string[] | null {
+  // Superuser: ziet altijd alles
   if (user.role === UserRole.SUPERUSER) return null;
 
+  // Supervisor: ziet alle apotheken als geen pharmacyIds ingesteld
+  if (user.role === UserRole.SUPERVISOR) {
+    if (!user.pharmacyIds || user.pharmacyIds.length === 0) return null;
+    return user.pharmacyIds;
+  }
+
+  // Admin/overig met pharmacyIds array
   if (user.pharmacyIds && user.pharmacyIds.length > 0) {
     return user.pharmacyIds;
   }
 
+  // Single pharmacyId (backwards compat)
   if (user.pharmacyId) return [user.pharmacyId];
 
   return [];

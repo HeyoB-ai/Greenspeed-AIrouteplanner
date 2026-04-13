@@ -87,7 +87,6 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       pharmacyCount: new Set(packages.map(p => p.pharmacyId)).size,
       total:    activePkgs.length,
       delivered,
-      revenue:  delivered * 4.5,
     };
   }, [packages]);
 
@@ -144,7 +143,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
           { label: 'Apotheken', val: globalStats.pharmacyCount, icon: Building2,   color: 'text-indigo-600', bg: 'bg-indigo-50' },
           { label: 'Pakketten', val: globalStats.total,         icon: Package,     color: 'text-blue-600',   bg: 'bg-blue-50'   },
           { label: 'Bezorgd',   val: globalStats.delivered,     icon: CheckCircle, color: 'text-emerald-600',bg: 'bg-emerald-50'},
-          { label: 'Omzet',     val: `€${globalStats.revenue.toFixed(2)}`, icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Omzet', val: '—', icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(s => (
           <div key={s.label} className="bg-white p-5 lg:p-6 rounded-4xl border border-slate-200 shadow-sm">
             <div className={`w-10 h-10 ${s.bg} ${s.color} rounded-xl flex items-center justify-center mb-4`}>

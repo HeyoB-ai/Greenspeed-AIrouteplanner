@@ -146,6 +146,38 @@ const App: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [session, currentPharmacy.id]);
 
+  // Realtime subscription voor pharmacies (zichtbaar voor alle authenticated gebruikers)
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel('pharmacies_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pharmacies' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setPharmacies(prev =>
+              prev.some(p => p.id === (payload.new as Pharmacy).id)
+                ? prev
+                : [...prev, payload.new as Pharmacy]
+            );
+          }
+          if (payload.eventType === 'UPDATE') {
+            setPharmacies(prev =>
+              prev.map(p => p.id === (payload.new as Pharmacy).id ? payload.new as Pharmacy : p)
+            );
+          }
+          if (payload.eventType === 'DELETE') {
+            setPharmacies(prev =>
+              prev.filter(p => p.id !== (payload.old as Pharmacy).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const handleMarkConversationRead = (id: string) => {
     setConversations(prev => prev.map(c => c.id === id ? { ...c, isRead: true } : c));
     db.markConversationRead(id).catch(() => {});
@@ -326,9 +358,12 @@ const App: React.FC = () => {
     await db.syncMultiplePackages(pkgsToSync);
   };
 
-  const handleAddPharmacy = async (newPharm: Pharmacy) => {
-    setPharmacies(prev => [...prev, newPharm]);
-    await db.savePharmacy(newPharm);
+  const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
+    // 1. Direct toevoegen aan lokale state
+    setPharmacies(prev => [...prev, newPharmacy]);
+
+    // 2. Opslaan via db (localStorage + Supabase)
+    await db.savePharmacy(newPharmacy);
   };
 
   const canAddPharmacy = role === UserRole.SUPERUSER || role === UserRole.SUPERVISOR;
