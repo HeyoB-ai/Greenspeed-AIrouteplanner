@@ -84,11 +84,11 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
     const activePkgs = packages.filter(p => p.status !== PackageStatus.SCANNING);
     const delivered  = packages.filter(p => DELIVERED_STATUSES.has(p.status)).length;
     return {
-      pharmacyCount: new Set(packages.map(p => p.pharmacyId)).size,
+      pharmacyCount: pharmacies.length,
       total:    activePkgs.length,
       delivered,
     };
-  }, [packages]);
+  }, [packages, pharmacies]);
 
   // ── Per-pharmacy stats (worst delivery rate first) ─────────────
   const pharmacyStats = useMemo((): PharmacyStat[] => {

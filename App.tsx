@@ -393,11 +393,17 @@ const App: React.FC = () => {
   };
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
-    // 1. Direct toevoegen aan lokale state
+    // 1. Direct toevoegen aan lokale state (optimistic)
     setPharmacies(prev => [...prev, newPharmacy]);
 
     // 2. Opslaan via db (localStorage + Supabase)
     await db.savePharmacy(newPharmacy);
+
+    // 3. Herlaad vanuit Supabase zodat de lijst altijd de server-state weerspiegelt
+    if (supabase) {
+      const { data } = await supabase.from('pharmacies').select('*').order('name');
+      if (data && data.length > 0) setPharmacies(data);
+    }
   };
 
   const canAddPharmacy = role === UserRole.SUPERUSER || role === UserRole.SUPERVISOR;
