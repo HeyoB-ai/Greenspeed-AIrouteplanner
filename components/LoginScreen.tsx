@@ -1,30 +1,28 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, LogIn, Search } from 'lucide-react';
 import { AuthUser, UserRole } from '../types';
-import { login, saveSession, DEMO_USERS } from '../services/authService';
+import { login, saveSession } from '../services/authService';
 
 interface Props {
   onLogin: (user: AuthUser) => void;
   onGuestAccess: () => void;
 }
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.SUPERUSER]:  'Superuser',
-  [UserRole.ADMIN]:      'Admin',
-  [UserRole.PHARMACY]:   'Apotheek',
-  [UserRole.COURIER]:    'Koerier',
-  [UserRole.SUPERVISOR]: 'Supervisor',
-  [UserRole.PATIENT]:    'Patiënt',
-};
+interface DemoAccount {
+  name:      string;
+  password:  string;
+  roleLabel: string;
+  desc:      string;
+  color:     string;
+}
 
-const ROLE_COLORS: Record<string, string> = {
-  [UserRole.SUPERUSER]:  'bg-purple-100 text-purple-700',
-  [UserRole.ADMIN]:      'bg-indigo-100 text-indigo-700',
-  [UserRole.PHARMACY]:   'bg-blue-100 text-blue-700',
-  [UserRole.COURIER]:    'bg-emerald-100 text-emerald-700',
-  [UserRole.SUPERVISOR]: 'bg-amber-100 text-amber-700',
-  [UserRole.PATIENT]:    'bg-slate-100 text-slate-500',
-};
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { name: 'Greenspeed HQ',                  password: 'superuser123', roleLabel: 'Superuser',       desc: 'Ziet alle apotheken',          color: 'bg-purple-100 text-purple-700' },
+  { name: 'Regio Beheerder',                password: 'regio123',    roleLabel: 'Regio Beheerder',  desc: 'Admin met meerdere apotheken', color: 'bg-indigo-100 text-indigo-700' },
+  { name: 'Beheerder Apotheek de Kroon',    password: 'admin123',    roleLabel: 'Admin',            desc: 'Admin van één apotheek',        color: 'bg-indigo-100 text-indigo-700' },
+  { name: 'Assistente Apotheek de Kroon',   password: 'apotheek123', roleLabel: 'Apotheek',         desc: 'Apothekers-assistent',          color: 'bg-blue-100 text-blue-700'     },
+  { name: 'Marco Koerier',                  password: 'koerier123',  roleLabel: 'Koerier',          desc: 'Bezorger',                     color: 'bg-emerald-100 text-emerald-700'},
+];
 
 const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
   const [username, setUsername]       = useState('');
@@ -45,9 +43,9 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
     }
   };
 
-  const quickLogin = (user: AuthUser) => {
-    saveSession(user);
-    onLogin(user);
+  const quickLogin = (name: string, password: string) => {
+    const user = login(name, password);
+    if (user) { saveSession(user); onLogin(user); }
   };
 
   return (
@@ -137,18 +135,18 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
 
           {showDemo && (
             <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
-              {DEMO_USERS.map(u => (
+              {DEMO_ACCOUNTS.map(acc => (
                 <button
-                  key={u.id}
-                  onClick={() => quickLogin(u)}
-                  className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 h-14 transition-all"
+                  key={acc.name}
+                  onClick={() => quickLogin(acc.name, acc.password)}
+                  className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 py-3 transition-all text-left"
                 >
-                  <div className="text-left">
-                    <p className="text-white font-black text-sm leading-none">{u.name}</p>
-                    <p className="text-white/50 font-mono text-[10px] mt-1">{u.passwordHash}</p>
+                  <div>
+                    <p className="text-white font-black text-sm leading-none">{acc.name}</p>
+                    <p className="text-white/50 text-[10px] mt-1">{acc.desc}</p>
                   </div>
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${ROLE_COLORS[u.role] || 'bg-slate-100 text-slate-500'}`}>
-                    {ROLE_LABELS[u.role] || u.role}
+                  <span className={`shrink-0 ml-3 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${acc.color}`}>
+                    {acc.roleLabel}
                   </span>
                 </button>
               ))}

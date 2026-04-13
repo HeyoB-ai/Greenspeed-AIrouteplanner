@@ -14,6 +14,7 @@ import ChatBot from './components/ChatBot';
 import { optimizeRoute, ScanResult } from './services/geminiService';
 import { getSession, logout } from './services/authService';
 import { db, supabase } from './services/supabaseService';
+import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
@@ -179,6 +180,17 @@ const App: React.FC = () => {
         return packages;
     }
   }, [packages, session, role]);
+
+  // Apotheken en pakketten gefilterd op wat de ingelogde gebruiker mag zien
+  const accessiblePharmacies = useMemo(
+    () => (session ? filterPharmacies(session.user, pharmacies) : []),
+    [session, pharmacies],
+  );
+
+  const accessiblePackages = useMemo(
+    () => (session ? filterPackagesByAccess(session.user, packages) : []),
+    [session, packages],
+  );
 
   const handleLogin = (user: AuthUser) => {
     setSession({ user, loggedInAt: new Date().toISOString() });
@@ -512,17 +524,17 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
         {/* SUPERUSER — systeem-breed overzicht */}
         {role === UserRole.SUPERUSER && (
           <SuperuserView
-            packages={packages}
-            pharmacies={pharmacies}
+            packages={accessiblePackages}
+            pharmacies={accessiblePharmacies}
             onUpdateStatus={updateMultipleStatus}
           />
         )}
 
-        {/* ADMIN — één apotheek beheren */}
+        {/* ADMIN — één of meerdere apotheken beheren */}
         {role === UserRole.ADMIN && (
           <AdminView
-            packages={visiblePackages}
-            pharmacyName={currentPharmacy.name}
+            packages={accessiblePackages}
+            pharmacies={accessiblePharmacies}
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}
             onMarkCallbackHandled={handleMarkCallbackHandled}

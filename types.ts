@@ -8,11 +8,13 @@ export enum UserRole {
 }
 
 export interface AuthUser {
-  id: string;
-  name: string;
-  role: UserRole;
-  pharmacyId?: string;   // voor ADMIN en PHARMACY
-  courierId?: string;    // voor COURIER
+  id:            string;
+  name:          string;
+  role:          UserRole;
+  pharmacyId?:   string;    // primaire apotheek (backwards compat)
+  pharmacyIds?:  string[];  // alle apotheken die deze admin beheert
+                            // undefined of leeg = geen beperking (alleen superuser)
+  courierId?:    string;
   passwordHash?: string;
 }
 
@@ -91,9 +93,10 @@ export interface User {
 }
 
 export interface Pharmacy {
-  id: string;
-  name: string;
+  id:       string;
+  name:     string;
   address?: string;
+  groupId?: string;  // vrije groepering, bijv. 'regio-noord'
 }
 
 export interface ChatMessage {
