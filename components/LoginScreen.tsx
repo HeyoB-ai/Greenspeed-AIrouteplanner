@@ -22,6 +22,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { name: 'Beheerder Apotheek de Kroon',    password: 'admin123',    roleLabel: 'Admin',            desc: 'Admin van één apotheek',        color: 'bg-indigo-100 text-indigo-700' },
   { name: 'Assistente Apotheek de Kroon',   password: 'apotheek123', roleLabel: 'Apotheek',         desc: 'Apothekers-assistent',          color: 'bg-blue-100 text-blue-700'     },
   { name: 'Marco Koerier',                  password: 'koerier123',  roleLabel: 'Koerier',          desc: 'Bezorger',                     color: 'bg-emerald-100 text-emerald-700'},
+  { name: 'Lisa Supervisor',                password: 'supervisor123', roleLabel: 'Supervisor',       desc: 'Regio supervisor',             color: 'bg-violet-100 text-violet-700' },
 ];
 
 const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {

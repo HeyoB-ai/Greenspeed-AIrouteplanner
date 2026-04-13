@@ -61,14 +61,29 @@ export const db = {
   },
 
   async fetchPharmacies(): Promise<any[]> {
-    // Haal unieke apotheken op uit de packages tabel (geen aparte pharmacies tabel)
     try {
+      // Probeer eerst de pharmacies tabel (cloud)
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('pharmacies')
+          .select('*')
+          .order('name', { ascending: true });
+        if (!error && data && data.length > 0) {
+          localStorage.setItem(PHARMACIES_KEY, JSON.stringify(data));
+          return data;
+        }
+      }
+
+      // Fallback: localStorage
+      const localData = localStorage.getItem(PHARMACIES_KEY);
+      if (localData) return JSON.parse(localData);
+
+      // Laatste redmiddel: afleiden uit packages tabel
       if (supabase) {
         const { data, error } = await supabase
           .from('packages')
           .select('pharmacyId, pharmacyName');
         if (!error && data && data.length > 0) {
-          // Deduplicate op pharmacyId
           const seen = new Set<string>();
           const unique = data
             .filter((p: any) => {
@@ -83,10 +98,10 @@ export const db = {
           }
         }
       }
-      const localData = localStorage.getItem(PHARMACIES_KEY);
-      return localData ? JSON.parse(localData) : [
+
+      return [
         { id: 'ph-1', name: 'Apotheek de Kroon' },
-        { id: 'ph-2', name: 'Apotheek Hilversum Noord' }
+        { id: 'ph-2', name: 'Apotheek Hilversum Noord' },
       ];
     } catch (err) {
       const localData = localStorage.getItem(PHARMACIES_KEY);
@@ -95,11 +110,10 @@ export const db = {
   },
 
   async savePharmacy(pharmacy: any) {
-    // Apotheken worden alleen lokaal opgeslagen (geen aparte Supabase-tabel)
+    // 1. localStorage (synchroon)
     const localData = localStorage.getItem(PHARMACIES_KEY);
     const localPharmacies = localData ? JSON.parse(localData) : [];
     const exists = localPharmacies.findIndex((p: any) => p.id === pharmacy.id);
-
     let updated;
     if (exists !== -1) {
       updated = [...localPharmacies];
@@ -107,8 +121,16 @@ export const db = {
     } else {
       updated = [...localPharmacies, pharmacy];
     }
-
     localStorage.setItem(PHARMACIES_KEY, JSON.stringify(updated));
+
+    // 2. Supabase upsert (asynchroon)
+    if (supabase) {
+      try {
+        await supabase.from('pharmacies').upsert(pharmacy);
+      } catch (err) {
+        console.warn('Pharmacy cloud sync mislukt:', err);
+      }
+    }
   },
 
   /**

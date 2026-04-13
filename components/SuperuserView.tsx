@@ -6,12 +6,14 @@ import SinglePharmacyDashboard from './SinglePharmacyDashboard';
 import ExportModal from './ExportModal';
 
 interface Props {
-  packages:       PackageType[];
-  pharmacies:     Pharmacy[];
-  onUpdateStatus: (ids: string[], status: PackageStatus) => void;
+  packages:        PackageType[];
+  pharmacies:      Pharmacy[];
+  onUpdateStatus:  (ids: string[], status: PackageStatus) => void;
+  canAddPharmacy?: boolean;
+  onAddPharmacy?:  (pharmacy: Pharmacy) => Promise<void>;
 }
 
-const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus }) => {
+const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus, canAddPharmacy, onAddPharmacy }) => {
   const [selected, setSelected]     = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
 
@@ -47,6 +49,8 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus }
         pharmacies={pharmacies}
         onSelectPharmacy={setSelected}
         onExport={() => setShowExport(true)}
+        canAddPharmacy={canAddPharmacy}
+        onAddPharmacy={onAddPharmacy}
       />
 
       {showExport && (

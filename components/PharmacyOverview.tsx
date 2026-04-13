@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, Pharmacy } from '../types';
 import {
   Building2, Search, ChevronRight, Package,
-  CheckCircle, CreditCard, X, Download, AlertCircle,
+  CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2,
 } from 'lucide-react';
 
 const PAGE_SIZE = 20;
@@ -34,7 +34,9 @@ export interface PharmacyOverviewProps {
   packages:         PackageType[];
   pharmacies:       Pharmacy[];
   onSelectPharmacy: (pharmacyId: string) => void;
-  onExport?:        () => void;  // optioneel — toon Export-knop als aanwezig
+  onExport?:        () => void;           // optioneel — toon Export-knop als aanwezig
+  canAddPharmacy?:  boolean;              // toon "+ Nieuwe apotheek" knop
+  onAddPharmacy?:   (pharmacy: Pharmacy) => Promise<void>;
 }
 
 const rateColor = (rate: number) =>
@@ -44,10 +46,38 @@ const rateBg = (rate: number) =>
   rate >= 80 ? 'bg-emerald-500' : rate >= 60 ? 'bg-amber-400' : 'bg-red-400';
 
 const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
-  packages, pharmacies, onSelectPharmacy, onExport,
+  packages, pharmacies, onSelectPharmacy, onExport, canAddPharmacy, onAddPharmacy,
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage]     = useState(0);
+
+  // ── Nieuwe apotheek modal ──────────────────────────────────────
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName]           = useState('');
+  const [newAddress, setNewAddress]     = useState('');
+  const [newGroupId, setNewGroupId]     = useState('');
+  const [adding, setAdding]             = useState(false);
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || !onAddPharmacy) return;
+    const newPharmacy: Pharmacy = {
+      id:      `ph-${Date.now()}`,
+      name:    newName.trim(),
+      address: newAddress.trim() || undefined,
+      groupId: newGroupId.trim() || undefined,
+    };
+    setAdding(true);
+    try {
+      await onAddPharmacy(newPharmacy);
+      setShowAddModal(false);
+      setNewName('');
+      setNewAddress('');
+      setNewGroupId('');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   // ── Global stats ──────────────────────────────────────────────
   const globalStats = useMemo(() => {
@@ -158,6 +188,15 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                 Pagina {page + 1} / {totalPages}
               </p>
             )}
+            {canAddPharmacy && onAddPharmacy && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 h-9 bg-indigo-600 text-white rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Plus size={13} />
+                Nieuwe apotheek
+              </button>
+            )}
             {onExport && (
               <button
                 onClick={onExport}
@@ -262,7 +301,88 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
           </div>
         )}
       </div>
-    </div>
+
+    {/* ── Nieuwe apotheek modal ───────────────────────────────── */}
+    {showAddModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white rounded-4xl shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-slate-100">
+            <div>
+              <h2 className="text-xl font-black text-slate-900">Nieuwe apotheek</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Toevoegen aan het netwerk</p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="w-9 h-9 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <form onSubmit={handleAddSubmit} className="px-7 py-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                Naam apotheek <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="bijv. Apotheek de Kroon"
+                required
+                autoFocus
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                Adres
+              </label>
+              <input
+                type="text"
+                value={newAddress}
+                onChange={e => setNewAddress(e.target.value)}
+                placeholder="bijv. Hoofdstraat 1, 1234 AB Amsterdam"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                Groep / regio
+              </label>
+              <input
+                type="text"
+                value={newGroupId}
+                onChange={e => setNewGroupId(e.target.value)}
+                placeholder="bijv. regio-noord"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 h-12 rounded-2xl border border-slate-200 font-black text-sm text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                Annuleren
+              </button>
+              <button
+                type="submit"
+                disabled={adding || !newName.trim()}
+                className="flex-1 h-12 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+              >
+                {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {adding ? 'Opslaan...' : 'Toevoegen'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+  </div>
   );
 };
 

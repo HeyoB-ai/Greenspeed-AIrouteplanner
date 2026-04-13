@@ -326,15 +326,12 @@ const App: React.FC = () => {
     await db.syncMultiplePackages(pkgsToSync);
   };
 
-  const handleAddPharmacy = async () => {
-    const name = prompt('Naam van de nieuwe apotheek:');
-    if (name) {
-      const newPharm: Pharmacy = { id: `ph-${Date.now()}`, name };
-      setPharmacies(prev => [...prev, newPharm]);
-      setSuperuserPharmacyId(newPharm.id);
-      await db.savePharmacy(newPharm);
-    }
+  const handleAddPharmacy = async (newPharm: Pharmacy) => {
+    setPharmacies(prev => [...prev, newPharm]);
+    await db.savePharmacy(newPharm);
   };
+
+  const canAddPharmacy = role === UserRole.SUPERUSER || role === UserRole.SUPERVISOR;
 
   const copySQL = () => {
     const sql = `CREATE TABLE IF NOT EXISTS packages (
@@ -373,7 +370,17 @@ CREATE TABLE IF NOT EXISTS chat_conversations (
 ALTER TABLE chat_conversations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public access" ON chat_conversations;
 CREATE POLICY "Allow public access" ON chat_conversations FOR ALL USING (true);
-ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
+ALTER publication supabase_realtime ADD TABLE chat_conversations;
+
+CREATE TABLE IF NOT EXISTS pharmacies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT,
+  "groupId" TEXT
+);
+ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public access" ON pharmacies;
+CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
     navigator.clipboard.writeText(sql);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -527,6 +534,8 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
             packages={accessiblePackages}
             pharmacies={accessiblePharmacies}
             onUpdateStatus={updateMultipleStatus}
+            canAddPharmacy={canAddPharmacy}
+            onAddPharmacy={handleAddPharmacy}
           />
         )}
 
@@ -567,16 +576,15 @@ ALTER publication supabase_realtime ADD TABLE chat_conversations;`;
           />
         )}
 
-        {/* SUPERVISOR — legacy rol */}
+        {/* SUPERVISOR — zelfde overzicht als superuser, gefilterd op eigen apotheken */}
         {role === UserRole.SUPERVISOR && (
-          <>
-            <SupervisorView
-              packages={packages}
-              couriers={couriers}
-              onUpdateStatus={updateMultipleStatus}
-            />
-            <ChatBot packages={packages} pharmacyName={currentPharmacy.name} />
-          </>
+          <SuperuserView
+            packages={accessiblePackages}
+            pharmacies={accessiblePharmacies}
+            onUpdateStatus={updateMultipleStatus}
+            canAddPharmacy={canAddPharmacy}
+            onAddPharmacy={handleAddPharmacy}
+          />
         )}
 
         {/* PATIENT — zou normaal niet hier komen (gaat via guest) */}
