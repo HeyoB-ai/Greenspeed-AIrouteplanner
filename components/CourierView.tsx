@@ -4,7 +4,7 @@ import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed,
-  Map, RefreshCw
+  Map as MapIcon, RefreshCw
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -230,7 +230,7 @@ const CourierView: React.FC<Props> = ({
             >
               {isOptimizing
                 ? <RefreshCw size={14} className="animate-spin" />
-                : <Map size={14} />}
+                : <MapIcon size={14} />}
               {isOptimizing ? 'Bezig...' : 'Route'}
             </button>
           )}
