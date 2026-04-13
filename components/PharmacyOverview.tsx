@@ -111,8 +111,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
     });
 
     return [...map.values()]
-      .filter(s => s.total > 0)
-      .map(s => ({ ...s, deliveryRate: (s.delivered / s.total) * 100 }))
+      .map(s => ({ ...s, deliveryRate: s.total > 0 ? (s.delivered / s.total) * 100 : 0 }))
       .sort((a, b) => a.deliveryRate - b.deliveryRate);
   }, [packages, pharmacies]);
 
