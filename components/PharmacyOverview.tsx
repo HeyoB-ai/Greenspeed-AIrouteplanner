@@ -91,7 +91,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
   // ── Per-pharmacy stats (worst delivery rate first) ─────────────
   const pharmacyStats = useMemo((): PharmacyStat[] => {
-    const map = new Map<string, PharmacyStat>();
+    const map = new Map() as Map<string, PharmacyStat>;
 
     pharmacies.forEach(ph =>
       map.set(ph.id, { id: ph.id, name: ph.name, total: 0, delivered: 0, pending: 0, failed: 0, deliveryRate: 0 })

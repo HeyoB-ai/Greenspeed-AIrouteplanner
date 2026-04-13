@@ -92,14 +92,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   const successCountRef   = useRef(0);
 
   // Voorkom dat hetzelfde item twee keer tegelijk verwerkt wordt
-  const processingIds = useRef(new Set<string>());
+  const processingIds = useRef(new Set() as Set<string>);
 
   // Blokkeer dubbele capture-aanroepen binnen 500ms
   const isCapturing = useRef(false);
 
   // Adres-dedup binnen de scanner: voorkomt dat twee items
   // met hetzelfde adres allebei onScanComplete aanroepen
-  const completedAddresses = useRef(new Map<string, number>());
+  const completedAddresses = useRef(new Map() as Map<string, number>);
 
   // Camera setup
   useEffect(() => {

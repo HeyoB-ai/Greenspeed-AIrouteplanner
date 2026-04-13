@@ -103,7 +103,7 @@ const CourierView: React.FC<Props> = ({
   // Stops — voor Google Maps URL opbouw
   const stops: Stop[] = useMemo(() => {
     const active = sortedPackages.filter(isActionable);
-    const stopsMap = new Map<string, Stop>();
+    const stopsMap = new Map() as Map<string, Stop>;
     active.forEach(p => {
       const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
       const existing = stopsMap.get(key);

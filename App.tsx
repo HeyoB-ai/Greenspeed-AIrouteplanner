@@ -336,7 +336,7 @@ const App: React.FC = () => {
       });
 
       // indexMap: id → 1-gebaseerde positie
-      const indexMap = new Map<string, number>();
+      const indexMap = new Map() as Map<string, number>;
       orderedIds.forEach((id, i) => indexMap.set(id, i + 1));
 
       const toSync: Package[] = [];

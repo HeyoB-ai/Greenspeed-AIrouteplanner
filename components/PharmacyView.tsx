@@ -85,7 +85,7 @@ const PharmacyView: React.FC<Props> = ({
   };
 
   const activeCouriers = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map() as Map<string, string>;
     packages.forEach(pkg => {
       if (pkg.courierId) {
         map.set(
