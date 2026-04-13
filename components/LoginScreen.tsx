@@ -1,53 +1,88 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, LogIn, Search } from 'lucide-react';
-import { AuthUser, UserRole } from '../types';
-import { login, saveSession } from '../services/authService';
+import { ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, LogIn, Search, UserPlus } from 'lucide-react';
+import { AuthUser } from '../types';
+import { login, registerCourier, saveSession, DEMO_USERS } from '../services/authService';
 
 interface Props {
-  onLogin: (user: AuthUser) => void;
+  onLogin:       (user: AuthUser) => void;
   onGuestAccess: () => void;
 }
 
-interface DemoAccount {
-  name:      string;
-  password:  string;
-  roleLabel: string;
-  desc:      string;
-  color:     string;
-}
-
-const DEMO_ACCOUNTS: DemoAccount[] = [
-  { name: 'Greenspeed HQ',                  password: 'superuser123', roleLabel: 'Superuser',       desc: 'Ziet alle apotheken',          color: 'bg-purple-100 text-purple-700' },
-  { name: 'Regio Beheerder',                password: 'regio123',    roleLabel: 'Regio Beheerder',  desc: 'Admin met meerdere apotheken', color: 'bg-indigo-100 text-indigo-700' },
-  { name: 'Beheerder Apotheek de Kroon',    password: 'admin123',    roleLabel: 'Admin',            desc: 'Admin van één apotheek',        color: 'bg-indigo-100 text-indigo-700' },
-  { name: 'Assistente Apotheek de Kroon',   password: 'apotheek123', roleLabel: 'Apotheek',         desc: 'Apothekers-assistent',          color: 'bg-blue-100 text-blue-700'     },
-  { name: 'Marco Koerier',                  password: 'koerier123',  roleLabel: 'Koerier',          desc: 'Bezorger',                     color: 'bg-emerald-100 text-emerald-700'},
-  { name: 'Lisa Supervisor',                password: 'supervisor123', roleLabel: 'Supervisor',       desc: 'Regio supervisor',             color: 'bg-violet-100 text-violet-700' },
-];
-
 const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
-  const [username, setUsername]       = useState('');
-  const [password, setPassword]       = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError]             = useState('');
-  const [showDemo, setShowDemo]       = useState(false);
+  const [tab, setTab] = useState<'login' | 'register'>('login');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Login-tab
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [showPw, setShowPw]         = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isLoading, setIsLoading]   = useState(false);
+
+  // Registreer-tab
+  const [regName, setRegName]         = useState('');
+  const [regEmail, setRegEmail]       = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirm, setRegConfirm]   = useState('');
+  const [showRegPw, setShowRegPw]     = useState(false);
+  const [regError, setRegError]       = useState('');
+  const [regSuccess, setRegSuccess]   = useState(false);
+
+  // Demo
+  const [showDemo, setShowDemo] = useState(false);
+
+  // ── Login ──────────────────────────────────────────────────────────
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    const user = login(username.trim(), password);
-    if (user) {
-      saveSession(user);
-      onLogin(user);
-    } else {
-      setError('Gebruikersnaam of wachtwoord onjuist.');
+    setLoginError('');
+    setIsLoading(true);
+    try {
+      const user = await login(email.trim(), password);
+      if (user) {
+        saveSession(user);
+        onLogin(user);
+      } else {
+        setLoginError('E-mailadres of wachtwoord onjuist.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const quickLogin = (name: string, password: string) => {
-    const user = login(name, password);
+  const quickLogin = async (demoEmail: string, demoPw: string) => {
+    const user = await login(demoEmail, demoPw);
     if (user) { saveSession(user); onLogin(user); }
   };
+
+  // ── Registratie koerier ───────────────────────────────────────────
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError('');
+    if (regPassword.length < 8) {
+      setRegError('Wachtwoord moet minimaal 8 tekens zijn.');
+      return;
+    }
+    if (regPassword !== regConfirm) {
+      setRegError('Wachtwoorden komen niet overeen.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const user = await registerCourier(regName.trim(), regEmail.trim(), regPassword);
+      if (user) {
+        saveSession(user);
+        onLogin(user);
+      } else {
+        setRegSuccess(true); // Supabase stuurt bevestigingsmail
+      }
+    } catch {
+      setRegError('Registratie mislukt. Probeer een ander e-mailadres.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── Styles ────────────────────────────────────────────────────────
+  const inputCls = 'w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all';
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center p-5 lg:p-8">
@@ -62,64 +97,208 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
           <p className="text-blue-300 text-sm font-medium mt-1 uppercase tracking-widest">AI Route Planner</p>
         </div>
 
-        {/* Login form */}
-        <div className="bg-white rounded-4xl p-7 shadow-2xl shadow-black/30">
-          <h2 className="text-xl font-black text-slate-900 mb-5">Inloggen</h2>
+        {/* Card */}
+        <div className="bg-white rounded-4xl shadow-2xl shadow-black/30 overflow-hidden">
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Gebruikersnaam
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="Volledige naam"
-                required
-                autoComplete="username"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-              />
-            </div>
+          {/* Tabs */}
+          <div className="flex border-b border-slate-100">
+            <button
+              onClick={() => setTab('login')}
+              className={`flex-1 py-4 text-sm font-black transition-colors ${
+                tab === 'login'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <LogIn size={14} className="inline mr-1.5" />
+              Inloggen
+            </button>
+            <button
+              onClick={() => setTab('register')}
+              className={`flex-1 py-4 text-sm font-black transition-colors ${
+                tab === 'register'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <UserPlus size={14} className="inline mr-1.5" />
+              Koerier registreren
+            </button>
+          </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Wachtwoord
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 pr-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
+          <div className="p-7">
+            {/* ── LOGIN TAB ── */}
+            {tab === 'login' && (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    E-mailadres
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="naam@apotheek.nl"
+                    required
+                    autoComplete="email"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Wachtwoord
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPw ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      autoComplete="current-password"
+                      className={`${inputCls} pr-12`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(p => !p)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {loginError && (
+                  <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                    <p className="text-xs font-bold text-red-600">{loginError}</p>
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(p => !p)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 text-white h-12 rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 disabled:opacity-60 transition-all flex items-center justify-center space-x-2"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  <LogIn size={18} />
+                  <span>{isLoading ? 'Inloggen...' : 'Inloggen'}</span>
                 </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                <p className="text-xs font-bold text-red-600">{error}</p>
-              </div>
+              </form>
             )}
 
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white h-12 rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center space-x-2"
-            >
-              <LogIn size={18} />
-              <span>Inloggen</span>
-            </button>
-          </form>
+            {/* ── REGISTREER TAB ── */}
+            {tab === 'register' && !regSuccess && (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Volledige naam
+                  </label>
+                  <input
+                    type="text"
+                    value={regName}
+                    onChange={e => setRegName(e.target.value)}
+                    placeholder="Jan Jansen"
+                    required
+                    autoComplete="name"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    E-mailadres
+                  </label>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    onChange={e => setRegEmail(e.target.value)}
+                    placeholder="jan@email.nl"
+                    required
+                    autoComplete="email"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Wachtwoord <span className="normal-case font-bold text-slate-300">(min. 8 tekens)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showRegPw ? 'text' : 'password'}
+                      value={regPassword}
+                      onChange={e => setRegPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      className={`${inputCls} pr-12`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPw(p => !p)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showRegPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Wachtwoord bevestigen
+                  </label>
+                  <input
+                    type="password"
+                    value={regConfirm}
+                    onChange={e => setRegConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="new-password"
+                    className={inputCls}
+                  />
+                </div>
+
+                {regError && (
+                  <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                    <p className="text-xs font-bold text-red-600">{regError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 text-white h-12 rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 disabled:opacity-60 transition-all flex items-center justify-center space-x-2"
+                >
+                  <UserPlus size={18} />
+                  <span>{isLoading ? 'Account aanmaken...' : 'Account aanmaken'}</span>
+                </button>
+
+                <p className="text-center text-xs text-slate-400 font-bold leading-relaxed pt-1">
+                  Werk je voor een apotheek? Je koppelt een apotheek na het inloggen met een apotheekcode.
+                </p>
+              </form>
+            )}
+
+            {/* ── REGISTRATIE SUCCESVOL ── */}
+            {tab === 'register' && regSuccess && (
+              <div className="text-center py-4 space-y-3">
+                <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
+                  <ShieldCheck className="text-emerald-600 w-7 h-7" />
+                </div>
+                <p className="font-black text-slate-900">Account aangemaakt!</p>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Controleer je e-mail om je account te bevestigen. Daarna kun je inloggen.
+                </p>
+                <button
+                  onClick={() => { setTab('login'); setRegSuccess(false); }}
+                  className="text-blue-600 font-black text-sm"
+                >
+                  Naar inloggen
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Demo accounts */}
@@ -136,21 +315,32 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
 
           {showDemo && (
             <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
-              {DEMO_ACCOUNTS.map(acc => (
-                <button
-                  key={acc.name}
-                  onClick={() => quickLogin(acc.name, acc.password)}
-                  className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 py-3 transition-all text-left"
-                >
-                  <div>
-                    <p className="text-white font-black text-sm leading-none">{acc.name}</p>
-                    <p className="text-white/50 text-[10px] mt-1">{acc.desc}</p>
-                  </div>
-                  <span className={`shrink-0 ml-3 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${acc.color}`}>
-                    {acc.roleLabel}
-                  </span>
-                </button>
-              ))}
+              {DEMO_USERS.map(acc => {
+                const colorMap: Record<string, string> = {
+                  [String('u1')]: 'bg-purple-100 text-purple-700',
+                  [String('u2')]: 'bg-indigo-100 text-indigo-700',
+                  [String('u6')]: 'bg-indigo-100 text-indigo-700',
+                  [String('u3')]: 'bg-blue-100 text-blue-700',
+                  [String('u4')]: 'bg-emerald-100 text-emerald-700',
+                  [String('u5')]: 'bg-emerald-100 text-emerald-700',
+                  [String('u7')]: 'bg-violet-100 text-violet-700',
+                };
+                return (
+                  <button
+                    key={acc.id}
+                    onClick={() => quickLogin(acc.email, acc.passwordHash)}
+                    className="w-full flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl px-4 py-3 transition-all text-left"
+                  >
+                    <div>
+                      <p className="text-white font-black text-sm leading-none">{acc.name}</p>
+                      <p className="text-white/50 text-[10px] mt-1">{acc.email}</p>
+                    </div>
+                    <span className={`shrink-0 ml-3 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${colorMap[acc.id] ?? 'bg-slate-100 text-slate-700'}`}>
+                      {acc.role.toLowerCase()}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

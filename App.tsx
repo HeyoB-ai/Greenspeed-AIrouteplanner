@@ -5,6 +5,7 @@ import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
 import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
+import CourierPharmacyLink from './components/CourierPharmacyLink';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
@@ -12,7 +13,7 @@ import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute, ScanResult } from './services/geminiService';
-import { getSession, logout } from './services/authService';
+import { getSession, logout, saveSession } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X } from 'lucide-react';
@@ -52,6 +53,10 @@ const App: React.FC = () => {
 
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
+
+  // Courier: welke apotheek is actief voor deze rit
+  const [courierActivePharmacyId, setCourierActivePharmacyId] = useState<string | null>(null);
+  const [showPharmacyLink, setShowPharmacyLink] = useState(false);
 
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
@@ -233,14 +238,28 @@ const App: React.FC = () => {
   );
 
   const handleLogin = (user: AuthUser) => {
-    setSession({ user, loggedInAt: new Date().toISOString() });
+    const sess = { user, loggedInAt: new Date().toISOString() };
+    setSession(sess);
+    // Koerier: controleer of apotheek al gekoppeld is
+    if (user.role === UserRole.COURIER) {
+      const ids = user.pharmacyIds ?? (user.pharmacyId ? [user.pharmacyId] : []);
+      if (ids.length === 0) {
+        setShowPharmacyLink(true);
+      } else if (ids.length === 1) {
+        setCourierActivePharmacyId(ids[0]);
+      } else {
+        setShowPharmacyLink(true); // laat koerier kiezen
+      }
+    }
   };
 
   const handleLogout = async () => {
     if (confirm('Uitloggen?')) {
-      logout();
+      await logout();
       setSession(null);
       setPackages([]);
+      setCourierActivePharmacyId(null);
+      setShowPharmacyLink(false);
     }
   };
 
@@ -467,6 +486,36 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
     );
   }
 
+  // ── Render: courier pharmacy linking / selection ─────────────────
+  if (session && role === UserRole.COURIER && showPharmacyLink) {
+    const courierLinkedIds = session.user.pharmacyIds
+      ?? (session.user.pharmacyId ? [session.user.pharmacyId] : []);
+    return (
+      <CourierPharmacyLink
+        pharmacies={pharmacies}
+        linkedIds={courierLinkedIds}
+        onLinked={(pharmacyId) => {
+          // Update local session with new pharmacyId
+          const updatedUser: AuthUser = {
+            ...session.user,
+            pharmacyId,
+            pharmacyIds: [...(session.user.pharmacyIds ?? []), pharmacyId]
+              .filter((v, i, a) => a.indexOf(v) === i),
+          };
+          const updatedSession = { ...session, user: updatedUser };
+          setSession(updatedSession);
+          saveSession(updatedUser);
+          setCourierActivePharmacyId(pharmacyId);
+        }}
+        onChoose={(pharmacyId) => {
+          setCourierActivePharmacyId(pharmacyId);
+          setShowPharmacyLink(false);
+        }}
+        onSkip={courierLinkedIds.length > 0 ? () => setShowPharmacyLink(false) : undefined}
+      />
+    );
+  }
+
 
   // ── Helpers for authenticated views ─────────────────────────────
   const syncIndicator = (
@@ -629,10 +678,14 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
         {/* COURIER — eigen rit, scannen en route plannen */}
         {role === UserRole.COURIER && (
           <CourierView
-            packages={visiblePackages}
+            packages={visiblePackages.filter(p =>
+              !courierActivePharmacyId || p.pharmacyId === courierActivePharmacyId
+            )}
             onUpdate={() => {}}
             onUpdateMany={updateMultipleStatus}
-            pharmacyName={currentPharmacy.name}
+            pharmacyName={courierActivePharmacyId
+              ? (pharmacies.find(p => p.id === courierActivePharmacyId)?.name ?? currentPharmacy.name)
+              : currentPharmacy.name}
             pharmacyAddress={currentPharmacy.address}
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}

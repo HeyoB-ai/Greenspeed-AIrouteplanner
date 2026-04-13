@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "Bash(netlify status:*)",
+      "Bash(netlify deploy:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"const l = require\\('./node_modules/lucide-react/dist/cjs/lucide-react.js'\\); const keys = Object.keys\\(l\\); ['DoorClosed','HomeX','UserX','DoorOpen','Home'].forEach\\(k => console.log\\(k, keys.includes\\(k\\)\\)\\)\")",
+      "Bash(node -e \"const l = require\\('./node_modules/lucide-react/dist/cjs/lucide-react.js'\\); const keys = Object.keys\\(l\\); ['Mailbox','MailOpen','Mail','Home','RotateCcw','Check','X','DoorClosed','Users','Undo2'].forEach\\(k => console.log\\(k, keys.includes\\(k\\)\\)\\)\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
