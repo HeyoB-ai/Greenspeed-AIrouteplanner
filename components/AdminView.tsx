@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
+import ExportModal from './ExportModal';
 
 interface Props {
   packages: PackageType[];
@@ -68,6 +69,9 @@ const AdminView: React.FC<Props> = ({
   const [selectedConv, setSelectedConv]   = useState<ChatConversation | null>(null);
   const [activeCourier, setActiveCourier] = useState<string>('all');
   const [timelinePkg, setTimelinePkg]     = useState<PackageType | null>(null);
+  const [showExport, setShowExport]       = useState(false);
+
+  const pharmacyId = packages[0]?.pharmacyId;
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -119,20 +123,6 @@ const AdminView: React.FC<Props> = ({
     [filteredPackages]
   );
 
-  const exportCSV = () => {
-    const headers = ['ID', 'Adres', 'Huisnummer', 'Postcode', 'Stad', 'Status', 'Aangemaakt', 'Bezorgd'];
-    const rows = packages.map(p => [
-      p.id, p.address.street, p.address.houseNumber, p.address.postalCode,
-      p.address.city, p.status, p.createdAt, p.deliveredAt || '',
-    ]);
-    const csv = 'data:text/csv;charset=utf-8,' + headers.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csv));
-    link.setAttribute('download', `${pharmacyName}_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <>
@@ -154,11 +144,11 @@ const AdminView: React.FC<Props> = ({
         {/* Export knop */}
         <div className="flex justify-end">
           <button
-            onClick={exportCSV}
-            className="flex items-center space-x-2 bg-white border border-slate-200 rounded-2xl px-4 h-10 font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
           >
-            <Download size={15} className="text-emerald-500 shrink-0" />
-            <span>Export CSV</span>
+            <Download size={14} />
+            Export CSV
           </button>
         </div>
 
@@ -507,6 +497,15 @@ const AdminView: React.FC<Props> = ({
       )}
 
       <ChatBot packages={packages} pharmacyName={pharmacyName} />
+
+      {showExport && (
+        <ExportModal
+          packages={packages}
+          pharmacies={[{ id: pharmacyId ?? '', name: pharmacyName }]}
+          pharmacyId={pharmacyId}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </>
   );
 };

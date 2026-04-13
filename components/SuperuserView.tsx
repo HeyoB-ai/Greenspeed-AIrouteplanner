@@ -5,6 +5,7 @@ import {
   CheckCircle, CreditCard, X, Download, AlertCircle,
 } from 'lucide-react';
 import ArchiveView from './ArchiveView';
+import ExportModal from './ExportModal';
 
 const PAGE_SIZE = 20;
 
@@ -64,6 +65,7 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus }
   const [selectedPharmacyId, setSelected]     = useState<string | null>(null);
   const [detailTab, setDetailTab]             = useState<'packages' | 'archive'>('packages');
   const [courierFilter, setCourierFilter]     = useState<string | null>(null);
+  const [showExport, setShowExport]           = useState(false);
 
   // ── Global stats ───────────────────────────────────────────────
   const globalStats = useMemo(() => {
@@ -362,11 +364,20 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus }
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             {filtered.length} apothe{filtered.length === 1 ? 'ek' : 'ken'} — slechtste bezorgpercentage eerst
           </p>
-          {totalPages > 1 && (
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Pagina {page + 1} / {totalPages}
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            {totalPages > 1 && (
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Pagina {page + 1} / {totalPages}
+              </p>
+            )}
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 px-4 h-9 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+            >
+              <Download size={13} />
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Pharmacy cards */}
@@ -462,6 +473,14 @@ const SuperuserView: React.FC<Props> = ({ packages, pharmacies, onUpdateStatus }
           </div>
         )}
       </div>
+
+      {showExport && (
+        <ExportModal
+          packages={packages}
+          pharmacies={pharmacies}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 };

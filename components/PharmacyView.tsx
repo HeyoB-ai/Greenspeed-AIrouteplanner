@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Package, MapPin,
+  Package, MapPin, Download,
   RefreshCw, Truck, ShieldCheck, Clock,
   MessageCircle, Phone, AlertTriangle, ArrowLeft, ChevronRight, X
 } from 'lucide-react';
 import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
 import ChatBot from './ChatBot';
+import ExportModal from './ExportModal';
 
 interface Props {
   packages: PackageType[];
@@ -71,6 +72,9 @@ const PharmacyView: React.FC<Props> = ({
   const [selectedConv, setSelectedConv]   = useState<ChatConversation | null>(null);
   const [activeCourier, setActiveCourier] = useState<string>('all');
   const [timelinePkg, setTimelinePkg]     = useState<PackageType | null>(null);
+  const [showExport, setShowExport]       = useState(false);
+
+  const pharmacyId = packages[0]?.pharmacyId;
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -130,6 +134,17 @@ const PharmacyView: React.FC<Props> = ({
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Export knop ── */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowExport(true)}
+          className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+        >
+          <Download size={14} />
+          Export CSV
+        </button>
       </div>
 
       {/* ── Scan actief indicator ── */}
@@ -494,6 +509,15 @@ const PharmacyView: React.FC<Props> = ({
         packages={packages.filter(p => p.pharmacyName === pharmacyName)}
         pharmacyName={pharmacyName}
       />
+
+      {showExport && (
+        <ExportModal
+          packages={packages}
+          pharmacies={[{ id: pharmacyId ?? '', name: pharmacyName }]}
+          pharmacyId={pharmacyId}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 };
