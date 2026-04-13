@@ -95,9 +95,11 @@ export async function login(email: string, password: string): Promise<AuthUser |
         return user;
       }
     }
+    // Supabase is geconfigureerd maar login mislukt — nooit terugvallen op demo
+    return null;
   }
 
-  // Demo-fallback: match op e-mail of naam
+  // Demo-fallback: alleen als Supabase NIET geconfigureerd is
   const demo = DEMO_USERS.find(u =>
     (u.email === email.toLowerCase() || u.name.toLowerCase() === email.toLowerCase()) &&
     u.passwordHash === password

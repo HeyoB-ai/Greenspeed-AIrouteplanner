@@ -84,11 +84,10 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
     const activePkgs = packages.filter(p => p.status !== PackageStatus.SCANNING);
     const delivered  = packages.filter(p => DELIVERED_STATUSES.has(p.status)).length;
     return {
-      pharmacyCount: pharmacies.length,
       total:    activePkgs.length,
       delivered,
     };
-  }, [packages, pharmacies]);
+  }, [packages]);
 
   // ── Per-pharmacy stats (worst delivery rate first) ─────────────
   const pharmacyStats = useMemo((): PharmacyStat[] => {
@@ -139,7 +138,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       {/* Global stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {[
-          { label: 'Apotheken', val: globalStats.pharmacyCount, icon: Building2,   color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Apotheken', val: pharmacyStats.length,       icon: Building2,   color: 'text-indigo-600', bg: 'bg-indigo-50' },
           { label: 'Pakketten', val: globalStats.total,         icon: Package,     color: 'text-blue-600',   bg: 'bg-blue-50'   },
           { label: 'Bezorgd',   val: globalStats.delivered,     icon: CheckCircle, color: 'text-emerald-600',bg: 'bg-emerald-50'},
           { label: 'Omzet', val: '—', icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50' },
