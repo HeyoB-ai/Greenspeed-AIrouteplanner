@@ -299,48 +299,54 @@ const App: React.FC = () => {
   }, [currentPharmacy, packages]);
 
   const handleOptimizeRoute = async (selectedIds: string[]) => {
+    if (selectedIds.length === 0) return;
     setIsOptimizing(true);
-    const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
-
-    const stopsMap = new Map<string, string[]>();
-    selectedPackages.forEach(p => {
-      const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
-      stopsMap.set(key, [...(stopsMap.get(key) || []), p.id]);
-    });
-
-    const uniqueStops = Array.from(stopsMap.entries()).map(([, ids]) => {
-      const firstPkg = selectedPackages.find(p => p.id === ids[0])!;
-      return { id: ids[0], ...firstPkg.address, packageCount: ids.length };
-    });
 
     try {
-      const optimizedReferenceIds = await optimizeRoute(uniqueStops);
-      const updatedPackages = [...packages];
-      const pkgsToSync: Package[] = [];
+      const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
 
-      selectedIds.forEach(id => {
-        const idx = updatedPackages.findIndex(p => p.id === id);
-        if (idx !== -1) updatedPackages[idx] = { ...updatedPackages[idx], orderIndex: undefined, displayIndex: undefined };
+      // Stuur alle geselecteerde pakketten naar de AI
+      const stops = selectedPackages.map(p => ({
+        id:          p.id,
+        street:      p.address.street,
+        houseNumber: p.address.houseNumber,
+        postalCode:  p.address.postalCode,
+        city:        p.address.city,
+      }));
+
+      const orderedIds = await optimizeRoute(stops);
+
+      console.log('=== ROUTE OPTIMALISATIE ===');
+      console.log('Geselecteerde IDs:', selectedIds);
+      console.log('Geoptimaliseerde volgorde:', orderedIds);
+      orderedIds.forEach((id, i) => {
+        const pkg = packages.find(p => p.id === id);
+        if (pkg) console.log(`Stop ${i + 1}: ${pkg.address.street} ${pkg.address.houseNumber}`);
       });
 
-      optimizedReferenceIds.forEach((refId, index) => {
-        const key = Array.from(stopsMap.entries()).find(([, ids]) => ids.includes(refId))?.[0];
-        if (key) {
-          (stopsMap.get(key) || []).forEach(id => {
-            const pkgIndex = updatedPackages.findIndex(p => p.id === id);
-            if (pkgIndex !== -1) {
-              const updatedPkg = { ...updatedPackages[pkgIndex], status: PackageStatus.ASSIGNED, orderIndex: index, displayIndex: index + 1, routeIndex: index + 1 };
-              updatedPackages[pkgIndex] = updatedPkg;
-              pkgsToSync.push(updatedPkg);
-            }
-          });
-        }
+      // Wijs routeIndex toe op basis van positie in orderedIds
+      const updatedPackages = packages.map(pkg => {
+        const routePos = orderedIds.indexOf(pkg.id);
+        if (routePos === -1) return pkg; // niet in de selectie
+
+        return {
+          ...pkg,
+          status:       PackageStatus.ASSIGNED,
+          routeIndex:   routePos + 1,   // 1-gebaseerd voor weergave
+          displayIndex: routePos + 1,
+          orderIndex:   routePos,       // 0-gebaseerd voor sortering
+        };
       });
+
+      const toSync = updatedPackages.filter(p => selectedIds.includes(p.id));
+      console.log('Gesynchroniseerd:', toSync.map(p => `${p.id}: stop ${p.routeIndex}`));
 
       setPackages(updatedPackages);
-      await db.syncMultiplePackages(pkgsToSync);
+      await db.syncMultiplePackages(toSync);
+
     } catch (err) {
       console.error('Route optimalisatie mislukt:', err);
+      alert('Routeoptimalisatie mislukt. Probeer opnieuw.');
     } finally {
       setIsOptimizing(false);
     }

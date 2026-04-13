@@ -78,20 +78,26 @@ const CourierView: React.FC<Props> = ({
 
   // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden
   const sortedPackages = useMemo(() => {
-    const filteredPackages = packages.filter(
+    const visible = packages.filter(
       p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING
     );
-    return [...filteredPackages].sort((a, b) => {
-      const aDone = !isActionable(a);
-      const bDone = !isActionable(b);
-      if (aDone !== bDone) return aDone ? 1 : -1;
-      // Na optimalisatie: op routeIndex
+    const actionable = visible.filter(p => isActionable(p));
+    const done       = visible.filter(p => !isActionable(p));
+
+    // Te bezorgen: routeIndex > geen routeIndex > scanNumber
+    const sortedActionable = [...actionable].sort((a, b) => {
       if (a.routeIndex && b.routeIndex) return a.routeIndex - b.routeIndex;
-      // Vóór optimalisatie: op scanNumber
-      const aNum = a.scanNumber ?? a.displayIndex ?? 999;
-      const bNum = b.scanNumber ?? b.displayIndex ?? 999;
-      return aNum - bNum;
+      if (a.routeIndex && !b.routeIndex) return -1;
+      if (!a.routeIndex && b.routeIndex) return 1;
+      return (a.scanNumber ?? 999) - (b.scanNumber ?? 999);
     });
+
+    // Afgerond: nieuwste eerst
+    const sortedDone = [...done].sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return [...sortedActionable, ...sortedDone];
   }, [packages]);
 
   // Stops — voor Google Maps URL opbouw
@@ -104,7 +110,7 @@ const CourierView: React.FC<Props> = ({
       if (existing) {
         existing.packages.push(p);
       } else {
-        stopsMap.set(key, { addressKey: key, address: p.address, packages: [p], orderIndex: p.orderIndex ?? 999 });
+        stopsMap.set(key, { addressKey: key, address: p.address, packages: [p], orderIndex: p.orderIndex ?? p.routeIndex ?? 999 });
       }
     });
     return Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
