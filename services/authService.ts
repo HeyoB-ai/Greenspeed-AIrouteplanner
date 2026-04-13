@@ -48,6 +48,13 @@ const DEMO_USERS: AuthUser[] = [
     courierId:    'k2',
     passwordHash: 'koerier456',
   },
+  {
+    id:           'u7',
+    name:         'Lisa Supervisor',
+    role:         UserRole.SUPERVISOR,
+    pharmacyIds:  ['ph-1', 'ph-2'],  // haar apotheken; leeg = alle
+    passwordHash: 'supervisor123',
+  },
 ];
 
 export { DEMO_USERS };
