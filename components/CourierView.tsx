@@ -3,7 +3,8 @@ import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../type
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
-  MousePointerClick, CheckCircle2, MapPin, DoorClosed
+  MousePointerClick, CheckCircle2, MapPin, DoorClosed,
+  Map, RefreshCw
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -214,6 +215,23 @@ const CourierView: React.FC<Props> = ({
             >
               <ScanLine size={14} />
               Scan
+            </button>
+          )}
+          {onOptimize && (
+            <button
+              onClick={() => {
+                const ids = sortedPackages
+                  .filter(p => isActionable(p))
+                  .map(p => p.id);
+                onOptimize(ids);
+              }}
+              disabled={isOptimizing || sortedPackages.filter(p => isActionable(p)).length === 0}
+              className="flex items-center gap-1.5 px-3 h-10 bg-blue-700 text-white rounded-xl font-black text-xs disabled:opacity-40 hover:bg-blue-800 transition-all active:scale-95"
+            >
+              {isOptimizing
+                ? <RefreshCw size={14} className="animate-spin" />
+                : <Map size={14} />}
+              {isOptimizing ? 'Bezig...' : 'Route'}
             </button>
           )}
           <button
