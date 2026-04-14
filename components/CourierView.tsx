@@ -4,7 +4,7 @@ import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed,
-  Map as MapIcon, RefreshCw, Building2
+  Map as MapIcon, RefreshCw, Building2, Trash2
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -43,6 +43,7 @@ const getStatusLabel = (status: PackageStatus): string => {
     case PackageStatus.FAILED:         return '✕ Mislukt';
     case PackageStatus.ASSIGNED:       return 'Te bezorgen';
     case PackageStatus.PICKED_UP:      return 'Onderweg';
+    case PackageStatus.REMOVED:        return 'Uit bezorging gehaald';
     default:                           return status;
   }
 };
@@ -52,7 +53,8 @@ const getStatusStyle = (status: PackageStatus): string => {
   const back = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION];
   if (done.includes(status)) return 'bg-emerald-100 text-emerald-700';
   if (back.includes(status)) return 'bg-amber-100 text-amber-700';
-  if (status === PackageStatus.FAILED) return 'bg-red-100 text-red-600';
+  if (status === PackageStatus.FAILED)   return 'bg-red-100 text-red-600';
+  if (status === PackageStatus.REMOVED)  return 'bg-slate-100 text-slate-400';
   return 'bg-slate-100 text-slate-500';
 };
 
@@ -77,13 +79,14 @@ const CourierView: React.FC<Props> = ({
     [packages]
   );
 
-  // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden
+  // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden; removed altijd laatste
   const sortedPackages = useMemo(() => {
     const visible = packages.filter(
       p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING
     );
     const actionable = visible.filter(p => isActionable(p));
-    const done       = visible.filter(p => !isActionable(p));
+    const done       = visible.filter(p => !isActionable(p) && p.status !== PackageStatus.REMOVED);
+    const removed    = visible.filter(p => p.status === PackageStatus.REMOVED);
 
     // Na optimalisatie: routeIndex; vóór optimalisatie: scanNumber
     const sortedActionable = [...actionable].sort((a, b) => {
@@ -97,7 +100,7 @@ const CourierView: React.FC<Props> = ({
       new Date(a.deliveredAt ?? a.createdAt).getTime()
     );
 
-    return [...sortedActionable, ...sortedDone];
+    return [...sortedActionable, ...sortedDone, ...removed];
   }, [packages]);
 
   // Stops — voor Google Maps URL opbouw
@@ -335,7 +338,9 @@ const CourierView: React.FC<Props> = ({
             <div
               key={pkg.id}
               className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-opacity ${
-                !isActionable(pkg) ? 'opacity-60 border-slate-100' : 'border-slate-200'
+                pkg.status === PackageStatus.REMOVED
+                  ? 'opacity-40 border-slate-100'
+                  : !isActionable(pkg) ? 'opacity-60 border-slate-100' : 'border-slate-200'
               }`}
             >
               {/* Info sectie */}
@@ -388,6 +393,14 @@ const CourierView: React.FC<Props> = ({
                     className="h-11 px-4 bg-amber-50 text-amber-700 rounded-xl font-black text-sm border border-amber-200 active:scale-95 disabled:opacity-50 transition-all"
                   >
                     Niet thuis
+                  </button>
+                  <button
+                    onClick={() => onUpdateMany([pkg.id], PackageStatus.REMOVED)}
+                    disabled={!!isCapturingGPS}
+                    className="h-11 w-11 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center border border-slate-200 active:scale-95 disabled:opacity-50 transition-all"
+                    title="Verwijder uit bezorging"
+                  >
+                    <Trash2 size={15} />
                   </button>
                 </div>
               )}

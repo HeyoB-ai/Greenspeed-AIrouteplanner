@@ -43,6 +43,7 @@ export enum PackageStatus {
   FAILED          = 'MISLUKT',
   MOVED           = 'VERHUISD',
   OTHER_LOCATION  = 'ANDERE LOCATIE',
+  REMOVED         = 'removed',
 }
 
 export interface Address {
