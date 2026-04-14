@@ -42,9 +42,21 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(e => console.error('Video play failed:', e));
+        const video = videoRef.current;
+        if (video) {
+          // Zet attributen expliciet — sommige iOS Safari versies negeren JSX props
+          video.setAttribute('autoplay', '');
+          video.setAttribute('playsinline', '');
+          video.setAttribute('muted', '');
+
+          video.srcObject = stream;
+          video.play().catch(e => console.error('Video play failed:', e));
+
+          // Hervat direct als video onverwacht pauzeert (iOS Safari freeze)
+          video.addEventListener('pause', () => {
+            video.play().catch(() => {});
+          });
+
           // iOS Safari: geef camera 300ms om te initialiseren
           setTimeout(() => setCameraReady(true), 300);
         }
@@ -97,24 +109,49 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     }
   }, []);
 
-  const handleCapture = useCallback(() => {
-    if (!cameraReady) return;
-    if (!videoRef.current || !canvasRef.current) return;
-    if (!videoRef.current.videoWidth || videoRef.current.videoWidth === 0) return;
-
-    // Teken huidig videoframe op canvas
+  // Legt het HUIDIGE videoframe vast — geeft diagnostische logging mee
+  function captureFrame(): string {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!video || !canvas) throw new Error('Camera niet beschikbaar');
 
-    const scale = Math.min(1, 1280 / video.videoWidth);
+    // Zorg dat de video actief frames levert
+    if (video.readyState < 2) throw new Error('Video nog niet klaar');
+
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas context niet beschikbaar');
+
+    // Schaal op max 1024px breed voor snelheid
+    const scale = Math.min(1, 1024 / video.videoWidth);
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // base64 synchroon vastgelegd — canvas kan daarna veilig overschreven worden
+    // Verplicht clearing voor de draw — voorkomt gecachede bitmap
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Teken het HUIDIGE videoframe op dit moment
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
     const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+
+    // Diagnose: als prefix/length identiek is bij elke scan → canvas bevroren
+    console.log(`[Scan] base64 prefix: ${base64.substring(0, 40)}`);
+    console.log(`[Scan] base64 length: ${base64.length}`);
+
+    return base64;
+  }
+
+  const handleCapture = useCallback(() => {
+    if (!cameraReady) return;
+
+    let base64: string;
+    try {
+      base64 = captureFrame();
+    } catch (err: any) {
+      setCameraError(err.message ?? 'Camera niet gereed, probeer opnieuw');
+      return;
+    }
+
     if (!base64 || base64.length < 1000) {
       setCameraError('Camera niet gereed, probeer opnieuw');
       return;

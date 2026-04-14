@@ -18,7 +18,11 @@ async function callGemini(requestBody: object): Promise<string | null> {
   try {
     const response = await fetch('/.netlify/functions/gemini', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache',
+      },
       body: JSON.stringify({ model: MODEL, ...requestBody }),
       signal: controller.signal,
     });
