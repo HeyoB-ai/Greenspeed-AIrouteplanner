@@ -305,7 +305,6 @@ const App: React.FC = () => {
     };
 
     setPackages(prev => [pkg, ...prev]);
-    setShowScanner(false);
 
     if (hasRoute && routeIndex !== undefined) {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
