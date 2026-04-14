@@ -59,7 +59,7 @@ export async function extractAddressFromImage(
               },
             },
             {
-              text: 'Dit is een Nederlands apotheek-bezorgetiket. Zoek het AFLEVERADRES (het adres waar het pakket naartoe bezorgd moet worden).\n\nGebruik deze logica:\n- Als er TWEE adressen zichtbaar zijn: het afleveradres is het adres dat NIET toebehoort aan een apotheek. Het apotheekadres herken je doordat het woord "Apotheek" in de naam of adresregel staat. Negeer dat adres volledig.\n- Als er maar ÉÉN adres zichtbaar is: gebruik dat adres als het afleveradres, ongeacht of het een apotheek is.\n\nGeef van het afleveradres:\n- straatnaam (street)\n- huisnummer (houseNumber)\n- postcode (postalCode, formaat: 1234 AB)\n- stad (city)\n\nGeef ook de apotheeknaam (pharmacyName) als die zichtbaar is op het etiket. Geen patiëntnamen, geen medicatienamen. Antwoord in JSON.',
+              text: 'Dit is een foto van één bezorgadres op een apotheeklabel of adressenlijst. Er is precies één adres zichtbaar in beeld (het adres in het midden van de foto). Lees dat ene adres en geef:\n- straatnaam (street)\n- huisnummer (houseNumber)\n- postcode (postalCode, formaat: 1234 AB)\n- stad (city)\n- apotheeknaam (pharmacyName) als zichtbaar, anders leeg\n\nGeen patiëntnamen, geen medicatienamen. Antwoord in JSON.',
             },
           ],
         },

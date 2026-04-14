@@ -108,29 +108,39 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     }
   }, []);
 
-  // Legt het HUIDIGE videoframe vast met een wegwerp-canvas per scan.
-  // iOS Safari cached de GPU-bitmap van een DOM canvas element na de eerste draw —
-  // een nieuw canvas per aanroep omzeilt die freeze volledig.
+  // Legt alleen het gebied binnen het blauwe richtkader vast.
+  // Nieuw canvas per scan — omzeilt iOS Safari GPU-cache freeze.
   function captureFrame(): string {
     const video = videoRef.current;
     if (!video) throw new Error('Camera niet beschikbaar');
     if (video.readyState < 2) throw new Error('Video nog niet klaar');
 
-    // Nieuw canvas per scan — nooit hergebruikt, nooit gecached door iOS Safari
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    // Richtkader: ~82% van de videobreedte, aspect 4:3, gecentreerd
+    const frameRatio = 0.82;
+    const cropW = Math.round(vw * frameRatio);
+    const cropH = Math.round(cropW * (3 / 4));
+    const cropX = Math.round((vw - cropW) / 2);
+    const cropY = Math.round((vh - cropH) / 2);
+
     const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = cropW;
+    tempCanvas.height = cropH;
     const context = tempCanvas.getContext('2d');
     if (!context) throw new Error('Canvas context niet beschikbaar');
 
-    const scale = Math.min(1, 1024 / video.videoWidth);
-    tempCanvas.width = video.videoWidth * scale;
-    tempCanvas.height = video.videoHeight * scale;
+    // Teken alleen het kader-gebied — niet de volledige video
+    context.drawImage(
+      video,
+      cropX, cropY, cropW, cropH,  // bron: uitsnede van het richtkader
+      0, 0, cropW, cropH            // doel: volledig canvas
+    );
 
-    context.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+    const base64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
-    const base64 = tempCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-
-    // Diagnose: als prefix/length identiek is bij elke scan → video bevroren
-    console.log(`[Scan] base64 prefix: ${base64.substring(0, 40)}`);
+    console.log(`[Scan] crop: ${cropX},${cropY} ${cropW}x${cropH} van ${vw}x${vh}`);
     console.log(`[Scan] base64 length: ${base64.length}`);
 
     // Geef canvas vrij — voorkomt geheugenlek bij burst scans
