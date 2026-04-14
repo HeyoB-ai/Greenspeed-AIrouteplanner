@@ -16,7 +16,6 @@ type ScanEntry = {
 
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -109,34 +108,34 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     }
   }, []);
 
-  // Legt het HUIDIGE videoframe vast — geeft diagnostische logging mee
+  // Legt het HUIDIGE videoframe vast met een wegwerp-canvas per scan.
+  // iOS Safari cached de GPU-bitmap van een DOM canvas element na de eerste draw —
+  // een nieuw canvas per aanroep omzeilt die freeze volledig.
   function captureFrame(): string {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) throw new Error('Camera niet beschikbaar');
-
-    // Zorg dat de video actief frames levert
+    if (!video) throw new Error('Camera niet beschikbaar');
     if (video.readyState < 2) throw new Error('Video nog niet klaar');
 
-    const context = canvas.getContext('2d');
+    // Nieuw canvas per scan — nooit hergebruikt, nooit gecached door iOS Safari
+    const tempCanvas = document.createElement('canvas');
+    const context = tempCanvas.getContext('2d');
     if (!context) throw new Error('Canvas context niet beschikbaar');
 
-    // Schaal op max 1024px breed voor snelheid
     const scale = Math.min(1, 1024 / video.videoWidth);
-    canvas.width = video.videoWidth * scale;
-    canvas.height = video.videoHeight * scale;
+    tempCanvas.width = video.videoWidth * scale;
+    tempCanvas.height = video.videoHeight * scale;
 
-    // Verplicht clearing voor de draw — voorkomt gecachede bitmap
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
-    // Teken het HUIDIGE videoframe op dit moment
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64 = tempCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 
-    const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-
-    // Diagnose: als prefix/length identiek is bij elke scan → canvas bevroren
+    // Diagnose: als prefix/length identiek is bij elke scan → video bevroren
     console.log(`[Scan] base64 prefix: ${base64.substring(0, 40)}`);
     console.log(`[Scan] base64 length: ${base64.length}`);
+
+    // Geef canvas vrij — voorkomt geheugenlek bij burst scans
+    tempCanvas.width = 0;
+    tempCanvas.height = 0;
 
     return base64;
   }
@@ -323,7 +322,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         </button>
       </div>
 
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };
