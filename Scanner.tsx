@@ -149,8 +149,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
           .toLowerCase().replace(/\s+/g, '');
         const now = Date.now();
         const lastSeen = completedAddresses.current.get(addrKey);
-        if (lastSeen && now - lastSeen < 15000) {
-          // Duplicaat binnen 15s — markeer als fout zodat de koerier weet wat er is gebeurd
+        const tooRecent = lastSeen && (now - lastSeen) < 30_000;
+        if (tooRecent) {
+          // Duplicaat binnen 30s — markeer als fout zodat de koerier weet wat er is gebeurd
           updateQueueItem(item.id, 'error');
           return;
         }
