@@ -190,26 +190,29 @@ export async function optimizeRoute(
   if (addresses.length === 0) return [];
 
   const addressList = addresses
-    .map((addr, i) => `${i}: ${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.city}`)
+    .map((addr, i) => `${i}: ${addr.street} ${addr.houseNumber}, ${addr.postalCode ?? ''} ${addr.city}`.trim())
     .join('\n');
 
   try {
     const text = await callGemini({
       contents: [{
         parts: [{
-          text: `Je bent een routeplanner voor een Nederlandse fietskoerier die medicijnen bezorgt.
+          text: `Je bent een routeplanner voor een Nederlandse fietskoerier.
 
-Hier zijn alle bezorgadressen, genummerd 0 t/m ${addresses.length - 1}:
+Adressen met dezelfde postcode liggen in dezelfde buurt.
+De eerste 4 cijfers van de postcode geven het gebied aan,
+de letters geven de straat aan.
+
+Hier zijn de bezorgadressen:
 ${addressList}
 
-Sorteer deze adressen in de optimale fietsvolgorde. Regels:
-- Minimaliseer de totale fietsafstand
-- Geografische nabijheid is ALTIJD leidend
-- Sla nooit een dichtstbijzijnd adres over om een straat "af te maken"
-- Adressen in dezelfde straat mogen gesplitst worden als een ander adres geografisch ertussen ligt
-- Gebruik postcodes en straatnamen alleen als hulpmiddel bij gelijke afstand
+Optimaliseer op minimale fietsafstand. Regels:
+- Groepeer adressen met dezelfde 4-cijferige postcodeprefix zoveel mogelijk bij elkaar
+- Ga nooit ver weg om later terug te komen
+- Binnen een postcodecluster: sorteer op huisnummer
+- Tussen clusters: kies de geografisch logische volgorde
 
-Geef ALLEEN de nummers terug in de optimale volgorde, gescheiden door komma's. Geen uitleg.
+Geef ALLEEN de nummers terug, kommagescheiden. Geen uitleg.
 Voorbeeld output: 3,0,5,2,1,4`,
         }],
       }],
