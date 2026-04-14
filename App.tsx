@@ -254,9 +254,13 @@ const App: React.FC = () => {
 
   const recentScans        = useRef<Map<string, number>>(new Map());
   const nextScanNumberRef  = useRef<number>(1);
+  // Ref zodat handleNewScan altijd de actuele packages ziet zonder afhankelijk te zijn
+  // van de packages-state in de closure (voorkomt stale-closure race condition bij burst scans)
+  const packagesRef = useRef<Package[]>(packages);
+  useEffect(() => { packagesRef.current = packages; }, [packages]);
 
   const handleNewScan = useCallback(async (address: Address) => {
-    // Deduplicatie: zelfde adres binnen 5 seconden wordt genegeerd
+    // Deduplicatie: zelfde adres binnen 10 seconden wordt genegeerd
     const key = `${address.street}-${address.houseNumber}-${address.postalCode}`
       .toLowerCase().replace(/\s/g, '');
     const now  = Date.now();
@@ -275,10 +279,11 @@ const App: React.FC = () => {
     // Atomisch scanNumber — ref verhoogt direct zodat parallelle aanroepen altijd unieke nummers krijgen
     const scanNumber = nextScanNumberRef.current++;
 
-    // Als er al een geoptimaliseerde route is → voeg toe als extra stop
-    const hasRoute = packages.some(p => p.routeIndex !== undefined);
+    // Lees actuele packages via ref — niet via stale closure
+    const currentPackages = packagesRef.current;
+    const hasRoute = currentPackages.some(p => p.routeIndex !== undefined);
     const routeIndex = hasRoute
-      ? Math.max(0, ...packages.filter(p => p.routeIndex !== undefined).map(p => p.routeIndex!)) + 1
+      ? Math.max(0, ...currentPackages.filter(p => p.routeIndex !== undefined).map(p => p.routeIndex!)) + 1
       : undefined;
 
     const pkg: Package = {
@@ -308,7 +313,7 @@ const App: React.FC = () => {
     }
 
     await db.syncPackage(pkg);
-  }, [currentPharmacy, packages]);
+  }, [currentPharmacy]); // packages weggelaten — wordt gelezen via packagesRef
 
   const handleOptimizeRoute = useCallback(async (selectedIds: string[]) => {
     if (selectedIds.length === 0) return;

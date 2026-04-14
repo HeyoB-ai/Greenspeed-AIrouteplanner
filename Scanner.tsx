@@ -192,6 +192,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     setTimeout(() => { isCapturing.current = false; }, 500);
 
     // Reset eerdere camerafouten zodat tijdelijke fouten de scanner niet permanent blokkeren
+    // Geen state-read hier — cameraError staat bewust NIET in de deps van deze callback
     setCameraError('');
 
     if (!cameraReady) return;
@@ -212,6 +213,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // base64 wordt synchroon vastgelegd — canvas kan daarna veilig overschreven worden
     const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
     if (!base64 || base64.length < 1000) {
@@ -219,9 +222,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       return;
     }
 
+    // Unieke scan-ID koppelt deze capture atomisch aan het Gemini-resultaat
+    const scanId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     const newItem: QueueItem = {
-      id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      base64,
+      id: scanId,
+      base64, // snapshot van dit frame — niet gedeeld met andere scans
       status: 'pending',
     };
 
@@ -230,8 +238,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     setQueue(prev => [...prev, newItem]);
 
     // Gemini verwerkt op de achtergrond — camera is nu al vrij
+    // newItem wordt by-value doorgegeven; de closure heeft zijn eigen base64
     processItem(newItem);
-  }, [cameraReady, cameraError, processItem]);
+  }, [cameraReady, processItem]); // cameraError weggelaten: alleen geschreven, nooit gelezen
 
   const pendingCount = queue.filter(i => i.status === 'pending').length;
 
