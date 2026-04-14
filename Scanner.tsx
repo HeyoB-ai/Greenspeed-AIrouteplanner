@@ -7,7 +7,6 @@ import { Address } from './types';
 interface ScannerProps {
   onScanComplete: (result: ScanResult) => void;
   onCancel: () => void;
-  nextScanNumber: number;
 }
 
 type QueueItem = {
@@ -70,7 +69,7 @@ const playSound = (type: 'click' | 'success' | 'error') => {
   }
 };
 
-const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNumber }) => {
+const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
@@ -81,15 +80,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [scanCount, setScanCount] = useState(0);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [overlayNumber, setOverlayNumber] = useState<number | null>(null);
-  const [overlayAddress, setOverlayAddress] = useState('');
 
   // Stabiele refs om stale-closure issues te voorkomen
   const onScanCompleteRef = useRef(onScanComplete);
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
-  const nextScanNumberRef = useRef(nextScanNumber);
-  useEffect(() => { nextScanNumberRef.current = nextScanNumber; }, [nextScanNumber]);
-  const successCountRef   = useRef(0);
 
   // Voorkom dat hetzelfde item twee keer tegelijk verwerkt wordt
   const processingIds = useRef(new Set() as Set<string>);
@@ -159,16 +153,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
 
         updateQueueItem(item.id, 'success', result.address);
         playSound('success');
-
-        // Toon scannummer — koerier schrijft dit op het pakje
-        successCountRef.current += 1;
-        const thisNumber = nextScanNumberRef.current + successCountRef.current - 1;
-        setOverlayNumber(thisNumber);
-        setOverlayAddress(`${result.address.street} ${result.address.houseNumber}, ${result.address.city}`);
-
-        // Wacht 1.5s zodat de koerier het nummer kan zien, dan sluiten
-        await new Promise(r => setTimeout(r, 1500));
-        setOverlayNumber(null);
         onScanCompleteRef.current(result);
 
         // Adresvalidatie op de achtergrond — blokkeert UI nooit
@@ -303,22 +287,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
             </div>
           </div>
         </div>
-
-        {/* Scannummer overlay — toont na succesvolle scan */}
-        {overlayNumber !== null && (
-          <div className="absolute inset-0 bg-emerald-500/20 z-40 pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-200">
-            <div className="bg-emerald-500 rounded-3xl px-8 py-6 shadow-2xl text-center mb-4">
-              <p className="text-white/80 text-xs font-black uppercase tracking-widest mb-1">Schrijf op pakje</p>
-              <p className="text-white font-black" style={{ fontSize: '72px', lineHeight: 1 }}>
-                {overlayNumber}
-              </p>
-            </div>
-            <div className="bg-white/90 rounded-2xl px-6 py-3 text-center max-w-xs mx-4">
-              <p className="text-emerald-700 font-black text-sm">✓ Adres herkend</p>
-              <p className="text-slate-500 text-xs mt-0.5 truncate">{overlayAddress}</p>
-            </div>
-          </div>
-        )}
 
         {/* Scan tray — horizontaal scrollende statuskaartjes */}
         {queue.length > 0 && (

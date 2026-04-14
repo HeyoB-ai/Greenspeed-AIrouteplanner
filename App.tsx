@@ -683,7 +683,6 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
         <Scanner
           onScanComplete={result => handleNewScan(result.address)}
           onCancel={() => setShowScanner(false)}
-          nextScanNumber={nextScanNumberRef.current}
         />
       )}
 
