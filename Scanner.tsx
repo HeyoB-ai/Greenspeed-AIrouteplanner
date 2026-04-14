@@ -138,14 +138,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       const result = await extractAddressFromImage(item.base64);
       if (result?.address?.street && result.address.houseNumber) {
         // Adres-dedup: voorkomt dat twee parallelle Gemini-calls voor hetzelfde adres
-        // allebei onScanComplete aanroepen (15s venster)
+        // allebei onScanComplete aanroepen. 3s is genoeg voor race-conditions;
+        // langer blokkeert twee echte pakjes op hetzelfde adres (verschillende patiënten).
         const addrKey = `${result.address.street}-${result.address.houseNumber}-${result.address.postalCode}`
           .toLowerCase().replace(/\s+/g, '');
         const now = Date.now();
         const lastSeen = completedAddresses.current.get(addrKey);
-        const tooRecent = lastSeen && (now - lastSeen) < 30_000;
+        const tooRecent = lastSeen && (now - lastSeen) < 3_000;
         if (tooRecent) {
-          // Duplicaat binnen 30s — markeer als fout zodat de koerier weet wat er is gebeurd
           updateQueueItem(item.id, 'error');
           return;
         }

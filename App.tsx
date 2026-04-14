@@ -260,12 +260,14 @@ const App: React.FC = () => {
   useEffect(() => { packagesRef.current = packages; }, [packages]);
 
   const handleNewScan = useCallback(async (address: Address) => {
-    // Deduplicatie: zelfde adres binnen 10 seconden wordt genegeerd
+    // Deduplicatie: zelfde adres binnen 2 seconden wordt genegeerd (echo-bescherming).
+    // 2s is genoeg om dubbele Gemini-callbacks van één capture te blokkeren,
+    // maar blokkeert géén twee verschillende pakjes op hetzelfde adres.
     const key = `${address.street}-${address.houseNumber}-${address.postalCode}`
       .toLowerCase().replace(/\s/g, '');
     const now  = Date.now();
     const last = recentScans.current.get(key);
-    if (last && now - last < 10000) {
+    if (last && now - last < 2000) {
       console.log('Duplicaat scan genegeerd:', key);
       return;
     }
