@@ -207,7 +207,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
     isCapturing.current = true;
     setTimeout(() => { isCapturing.current = false; }, 500);
 
-    if (!cameraReady || cameraError) return;
+    // Reset eerdere camerafouten zodat tijdelijke fouten de scanner niet permanent blokkeren
+    setCameraError('');
+
+    if (!cameraReady) return;
     if (!videoRef.current || !canvasRef.current) return;
     if (!videoRef.current.videoWidth || videoRef.current.videoWidth === 0) return;
 
@@ -384,7 +387,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, nextScanNum
         {/* Sluiterknop — altijd beschikbaar tijdens verwerking */}
         <button
           onClick={capture}
-          disabled={!cameraReady || !!cameraError}
+          disabled={!cameraReady}
           className="relative group outline-none"
           aria-label="Scan pakket"
         >
