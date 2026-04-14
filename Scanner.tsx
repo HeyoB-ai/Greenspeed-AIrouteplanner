@@ -1,99 +1,38 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, Check, AlertCircle, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
-import { extractAddressFromImage, ScanResult } from './services/geminiService';
-import { validateAddress } from './services/addressValidation';
+import { Camera, X, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { extractAddressFromImage } from './services/geminiService';
 import { Address } from './types';
 
 interface ScannerProps {
-  onScanComplete: (result: ScanResult) => void;
+  onScanComplete: (result: { scanId: string; address: Address }) => void;
   onCancel: () => void;
 }
 
-type QueueItem = {
-  id: string;
-  base64: string;
-  status: 'pending' | 'success' | 'error';
+type ScanEntry = {
+  scanId: string;
+  status: 'processing' | 'success' | 'failed';
   address?: Address;
-  addressWarning?: boolean;
-};
-
-// Één gedeelde AudioContext — iOS Safari crasht bij meerdere instanties
-const audioCtx = (() => {
-  try {
-    return new (window.AudioContext || (window as any).webkitAudioContext)();
-  } catch {
-    return null;
-  }
-})();
-
-const playSound = (type: 'click' | 'success' | 'error') => {
-  try {
-    if (!audioCtx) return;
-    audioCtx.resume().then(() => {
-      const gain = audioCtx.createGain();
-      gain.connect(audioCtx.destination);
-
-      if (type === 'click') {
-        // Instant piepje bij shutter — NIET wachten op Gemini
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        const osc = audioCtx.createOscillator();
-        osc.connect(gain);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.08);
-      } else if (type === 'success') {
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        [880, 1100].forEach((freq, i) => {
-          const osc = audioCtx.createOscillator();
-          osc.connect(gain);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-          osc.start(audioCtx.currentTime + i * 0.16);
-          osc.stop(audioCtx.currentTime + i * 0.16 + 0.14);
-        });
-      } else {
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-        const osc = audioCtx.createOscillator();
-        osc.connect(gain);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.3);
-      }
-    });
-  } catch {
-    // AudioContext niet beschikbaar — scan gaat door
-  }
 };
 
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const trayRef = useRef<HTMLDivElement>(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [showFlash, setShowFlash] = useState(false);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [scanCount, setScanCount] = useState(0);
-  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [scans, setScans] = useState<ScanEntry[]>([]);
 
-  // Stabiele refs om stale-closure issues te voorkomen
+  // Tracks which scans are still active (scanner not yet closed)
+  const activeScansRef = useRef<Set<string>>(new Set());
+
+  // Semaphore: maximaal 4 gelijktijdige Gemini-aanroepen
+  const semaphore = useRef(0);
+  const MAX_CONCURRENT = 4;
+
+  // Stabiele ref voor onScanComplete — voorkomt stale closure in processScan
   const onScanCompleteRef = useRef(onScanComplete);
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
-
-  // Voorkom dat hetzelfde item twee keer tegelijk verwerkt wordt
-  const processingIds = useRef(new Set() as Set<string>);
-
-  // Blokkeer dubbele capture-aanroepen binnen 500ms
-  const isCapturing = useRef(false);
-
-  // Adres-dedup binnen de scanner: voorkomt dat twee items
-  // met hetzelfde adres allebei onScanComplete aanroepen
-  const completedAddresses = useRef(new Map() as Map<string, number>);
 
   // Camera setup
   useEffect(() => {
@@ -117,93 +56,53 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  // Scroll tray naar rechts zodra nieuwe items binnenkomen
-  useEffect(() => {
-    if (trayRef.current) {
-      trayRef.current.scrollLeft = trayRef.current.scrollWidth;
+  // OCR verwerking — volledig geïsoleerd per scanId via de base64 parameter
+  const processScan = useCallback(async (scanId: string, base64: string) => {
+    if (semaphore.current >= MAX_CONCURRENT) {
+      setScans(prev => prev.map(s =>
+        s.scanId === scanId ? { ...s, status: 'failed' } : s
+      ));
+      return;
     }
-  }, [queue.length]);
+    semaphore.current++;
+    try {
+      // base64 is een lokale parameter — geen gedeelde variabele, geen stale closure
+      const result = await extractAddressFromImage(base64);
 
-  const updateQueueItem = useCallback((id: string, status: QueueItem['status'], address?: Address) => {
-    setQueue(prev => prev.map(item =>
-      item.id === id ? { ...item, status, address } : item
-    ));
+      // Scanner gesloten terwijl Gemini bezig was — resultaat weggooien
+      if (!activeScansRef.current.has(scanId)) return;
+
+      if (!result?.address?.street || !result.address.houseNumber) {
+        setScans(prev => prev.map(s =>
+          s.scanId === scanId ? { ...s, status: 'failed' } : s
+        ));
+        return;
+      }
+
+      setScans(prev => prev.map(s =>
+        s.scanId === scanId
+          ? { ...s, status: 'success', address: result.address }
+          : s
+      ));
+
+      onScanCompleteRef.current({ scanId, address: result.address });
+    } catch {
+      if (activeScansRef.current.has(scanId)) {
+        setScans(prev => prev.map(s =>
+          s.scanId === scanId ? { ...s, status: 'failed' } : s
+        ));
+      }
+    } finally {
+      semaphore.current--;
+    }
   }, []);
 
-  const processItem = useCallback(async (item: QueueItem) => {
-    // Voorkom dubbele verwerking van hetzelfde item
-    if (processingIds.current.has(item.id)) return;
-    processingIds.current.add(item.id);
-    try {
-      const result = await extractAddressFromImage(item.base64);
-      if (result?.address?.street && result.address.houseNumber) {
-        // Adres-dedup: voorkomt dat twee parallelle Gemini-calls voor hetzelfde adres
-        // allebei onScanComplete aanroepen. 3s is genoeg voor race-conditions;
-        // langer blokkeert twee echte pakjes op hetzelfde adres (verschillende patiënten).
-        const addrKey = `${result.address.street}-${result.address.houseNumber}-${result.address.postalCode}`
-          .toLowerCase().replace(/\s+/g, '');
-        const now = Date.now();
-        const lastSeen = completedAddresses.current.get(addrKey);
-        const tooRecent = lastSeen && (now - lastSeen) < 3_000;
-        if (tooRecent) {
-          updateQueueItem(item.id, 'error');
-          return;
-        }
-        completedAddresses.current.set(addrKey, now);
-
-        updateQueueItem(item.id, 'success', result.address);
-        playSound('success');
-        onScanCompleteRef.current(result);
-
-        // Adresvalidatie op de achtergrond — blokkeert UI nooit
-        validateAddress(
-          result.address.street,
-          result.address.houseNumber,
-          result.address.postalCode ?? '',
-          result.address.city
-        ).then(validation => {
-          if (!validation.valid) {
-            setQueue(prev => prev.map(q =>
-              q.id === item.id ? { ...q, addressWarning: true } : q
-            ));
-          }
-        }).catch(() => {});
-      } else {
-        updateQueueItem(item.id, 'error');
-        playSound('error');
-      }
-    } catch {
-      updateQueueItem(item.id, 'error');
-      playSound('error');
-    } finally {
-      processingIds.current.delete(item.id);
-    }
-  }, [updateQueueItem]);
-
-  const retryItem = useCallback((item: QueueItem) => {
-    updateQueueItem(item.id, 'pending');
-    processItem(item);
-  }, [updateQueueItem, processItem]);
-
-  // Capture: foto direct in queue, camera meteen weer vrij
-  const capture = useCallback(() => {
-    if (isCapturing.current) return; // blokkeer dubbele aanroep binnen 500ms
-    isCapturing.current = true;
-    setTimeout(() => { isCapturing.current = false; }, 500);
-
-    // Reset eerdere camerafouten zodat tijdelijke fouten de scanner niet permanent blokkeren
-    // Geen state-read hier — cameraError staat bewust NIET in de deps van deze callback
-    setCameraError('');
-
+  const handleCapture = useCallback(() => {
     if (!cameraReady) return;
     if (!videoRef.current || !canvasRef.current) return;
     if (!videoRef.current.videoWidth || videoRef.current.videoWidth === 0) return;
 
-    // Witte sluiter-flash + direct geluid
-    setShowFlash(true);
-    setTimeout(() => setShowFlash(false), 100);
-    playSound('click');
-
+    // Teken huidig videoframe op canvas
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -214,43 +113,53 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // base64 wordt synchroon vastgelegd — canvas kan daarna veilig overschreven worden
-    const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-
+    // base64 synchroon vastgelegd — canvas kan daarna veilig overschreven worden
+    const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
     if (!base64 || base64.length < 1000) {
       setCameraError('Camera niet gereed, probeer opnieuw');
       return;
     }
 
-    // Unieke scan-ID koppelt deze capture atomisch aan het Gemini-resultaat
-    const scanId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Unieke ID koppelt deze capture atomisch aan het Gemini-resultaat
+    const scanId = crypto.randomUUID();
 
-    const newItem: QueueItem = {
-      id: scanId,
-      base64, // snapshot van dit frame — niet gedeeld met andere scans
-      status: 'pending',
-    };
+    // Voeg toe aan state als 'processing'
+    setScans(prev => [...prev, { scanId, status: 'processing' }]);
+    activeScansRef.current.add(scanId);
 
-    // Teller direct omhoog + item in tray
-    setScanCount(prev => prev + 1);
-    setQueue(prev => [...prev, newItem]);
+    // Witte sluiter-flash
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 100);
 
-    // Gemini verwerkt op de achtergrond — camera is nu al vrij
-    // newItem wordt by-value doorgegeven; de closure heeft zijn eigen base64
-    processItem(newItem);
-  }, [cameraReady, processItem]); // cameraError weggelaten: alleen geschreven, nooit gelezen
-
-  const pendingCount = queue.filter(i => i.status === 'pending').length;
-
-  const handleKlaar = () => {
-    if (pendingCount > 0) {
-      setShowCloseModal(true);
-    } else {
-      onCancel();
+    // Audio feedback — AudioContext aanmaken binnen user gesture is veilig
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch {
+      // Audio niet beschikbaar — scan gaat door
     }
-  };
+
+    // Verwerk asynchroon — camera is nu al vrij voor de volgende scan
+    processScan(scanId, base64);
+  }, [cameraReady, processScan]);
+
+  const handleClose = useCallback(() => {
+    activeScansRef.current.clear();
+    onCancel();
+  }, [onCancel]);
+
+  // Maximaal 7 tiles zichtbaar — oudste verdwijnt als er meer zijn
+  const visibleScans = scans.slice(-7);
+  const hasSuccess = scans.some(s => s.status === 'success');
+  const successCount = scans.filter(s => s.status === 'success').length;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
@@ -265,19 +174,19 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         {/* Burst Mode badge */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
           <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
-            ⚡ Burst Mode
+            ⚡ Burst Mode Actief
           </div>
         </div>
 
-        {/* Scan-teller rechts bovenaan */}
-        {scanCount > 0 && (
+        {/* Scan-teller rechtsboven */}
+        {scans.length > 0 && (
           <div className="absolute top-3 right-4 z-20 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-1.5 text-center pointer-events-none">
-            <p className="text-white font-black text-xl leading-none">{scanCount}</p>
+            <p className="text-white font-black text-xl leading-none">{successCount}</p>
             <p className="text-white/50 text-[8px] font-bold uppercase tracking-widest">gescand</p>
           </div>
         )}
 
-        {/* Scan frame met hoekmarkeringen */}
+        {/* Scan frame met hoek-accenten */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
           <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)]">
             {(['tl', 'tr', 'bl', 'br'] as const).map(corner => (
@@ -297,44 +206,25 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         </div>
 
-        {/* Scan tray — horizontaal scrollende statuskaartjes */}
-        {queue.length > 0 && (
+        {/* Status tiles */}
+        {visibleScans.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 z-20 pb-3 px-3 bg-gradient-to-t from-black/60 to-transparent pt-6">
-            <div
-              ref={trayRef}
-              className="flex gap-2 overflow-x-auto scrollbar-none touch-pan-x"
-            >
-              {queue.map((item, index) => (
-                <button
-                  key={item.id}
-                  onClick={() => item.status === 'error' ? retryItem(item) : undefined}
-                  disabled={item.status !== 'error'}
-                  className={`relative flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all duration-300 ${
-                    item.status === 'pending'
-                      ? 'bg-slate-700/90 border-slate-500'
-                      : item.status === 'success'
-                      ? 'bg-emerald-900/90 border-emerald-500'
-                      : 'bg-red-900/90 border-red-500 active:scale-90'
+            <div className="flex gap-2 justify-center">
+              {visibleScans.map(scan => (
+                <div
+                  key={scan.scanId}
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                    scan.status === 'processing'
+                      ? 'bg-slate-700'
+                      : scan.status === 'success'
+                      ? 'bg-emerald-600'
+                      : 'bg-red-600'
                   }`}
-                  aria-label={
-                    item.status === 'error'
-                      ? `Scan ${index + 1} mislukt — tik om opnieuw te proberen`
-                      : `Scan ${index + 1} ${item.status}`
-                  }
                 >
-                  <span className="text-[7px] font-black text-white/40 leading-none">#{index + 1}</span>
-                  {item.status === 'pending' && <Loader2 size={18} className="text-slate-300 animate-spin" />}
-                  {item.status === 'success' && <Check size={18} className="text-emerald-400" />}
-                  {item.status === 'error' && <RotateCcw size={18} className="text-red-400" />}
-                  {item.addressWarning && (
-                    <div
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center"
-                      title="Adres niet herkend in Nederland"
-                    >
-                      <AlertTriangle size={9} className="text-white" />
-                    </div>
-                  )}
-                </button>
+                  {scan.status === 'processing' && <Loader2 size={18} className="text-white animate-spin" />}
+                  {scan.status === 'success'    && <Check   size={18} className="text-white" />}
+                  {scan.status === 'failed'     && <X       size={18} className="text-white" />}
+                </div>
               ))}
             </div>
           </div>
@@ -349,21 +239,23 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         )}
       </div>
 
-      {/* Controls — pb-safe voor iOS home-indicator */}
-      <div className="px-8 pt-6 pb-safe bg-slate-950 flex justify-between items-center border-t border-white/5" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}>
-
-        {/* Annuleer */}
+      {/* Knoppen — pb-safe voor iOS home-indicator */}
+      <div
+        className="px-8 pt-6 bg-slate-950 flex justify-between items-center border-t border-white/5"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+      >
+        {/* Sluiten */}
         <button
-          onClick={onCancel}
+          onClick={handleClose}
           className="w-14 h-14 bg-slate-900 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-800 active:scale-90 transition-all border border-white/5"
-          aria-label="Annuleer"
+          aria-label="Sluiten"
         >
           <X size={24} />
         </button>
 
-        {/* Sluiterknop — altijd beschikbaar tijdens verwerking */}
+        {/* Sluiterknop */}
         <button
-          onClick={capture}
+          onClick={handleCapture}
           disabled={!cameraReady}
           className="relative group outline-none"
           aria-label="Scan pakket"
@@ -379,51 +271,22 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         </button>
 
-        {/* Klaar-knop met pending indicator */}
+        {/* Klaar */}
         <button
-          onClick={handleKlaar}
-          className="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex flex-col items-center justify-center hover:bg-emerald-500 active:scale-90 transition-all shadow-lg shadow-emerald-900/40"
-          aria-label={pendingCount > 0 ? `Klaar — ${pendingCount} nog bezig` : 'Klaar'}
+          onClick={handleClose}
+          disabled={!hasSuccess}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
+            hasSuccess
+              ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/40'
+              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+          }`}
+          aria-label="Klaar"
         >
           <Check size={20} />
-          {pendingCount > 0 && (
-            <span className="text-[7px] font-black uppercase leading-none mt-0.5 opacity-80">
-              {pendingCount}…
-            </span>
-          )}
         </button>
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
-
-      {/* Modal: sluiten terwijl items nog in queue zitten */}
-      {showCloseModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 mx-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <p className="text-white font-black text-lg mb-1">Nog bezig…</p>
-            <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Er worden nog{' '}
-              <span className="text-white font-black">{pendingCount}</span>{' '}
-              {pendingCount === 1 ? 'adres' : 'adressen'} verwerkt.
-              Wacht even of ga toch door?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCloseModal(false)}
-                className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-black text-sm hover:bg-slate-700 active:scale-95 transition-all"
-              >
-                Wacht even
-              </button>
-              <button
-                onClick={onCancel}
-                className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-500 active:scale-95 transition-all"
-              >
-                Toch sluiten
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

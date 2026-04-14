@@ -11,7 +11,7 @@ import PatientView from './components/PatientView';
 import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
-import { optimizeRoute, ScanResult } from './services/geminiService';
+import { optimizeRoute } from './services/geminiService';
 import { getSession, logout, saveSession } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
@@ -252,7 +252,6 @@ const App: React.FC = () => {
     }
   };
 
-  const recentScans        = useRef<Map<string, number>>(new Map());
   const nextScanNumberRef  = useRef<number>(1);
   // Ref zodat handleNewScan altijd de actuele packages ziet zonder afhankelijk te zijn
   // van de packages-state in de closure (voorkomt stale-closure race condition bij burst scans)
@@ -260,19 +259,6 @@ const App: React.FC = () => {
   useEffect(() => { packagesRef.current = packages; }, [packages]);
 
   const handleNewScan = useCallback(async (address: Address) => {
-    // Deduplicatie: zelfde adres binnen 2 seconden wordt genegeerd (echo-bescherming).
-    // 2s is genoeg om dubbele Gemini-callbacks van één capture te blokkeren,
-    // maar blokkeert géén twee verschillende pakjes op hetzelfde adres.
-    const key = `${address.street}-${address.houseNumber}-${address.postalCode}`
-      .toLowerCase().replace(/\s/g, '');
-    const now  = Date.now();
-    const last = recentScans.current.get(key);
-    if (last && now - last < 2000) {
-      console.log('Duplicaat scan genegeerd:', key);
-      return;
-    }
-    recentScans.current.set(key, now);
-
     const currentSession = getSession();
     const isKoerier = currentSession?.user?.role === UserRole.COURIER;
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
@@ -687,7 +673,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
 
       {showScanner && (
         <Scanner
-          onScanComplete={result => handleNewScan(result.address)}
+          onScanComplete={({ address }) => handleNewScan(address)}
           onCancel={() => setShowScanner(false)}
         />
       )}
