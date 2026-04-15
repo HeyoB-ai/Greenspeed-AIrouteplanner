@@ -89,15 +89,15 @@ const Scanner: React.FC<ScannerProps> = ({ onCapture, onClose }) => {
         {/* Richtkruis */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
           <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.7)]">
-            <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
-            <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
-            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+            <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-[#48c2a9] rounded-tl-xl" />
+            <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-[#48c2a9] rounded-tr-xl" />
+            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-[#48c2a9] rounded-bl-xl" />
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-[#48c2a9] rounded-br-xl" />
             <div className="scan-line" />
             
             {/* Real-time feedback in kader */}
             <div className="absolute top-4 left-0 right-0 flex justify-center">
-               <span className="bg-blue-600/90 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter flex items-center space-x-2">
+               <span className="text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter flex items-center space-x-2" style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
                  <Zap size={10} fill="currentColor" />
                  <span>Burst Mode Actief</span>
                </span>
@@ -108,7 +108,7 @@ const Scanner: React.FC<ScannerProps> = ({ onCapture, onClose }) => {
         {/* Scan Counter Bubble */}
         {scanCount > 0 && (
           <div className="absolute top-12 right-6 animate-in zoom-in duration-300">
-            <div className="bg-blue-600 text-white w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xl border-4 border-white/20">
+            <div className="text-white w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xl border-4 border-white/20" style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
               <span className="text-xl font-black leading-none">{scanCount}</span>
               <span className="text-[8px] font-bold uppercase tracking-tighter">Items</span>
             </div>
@@ -138,11 +138,11 @@ const Scanner: React.FC<ScannerProps> = ({ onCapture, onClose }) => {
           onClick={capture} 
           className="relative group outline-none"
         >
-          <div className="absolute inset-[-12px] bg-blue-600/40 rounded-full blur-2xl group-active:scale-150 transition-transform duration-300" />
+          <div className="absolute inset-[-12px] bg-[#48c2a9]/40 rounded-full blur-2xl group-active:scale-150 transition-transform duration-300" />
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-slate-900 shadow-2xl active:scale-90 transition-all relative z-10 border-[10px] border-slate-950">
              <Camera size={44} />
           </div>
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-[#48c2a9] uppercase tracking-widest whitespace-nowrap">
             Klik om te scannen
           </div>
         </button>
