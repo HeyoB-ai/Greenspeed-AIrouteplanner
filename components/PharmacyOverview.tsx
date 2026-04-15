@@ -40,10 +40,7 @@ export interface PharmacyOverviewProps {
 }
 
 const rateColor = (rate: number) =>
-  rate >= 80 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-600' : 'text-red-500';
-
-const rateBg = (rate: number) =>
-  rate >= 80 ? 'bg-emerald-500' : rate >= 60 ? 'bg-amber-400' : 'bg-red-400';
+  rate >= 80 ? 'text-[#006b5a]' : rate >= 60 ? 'text-amber-600' : 'text-red-500';
 
 const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
   packages, pharmacies, onSelectPharmacy, onExport, canAddPharmacy, onAddPharmacy,
@@ -138,30 +135,33 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       {/* Global stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {[
-          { label: 'Apotheken', val: pharmacyStats.length,       icon: Building2,   color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Pakketten', val: globalStats.total,         icon: Package,     color: 'text-blue-600',   bg: 'bg-blue-50'   },
-          { label: 'Bezorgd',   val: globalStats.delivered,     icon: CheckCircle, color: 'text-emerald-600',bg: 'bg-emerald-50'},
-          { label: 'Omzet', val: '—', icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Apotheken', val: pharmacyStats.length,   icon: Building2,   },
+          { label: 'Pakketten', val: globalStats.total,       icon: Package,     },
+          { label: 'Bezorgd',   val: globalStats.delivered,   icon: CheckCircle, },
+          { label: 'Omzet',     val: '—',                     icon: CreditCard,  },
         ].map(s => (
-          <div key={s.label} className="bg-white p-5 lg:p-6 rounded-4xl border border-slate-200 shadow-sm">
-            <div className={`w-10 h-10 ${s.bg} ${s.color} rounded-xl flex items-center justify-center mb-4`}>
-              <s.icon size={20} />
+          <div key={s.label} className="bg-white p-5 lg:p-6 rounded-4xl" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
+            <div className="w-10 h-10 bg-[#5dc0a7]/15 rounded-full flex items-center justify-center mb-4">
+              <s.icon size={20} className="text-[#006b5a]" />
             </div>
-            <p className="text-2xl font-black text-slate-900 leading-none">{s.val}</p>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">{s.label}</p>
+            <p className="text-2xl font-display font-black text-[#191c1e] leading-none">{s.val}</p>
+            <p className="text-[9px] font-display font-black text-[#3d4945]/60 uppercase tracking-[0.2em] mt-2">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Search bar */}
       <div className="relative">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#3d4945]/40 pointer-events-none" />
         <input
           type="text"
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(0); }}
           placeholder="Zoek apotheek..."
-          className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 shadow-sm"
+          className="w-full bg-white rounded-2xl pl-10 pr-10 py-3 text-sm font-body font-bold text-[#191c1e] placeholder:text-[#3d4945]/40 outline-none transition-all"
+          style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+          onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+          onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.2)'}
         />
         {search && (
           <button
@@ -176,19 +176,20 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       {/* List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          <p className="text-[10px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest">
             {filtered.length} apothe{filtered.length === 1 ? 'ek' : 'ken'} — slechtste bezorgpercentage eerst
           </p>
           <div className="flex items-center gap-3">
             {totalPages > 1 && (
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <p className="text-[10px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest">
                 Pagina {page + 1} / {totalPages}
               </p>
             )}
             {canAddPharmacy && onAddPharmacy && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 h-9 bg-indigo-600 text-white rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 h-9 text-white rounded-full font-display font-bold text-xs transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
               >
                 <Plus size={13} />
                 Nieuwe apotheek
@@ -197,7 +198,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
             {onExport && (
               <button
                 onClick={onExport}
-                className="flex items-center gap-2 px-4 h-9 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 h-9 bg-[#d7e2fe] text-[#101c30] rounded-full font-display font-semibold text-xs transition-all active:scale-95"
               >
                 <Download size={13} />
                 Export CSV
@@ -207,9 +208,9 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
         </div>
 
         {pageItems.length === 0 ? (
-          <div className="bg-white rounded-4xl border border-slate-200 p-16 text-center">
-            <AlertCircle size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-slate-400 font-bold text-sm">
+          <div className="bg-white rounded-4xl p-16 text-center" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
+            <AlertCircle size={32} className="mx-auto mb-3 text-[#3d4945]/30" />
+            <p className="text-[#3d4945]/60 font-body font-bold text-sm">
               {pharmacies.length === 0 ? 'Geen apotheken beschikbaar' : 'Geen apotheken gevonden'}
             </p>
           </div>
@@ -219,43 +220,44 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
               <button
                 key={s.id}
                 onClick={() => onSelectPharmacy(s.id)}
-                className="bg-white border border-slate-200 rounded-4xl p-6 text-left hover:border-indigo-200 hover:shadow-md transition-all group"
+                className="bg-white rounded-4xl p-6 text-left transition-all group hover:scale-[1.01] active:scale-[0.99]"
+                style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
-                      <Building2 size={18} />
+                    <div className="w-10 h-10 bg-[#5dc0a7]/15 rounded-full flex items-center justify-center shrink-0">
+                      <Building2 size={18} className="text-[#006b5a]" />
                     </div>
                     <div>
-                      <h3 className="font-black text-slate-900 text-base leading-tight">{s.name}</h3>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                      <h3 className="font-display font-black text-[#191c1e] text-base leading-tight">{s.name}</h3>
+                      <p className="text-[9px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest mt-0.5">
                         {s.total} pakket{s.total !== 1 ? 'ten' : ''}
                       </p>
                     </div>
                   </div>
-                  <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 transition-colors mt-1 shrink-0" />
+                  <ChevronRight size={16} className="text-[#bccac4] group-hover:text-[#006b5a] transition-colors mt-1 shrink-0" />
                 </div>
 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bezorgpercentage</span>
-                    <span className={`text-xs font-black ${rateColor(s.deliveryRate)}`}>{Math.round(s.deliveryRate)}%</span>
+                    <span className="text-[9px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest">Bezorgpercentage</span>
+                    <span className={`text-xs font-display font-black ${rateColor(s.deliveryRate)}`}>{Math.round(s.deliveryRate)}%</span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#f2f4f6] rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${rateBg(s.deliveryRate)}`}
-                      style={{ width: `${s.deliveryRate}%` }}
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${s.deliveryRate}%`, background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3 text-[9px] font-black uppercase tracking-widest">
-                  <span className="text-emerald-600">{s.delivered} bezorgd</span>
-                  <span className="text-slate-200">|</span>
-                  <span className="text-indigo-600">{s.pending} open</span>
+                <div className="flex items-center space-x-3 text-[9px] font-display font-black uppercase tracking-widest">
+                  <span className="text-[#006b5a]">{s.delivered} bezorgd</span>
+                  <span className="text-[#bccac4]">|</span>
+                  <span className="text-[#3d4945]/60">{s.pending} open</span>
                   {s.failed > 0 && (
                     <>
-                      <span className="text-slate-200">|</span>
+                      <span className="text-[#bccac4]">|</span>
                       <span className="text-red-500">{s.failed} mislukt</span>
                     </>
                   )}
@@ -271,18 +273,20 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={page === 0}
-              className="px-4 py-2 text-xs font-black uppercase tracking-widest bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-xs font-display font-black uppercase tracking-widest bg-white rounded-full text-[#3d4945] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
             >
               Vorige
             </button>
             {paginationButtons().map((b, i) =>
               b === '...' ? (
-                <span key={`e${i}`} className="text-slate-400 text-xs font-black px-1">…</span>
+                <span key={`e${i}`} className="text-[#3d4945]/40 text-xs font-display font-black px-1">…</span>
               ) : (
                 <button
                   key={b}
                   onClick={() => setPage(b as number)}
-                  className={`w-9 h-9 text-xs font-black rounded-xl transition-colors ${b === page ? 'bg-indigo-900 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  className={`w-9 h-9 text-xs font-display font-black rounded-full transition-all ${b === page ? 'text-white' : 'bg-white text-[#3d4945]'}`}
+                  style={b === page ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : { boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
                 >
                   {(b as number) + 1}
                 </button>
@@ -291,7 +295,8 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
               disabled={page === totalPages - 1}
-              className="px-4 py-2 text-xs font-black uppercase tracking-widest bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-xs font-display font-black uppercase tracking-widest bg-white rounded-full text-[#3d4945] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
             >
               Volgende
             </button>
@@ -301,75 +306,61 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
     {/* ── Nieuwe apotheek modal ───────────────────────────────── */}
     {showAddModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-white rounded-4xl shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-slate-100">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div className="bg-white rounded-4xl w-full max-w-md animate-in slide-in-from-bottom-4 duration-300"
+          style={{ boxShadow: '0 24px 64px rgba(25,28,30,0.20)' }}>
+          <div className="flex items-center justify-between px-7 pt-7 pb-5">
             <div>
-              <h2 className="text-xl font-black text-slate-900">Nieuwe apotheek</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Toevoegen aan het netwerk</p>
+              <h2 className="text-xl font-display font-black text-[#191c1e]">Nieuwe apotheek</h2>
+              <p className="text-[10px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest mt-0.5">Toevoegen aan het netwerk</p>
             </div>
             <button
               onClick={() => setShowAddModal(false)}
-              className="w-9 h-9 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+              className="w-9 h-9 rounded-xl bg-[#f2f4f6] flex items-center justify-center text-[#3d4945] transition-colors"
             >
               <X size={16} />
             </button>
           </div>
 
           <form onSubmit={handleAddSubmit} className="px-7 py-6 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Naam apotheek <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                placeholder="bijv. Apotheek de Kroon"
-                required
-                autoFocus
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Adres
-              </label>
-              <input
-                type="text"
-                value={newAddress}
-                onChange={e => setNewAddress(e.target.value)}
-                placeholder="bijv. Hoofdstraat 1, 1234 AB Amsterdam"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Groep / regio
-              </label>
-              <input
-                type="text"
-                value={newGroupId}
-                onChange={e => setNewGroupId(e.target.value)}
-                placeholder="bijv. regio-noord"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-              />
-            </div>
+            {[
+              { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: newName, set: setNewName, required: true },
+              { label: 'Adres', placeholder: 'bijv. Hoofdstraat 1, 1234 AB Amsterdam', val: newAddress, set: setNewAddress, required: false },
+              { label: 'Groep / regio', placeholder: 'bijv. regio-noord', val: newGroupId, set: setNewGroupId, required: false },
+            ].map(f => (
+              <div key={f.label} className="space-y-1.5">
+                <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+                  {f.label} {f.required && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  value={f.val}
+                  onChange={e => f.set(e.target.value)}
+                  placeholder={f.placeholder}
+                  required={f.required}
+                  autoFocus={f.required}
+                  className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all"
+                  style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+                  onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+                  onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.2)'}
+                />
+              </div>
+            ))}
 
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 h-12 rounded-2xl border border-slate-200 font-black text-sm text-slate-600 hover:bg-slate-50 transition-all"
+                className="flex-1 h-12 rounded-full font-display font-semibold text-sm text-[#101c30] bg-[#d7e2fe] transition-all active:scale-95"
               >
                 Annuleren
               </button>
               <button
                 type="submit"
                 disabled={adding || !newName.trim()}
-                className="flex-1 h-12 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                className="flex-1 h-12 rounded-full text-white font-display font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
               >
                 {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 {adding ? 'Opslaan...' : 'Toevoegen'}

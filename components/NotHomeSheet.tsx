@@ -17,8 +17,6 @@ interface Option {
   icon:       React.ElementType;
   iconBg:     string;
   iconColor:  string;
-  cardBorder: string;
-  cardBg:     string;
   status:     PackageStatus;
   doneLabel:  string;
 }
@@ -29,8 +27,7 @@ const OPTIONS: Option[] = [
     label: 'Brievenbus',
     sub: 'Pakket past in de brievenbus',
     icon: Mailbox,
-    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
-    cardBorder: 'border-emerald-200', cardBg: 'bg-emerald-50',
+    iconBg: 'bg-[#48c2a9]/15', iconColor: 'text-[#006b5a]',
     status: PackageStatus.MAILBOX,
     doneLabel: 'Brievenbus',
   },
@@ -39,8 +36,7 @@ const OPTIONS: Option[] = [
     label: 'Bij buren',
     sub: 'Afgeven bij buren',
     icon: Users,
-    iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
-    cardBorder: 'border-blue-200', cardBg: 'bg-blue-50',
+    iconBg: 'bg-[#d7e2fe]', iconColor: 'text-[#101c30]',
     status: PackageStatus.NEIGHBOUR,
     doneLabel: 'Bij buren',
   },
@@ -50,7 +46,6 @@ const OPTIONS: Option[] = [
     sub: 'Pakket niet kwijt kunnen',
     icon: Undo2,
     iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
-    cardBorder: 'border-amber-200', cardBg: 'bg-amber-50',
     status: PackageStatus.RETURN,
     doneLabel: 'Retour apotheek',
   },
@@ -59,8 +54,7 @@ const OPTIONS: Option[] = [
     label: 'Verhuisd',
     sub: 'Patiënt woont niet meer op dit adres',
     icon: MoveRight,
-    iconBg: 'bg-purple-100', iconColor: 'text-purple-600',
-    cardBorder: 'border-purple-200', cardBg: 'bg-purple-50',
+    iconBg: 'bg-[#f2f4f6]', iconColor: 'text-[#3d4945]',
     status: PackageStatus.MOVED,
     doneLabel: 'Verhuisd',
   },
@@ -69,8 +63,7 @@ const OPTIONS: Option[] = [
     label: 'Andere locatie',
     sub: 'Patiënt verblijft tijdelijk elders',
     icon: MapPin,
-    iconBg: 'bg-sky-100', iconColor: 'text-sky-600',
-    cardBorder: 'border-sky-200', cardBg: 'bg-sky-50',
+    iconBg: 'bg-[#f2f4f6]', iconColor: 'text-[#3d4945]',
     status: PackageStatus.OTHER_LOCATION,
     doneLabel: 'Andere locatie',
   },
@@ -79,9 +72,8 @@ const OPTIONS: Option[] = [
     label: 'Andere reden',
     sub: 'Typ een toelichting',
     icon: PenLine,
-    iconBg: 'bg-slate-100', iconColor: 'text-slate-600',
-    cardBorder: 'border-slate-200', cardBg: 'bg-slate-50',
-    status: PackageStatus.RETURN, // gaat terug naar apotheek
+    iconBg: 'bg-[#f2f4f6]', iconColor: 'text-[#3d4945]',
+    status: PackageStatus.RETURN,
     doneLabel: 'Andere reden',
   },
 ];
@@ -99,16 +91,15 @@ const getNoteForOption = (option: OptionKey, extra?: string): string => {
 };
 
 const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }) => {
-  const [location, setLocation]     = useState<{ latitude: number; longitude: number } | null>(null);
-  const [selected, setSelected]     = useState<OptionKey | null>(null);
+  const [location, setLocation]       = useState<{ latitude: number; longitude: number } | null>(null);
+  const [selected, setSelected]       = useState<OptionKey | null>(null);
   const [neighbourNr, setNeighbourNr] = useState('');
-  const [customNote, setCustomNote] = useState('');
-  const [phase, setPhase]           = useState<'choose' | 'done'>('choose');
-  const [doneLabel, setDoneLabel]   = useState('');
-  const inputRef  = useRef<HTMLInputElement>(null);
+  const [customNote, setCustomNote]   = useState('');
+  const [phase, setPhase]             = useState<'choose' | 'done'>('choose');
+  const [doneLabel, setDoneLabel]     = useState('');
+  const inputRef    = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // GPS ophalen zodra sheet opent — niet wachten op keuze
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -118,7 +109,6 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
     );
   }, []);
 
-  // Focus hulpvelden zodra ze zichtbaar worden
   useEffect(() => {
     if (selected === 'neighbour') setTimeout(() => inputRef.current?.focus(), 50);
     if (selected === 'custom')    setTimeout(() => textareaRef.current?.focus(), 50);
@@ -128,14 +118,12 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
     const gps = location ?? { latitude: 0, longitude: 0 };
     let note = getNoteForOption(option.key, extraNote);
     if (!location) note += ' (GPS niet beschikbaar)';
-
     const evidence: DeliveryEvidence = {
       ...gps,
       timestamp:     new Date().toISOString(),
       notHomeOption: option.key,
       deliveryNote:  note,
     };
-
     setDoneLabel(option.doneLabel);
     setPhase('done');
     setTimeout(() => onComplete(option.status, evidence), 1500);
@@ -160,29 +148,33 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        onClick={onCancel}
+      />
 
       {/* Sheet */}
       <div
-        className="relative bg-white rounded-t-3xl shadow-2xl z-10 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+        className="relative bg-white rounded-t-3xl z-10 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto"
+        style={{ boxShadow: '0 -8px 48px rgba(25,28,30,0.12)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         {phase === 'choose' ? (
           <>
             {/* Header */}
             <div className="flex items-start justify-between px-6 pt-6 pb-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Niet thuis</p>
-                <h2 className="text-xl font-black text-slate-900 leading-tight">
+                <p className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-0.5">Niet thuis</p>
+                <h2 className="text-xl font-display font-black text-[#191c1e] leading-tight">
                   {pkg.address.street} {pkg.address.houseNumber}
                 </h2>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">
+                <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">
                   {pkg.address.postalCode} {pkg.address.city}
                 </p>
               </div>
               <button
                 onClick={onCancel}
-                className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500 active:scale-90 transition-all shrink-0"
+                className="w-10 h-10 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] active:scale-90 transition-all shrink-0"
               >
                 <X size={18} />
               </button>
@@ -194,10 +186,8 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                 <div key={opt.key}>
                   <button
                     onClick={() => handleSelect(opt)}
-                    className={`w-full flex items-center space-x-4 px-5 rounded-2xl border-2 transition-all active:scale-[0.98] ${
-                      selected === opt.key
-                        ? `${opt.cardBg} ${opt.cardBorder}`
-                        : 'bg-white border-slate-100 hover:border-slate-200'
+                    className={`w-full flex items-center space-x-4 px-5 rounded-2xl transition-all active:scale-[0.98] ${
+                      selected === opt.key ? 'bg-[#48c2a9]/10' : 'bg-[#f2f4f6] hover:bg-[#f2f4f6]/80'
                     }`}
                     style={{ minHeight: 72 }}
                   >
@@ -205,15 +195,14 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                       <opt.icon size={22} className={opt.iconColor} />
                     </div>
                     <div className="text-left">
-                      <p className="font-black text-slate-900 text-base leading-tight">{opt.label}</p>
-                      <p className="text-xs font-bold text-slate-400 mt-0.5">{opt.sub}</p>
+                      <p className="font-display font-black text-[#191c1e] text-base leading-tight">{opt.label}</p>
+                      <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">{opt.sub}</p>
                     </div>
                   </button>
 
-                  {/* Inline invoer bij "Buren" */}
                   {opt.key === 'neighbour' && selected === 'neighbour' && (
                     <div className="mt-2 px-1 animate-in slide-in-from-top-2 duration-200">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 ml-1">
+                      <p className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-1.5 ml-1">
                         Bij welk huisnummer?
                       </p>
                       <div className="flex gap-2">
@@ -224,11 +213,15 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                           placeholder="bijv. 14"
                           value={neighbourNr}
                           onChange={e => setNeighbourNr(e.target.value)}
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          className="flex-1 bg-white rounded-xl px-4 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all"
+                          style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.4)' }}
+                          onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+                          onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.4)'}
                         />
                         <button
                           onClick={() => commit(opt, neighbourNr)}
-                          className="px-5 h-12 bg-blue-600 text-white rounded-2xl font-black text-sm active:scale-95 transition-all shrink-0"
+                          className="px-5 h-12 text-white rounded-full font-display font-bold text-sm active:scale-95 transition-all shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                         >
                           Bevestig
                         </button>
@@ -236,7 +229,6 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                     </div>
                   )}
 
-                  {/* Inline tekstveld bij "Andere reden" */}
                   {opt.key === 'custom' && selected === 'custom' && (
                     <div className="mt-2 px-1 animate-in slide-in-from-top-2 duration-200">
                       <textarea
@@ -245,12 +237,16 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                         onChange={e => setCustomNote(e.target.value)}
                         placeholder="Beschrijf wat er aan de hand is..."
                         rows={3}
-                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                        className="w-full px-4 py-3 rounded-xl text-sm font-body text-[#191c1e] outline-none resize-none"
+                        style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.4)' }}
+                        onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+                        onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.4)'}
                       />
                       <button
                         onClick={handleConfirmCustom}
                         disabled={!customNote.trim()}
-                        className="w-full mt-2 h-12 bg-blue-600 text-white rounded-2xl font-black text-sm disabled:opacity-40 transition-all active:scale-[0.98]"
+                        className="w-full mt-2 h-12 text-white rounded-full font-display font-bold text-sm disabled:opacity-40 transition-all active:scale-[0.98]"
+                        style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                       >
                         Bevestigen
                       </button>
@@ -264,21 +260,23 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
             <div className="px-4 pt-3">
               <button
                 onClick={onCancel}
-                className="w-full py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                className="w-full py-3 text-sm font-body text-[#3d4945]/60 hover:text-[#3d4945] transition-colors"
               >
                 Annuleer
               </button>
             </div>
           </>
         ) : (
-          /* Fase 2 — bevestiging */
           <div className="flex flex-col items-center justify-center py-14 px-6">
-            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 mb-6 animate-in zoom-in-50 duration-300">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center mb-6 animate-in zoom-in-50 duration-300"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', boxShadow: '0 8px 32px rgba(0,107,90,0.25)' }}
+            >
               <Check size={40} className="text-white" strokeWidth={3} />
             </div>
-            <p className="text-2xl font-black text-slate-900 text-center">Geregistreerd!</p>
-            <p className="text-sm font-bold text-slate-400 mt-2 text-center">
-              Geregistreerd als: <span className="text-slate-700">{doneLabel}</span>
+            <p className="text-2xl font-display font-black text-[#191c1e] text-center">Geregistreerd!</p>
+            <p className="text-sm font-body text-[#3d4945]/60 mt-2 text-center">
+              Geregistreerd als: <span className="text-[#191c1e] font-bold">{doneLabel}</span>
             </p>
           </div>
         )}

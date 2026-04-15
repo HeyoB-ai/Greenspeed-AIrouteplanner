@@ -2,34 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Surfaces */
+  --surface:                  #f7f9fb;
+  --surface-container-low:    #f2f4f6;
+  --surface-container-lowest: #ffffff;
+
+  /* Brand */
+  --primary:                  #006b5a;
+  --primary-container:        #48c2a9;
+  --primary-fixed:            #81f7dc;
+
+  /* Secondary */
+  --secondary-fixed:          #d7e2fe;
+  --on-secondary-fixed:       #101c30;
+
+  /* Tertiary */
+  --tertiary-container:       #5dc0a7;
+
+  /* Text */
+  --on-surface:               #191c1e;
+  --on-surface-variant:       #3d4945;
+  --outline-variant:          #bccac4;
+
+  /* Gradient */
+  --gradient-primary: linear-gradient(135deg, #006b5a, #48c2a9);
+}
+
 @layer base {
   body {
-    @apply font-sans bg-slate-50 m-0;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    @apply m-0;
+    font-family: 'Manrope', sans-serif;
+    background-color: var(--surface);
+    color: var(--on-surface);
     overscroll-behavior: none;
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/80 border border-white/30;
+    background: rgba(247, 249, 251, 0.80);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
 
-  .scan-line {
-    @apply w-full h-[2px] absolute left-0;
-    background: rgba(59, 130, 246, 0.5);
-    animation: scan_line_anim 2s linear infinite;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+  .btn-primary {
+    background: var(--gradient-primary);
+    @apply text-white font-display font-bold rounded-full;
   }
 
-  /* iOS safe-area onderaan (notch / home-indicator) */
+  .btn-secondary {
+    background: var(--secondary-fixed);
+    color: var(--on-secondary-fixed);
+    @apply font-display font-semibold rounded-full;
+  }
+
+  .btn-ghost {
+    background: var(--surface-container-low);
+    color: var(--on-surface-variant);
+    @apply rounded-xl;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl;
+    box-shadow: 0 4px 24px rgba(25, 28, 30, 0.04);
+  }
+
+  .input-field {
+    @apply bg-white rounded-xl font-body text-[#191c1e] outline-none;
+    box-shadow: 0 0 0 1px rgba(188, 202, 196, 0.2);
+  }
+  .input-field:focus {
+    box-shadow: 0 0 0 2px #006b5a40;
+  }
+
+  .scan-line {
+    @apply w-full h-[2px] absolute left-0;
+    background: rgba(72, 194, 169, 0.6);
+    animation: scan_line_anim 2s linear infinite;
+    box-shadow: 0 0 15px rgba(72, 194, 169, 0.8);
+  }
+
+  /* iOS safe-area onderaan */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 16px);
   }
 
-  /* Scrollbar volledig verbergen (scan tray, horizontale lijsten) */
+  /* Scrollbar verbergen */
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -40,7 +99,6 @@
 }
 
 @layer utilities {
-  /* Touch-vriendelijke min-hoogte op mobiel voor alle klikbare elementen */
   @media (max-width: 640px) {
     button,
     a,
@@ -59,7 +117,6 @@
   @apply fixed inset-0 flex items-center justify-center bg-white z-[10000] transition-opacity duration-500;
 }
 
-/* Leaflet map container z-index fix voor Vite */
 .leaflet-container {
   z-index: 1;
 }

@@ -219,7 +219,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
         {/* Burst Mode badge */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+          <div className="text-white px-4 py-1.5 rounded-full text-[10px] font-display font-black uppercase tracking-widest shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
             ⚡ Burst Mode Actief
           </div>
         </div>
@@ -261,13 +262,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
                   key={scan.scanId}
                   className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
                     scan.status === 'processing'
-                      ? 'bg-slate-700'
-                      : scan.status === 'success'
-                      ? 'bg-emerald-600'
-                      : 'bg-red-600'
+                      ? 'bg-slate-800'
+                      : scan.status === 'failed'
+                      ? 'bg-red-500'
+                      : ''
                   }`}
+                  style={scan.status === 'success' ? { background: '#006b5a' } : {}}
                 >
-                  {scan.status === 'processing' && <Loader2 size={18} className="text-white animate-spin" />}
+                  {scan.status === 'processing' && <Loader2 size={18} className="text-white/80 animate-spin" />}
                   {scan.status === 'success'    && <Check   size={18} className="text-white" />}
                   {scan.status === 'failed'     && <X       size={18} className="text-white" />}
                 </div>

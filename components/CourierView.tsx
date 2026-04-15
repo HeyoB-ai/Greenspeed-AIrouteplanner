@@ -20,7 +20,6 @@ interface Props {
   isOptimizing?: boolean;
 }
 
-// Stop interface — alleen voor Google Maps URL opbouw
 interface Stop {
   addressKey: string;
   address: PackageType['address'];
@@ -28,7 +27,6 @@ interface Stop {
   orderIndex: number;
 }
 
-// Pakket heeft een directe actie nodig (te bezorgen)
 const isActionable = (pkg: PackageType): boolean =>
   [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(pkg.status);
 
@@ -51,11 +49,11 @@ const getStatusLabel = (status: PackageStatus): string => {
 const getStatusStyle = (status: PackageStatus): string => {
   const done = [PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR];
   const back = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION];
-  if (done.includes(status)) return 'bg-emerald-100 text-emerald-700';
-  if (back.includes(status)) return 'bg-amber-100 text-amber-700';
-  if (status === PackageStatus.FAILED)   return 'bg-red-100 text-red-600';
-  if (status === PackageStatus.REMOVED)  return 'bg-slate-100 text-slate-400';
-  return 'bg-slate-100 text-slate-500';
+  if (done.includes(status)) return 'bg-[#48c2a9]/15 text-[#006b5a]';
+  if (back.includes(status)) return 'bg-[#d7e2fe] text-[#101c30]';
+  if (status === PackageStatus.FAILED)  return 'bg-red-50 text-red-600';
+  if (status === PackageStatus.REMOVED) return 'bg-[#f2f4f6] text-[#3d4945]/60';
+  return 'bg-[#f2f4f6] text-[#3d4945]';
 };
 
 const CourierView: React.FC<Props> = ({
@@ -73,13 +71,11 @@ const CourierView: React.FC<Props> = ({
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
 
-  // PENDING pakketten — voor route-optimalisatie
   const pendingPackages = useMemo(
     () => packages.filter(p => p.status === PackageStatus.PENDING),
     [packages]
   );
 
-  // Kaartjes: actieve + afgeronde pakketten; afgerond naar beneden; removed altijd laatste
   const sortedPackages = useMemo(() => {
     const visible = packages.filter(
       p => p.status !== PackageStatus.PENDING && p.status !== PackageStatus.SCANNING
@@ -88,13 +84,11 @@ const CourierView: React.FC<Props> = ({
     const done       = visible.filter(p => !isActionable(p) && p.status !== PackageStatus.REMOVED);
     const removed    = visible.filter(p => p.status === PackageStatus.REMOVED);
 
-    // Na optimalisatie: routeIndex; vóór optimalisatie: scanNumber
     const sortedActionable = [...actionable].sort((a, b) => {
       if (a.routeIndex && b.routeIndex) return a.routeIndex - b.routeIndex;
       return (a.scanNumber ?? 999) - (b.scanNumber ?? 999);
     });
 
-    // Afgerond: nieuwste bezorging eerst
     const sortedDone = [...done].sort((a, b) =>
       new Date(b.deliveredAt ?? b.createdAt).getTime() -
       new Date(a.deliveredAt ?? a.createdAt).getTime()
@@ -103,7 +97,6 @@ const CourierView: React.FC<Props> = ({
     return [...sortedActionable, ...sortedDone, ...removed];
   }, [packages]);
 
-  // Stops — voor Google Maps URL opbouw
   const stops: Stop[] = useMemo(() => {
     const active = sortedPackages.filter(isActionable);
     const stopsMap = new Map() as Map<string, Stop>;
@@ -154,11 +147,10 @@ const CourierView: React.FC<Props> = ({
     const destination = encodeURIComponent(
       `${street} ${houseNumber}, ${postalCode} ${city}, Netherlands`
     );
-    const url =
-      `https://www.google.com/maps/dir/?api=1` +
-      `&destination=${destination}` +
-      `&travelmode=bicycling`;
-    window.open(url, '_blank');
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=bicycling`,
+      '_blank'
+    );
   };
 
   const toggleSelect = (id: string) => {
@@ -178,24 +170,24 @@ const CourierView: React.FC<Props> = ({
 
       {/* ── Voortgangsbalk ── */}
       {totalCount > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 mb-4" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Truck size={16} className="text-blue-600" />
-              <span className="font-black text-slate-900 text-sm">
+              <Truck size={16} className="text-[#006b5a]" />
+              <span className="font-display font-black text-[#191c1e] text-sm">
                 {doneCount} van {totalCount} bezorgd
               </span>
             </div>
-            <span className="font-black text-blue-600 text-sm">{percentage}%</span>
+            <span className="font-display font-black text-[#006b5a] text-sm">{percentage}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-[#f2f4f6] rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{ width: `${percentage}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${percentage}%`, background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             />
           </div>
           {actionableCount > 0 && (
-            <p className="text-xs text-slate-400 font-bold mt-2">
+            <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-2">
               {actionableCount} pakket{actionableCount !== 1 ? 'jes' : 'je'} te bezorgen
             </p>
           )}
@@ -206,13 +198,13 @@ const CourierView: React.FC<Props> = ({
       <div className="flex items-center justify-between mb-4">
         <div>
           {pharmacyName && (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full w-fit mb-1">
+            <div className="flex items-center gap-1.5 text-xs font-display font-bold text-[#006b5a] bg-[#48c2a9]/15 px-2.5 py-1 rounded-full w-fit mb-1">
               <Building2 size={12} />
               {pharmacyName}
             </div>
           )}
-          <h1 className="text-xl font-black text-slate-900">Jouw Rit</h1>
-          <p className="text-xs text-slate-400 font-bold mt-0.5">
+          <h1 className="text-xl font-display font-black text-[#191c1e]">Jouw Rit</h1>
+          <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
             {actionableCount} te bezorgen · {doneCount} klaar
           </p>
         </div>
@@ -220,7 +212,8 @@ const CourierView: React.FC<Props> = ({
           {onScanStart && (
             <button
               onClick={onScanStart}
-              className="flex items-center gap-1.5 px-3 h-10 bg-indigo-900 text-white rounded-xl font-black text-xs"
+              className="flex items-center gap-1.5 px-4 h-10 text-white rounded-full font-display font-bold text-xs"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
               <ScanLine size={14} />
               Scan
@@ -229,24 +222,21 @@ const CourierView: React.FC<Props> = ({
           {onOptimize && (
             <button
               onClick={() => {
-                const ids = sortedPackages
-                  .filter(p => isActionable(p))
-                  .map(p => p.id);
+                const ids = sortedPackages.filter(p => isActionable(p)).map(p => p.id);
                 onOptimize(ids);
               }}
               disabled={isOptimizing || sortedPackages.filter(p => isActionable(p)).length === 0}
-              className="flex items-center gap-1.5 px-3 h-10 bg-blue-700 text-white rounded-xl font-black text-xs disabled:opacity-40 hover:bg-blue-800 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 h-10 rounded-full font-display font-bold text-xs disabled:opacity-40 transition-all active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', color: '#fff' }}
             >
-              {isOptimizing
-                ? <RefreshCw size={14} className="animate-spin" />
-                : <MapIcon size={14} />}
+              {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <MapIcon size={14} />}
               {isOptimizing ? 'Bezig...' : 'Route'}
             </button>
           )}
           {onManualAdd && (
             <button
               onClick={onManualAdd}
-              className="flex items-center gap-1.5 px-3 h-10 bg-blue-700 text-white rounded-xl font-black text-xs hover:bg-blue-800 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 h-10 bg-[#d7e2fe] text-[#101c30] rounded-full font-display font-semibold text-xs transition-all active:scale-95"
             >
               <PenLine size={14} />
               Invoeren
@@ -255,19 +245,19 @@ const CourierView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* ── Wachtende pakketten: selecteren + route plannen ── */}
+      {/* ── Wachtende pakketten ── */}
       {pendingPackages.length > 0 && (
-        <div className="mb-4 bg-white border-2 border-amber-200 rounded-2xl p-4 shadow-sm">
+        <div className="mb-4 bg-white rounded-2xl p-4" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <MapPin size={16} className="text-amber-500" />
-              <span className="text-sm font-black text-slate-900">
+              <MapPin size={16} className="text-[#006b5a]" />
+              <span className="text-sm font-display font-black text-[#191c1e]">
                 {pendingPackages.length} pakket{pendingPackages.length !== 1 ? 'ten' : ''} zonder route
               </span>
             </div>
             <button
               onClick={toggleSelectAll}
-              className="text-xs font-black text-blue-600 active:opacity-70"
+              className="text-xs font-display font-black text-[#006b5a] active:opacity-70"
             >
               {selectedPendingIds.length === pendingPackages.length ? 'Deselecteer' : 'Alles'}
             </button>
@@ -278,28 +268,28 @@ const CourierView: React.FC<Props> = ({
               <button
                 key={p.id}
                 onClick={() => toggleSelect(p.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all active:scale-[0.98] ${
                   selectedPendingIds.includes(p.id)
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-100 bg-slate-50'
+                    ? 'bg-[#48c2a9]/10'
+                    : 'bg-[#f2f4f6]'
                 }`}
               >
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                   selectedPendingIds.includes(p.id)
-                    ? 'border-blue-600 bg-blue-600'
-                    : 'border-slate-300 bg-white'
+                    ? 'border-[#006b5a] bg-[#006b5a]'
+                    : 'border-[#bccac4] bg-white'
                 }`}>
                   {selectedPendingIds.includes(p.id) && <CheckCircle2 size={11} className="text-white" />}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-black text-slate-900 truncate">
+                  <p className="text-sm font-display font-black text-[#191c1e] truncate">
                     {p.address.street} {p.address.houseNumber}
                   </p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <p className="text-[10px] font-body font-bold text-[#3d4945]/60 uppercase tracking-widest">
                     {p.address.postalCode} {p.address.city}
                   </p>
                 </div>
-                <ArrowRight size={14} className="text-slate-300 shrink-0" />
+                <ArrowRight size={14} className="text-[#bccac4] shrink-0" />
               </button>
             ))}
           </div>
@@ -308,11 +298,10 @@ const CourierView: React.FC<Props> = ({
             <button
               onClick={() => selectedPendingIds.length > 0 && onOptimize(selectedPendingIds)}
               disabled={isOptimizing || selectedPendingIds.length === 0}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white h-12 rounded-xl font-black text-sm shadow-sm active:scale-95 disabled:opacity-40 transition-all"
+              className="w-full flex items-center justify-center gap-2 text-white h-12 rounded-full font-display font-bold text-sm active:scale-95 disabled:opacity-40 transition-all"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
-              {isOptimizing
-                ? <Loader2 size={16} className="animate-spin" />
-                : <MousePointerClick size={16} />}
+              {isOptimizing ? <Loader2 size={16} className="animate-spin" /> : <MousePointerClick size={16} />}
               <span>
                 {isOptimizing
                   ? 'Optimaliseren…'
@@ -327,60 +316,65 @@ const CourierView: React.FC<Props> = ({
 
       {/* ── Pakketkaartjes ── */}
       {sortedPackages.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-slate-200 text-center">
-          <CheckCircle className="text-emerald-500 mx-auto mb-4" size={40} />
-          <p className="text-slate-900 font-black text-xl">Lekker bezig!</p>
-          <p className="text-slate-400 text-sm mt-1">Geen openstaande bezorgingen.</p>
+        <div className="bg-white p-12 rounded-3xl text-center" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, rgba(0,107,90,0.1), rgba(72,194,169,0.1))' }}>
+            <CheckCircle className="text-[#006b5a]" size={32} />
+          </div>
+          <p className="text-[#191c1e] font-display font-black text-xl">Lekker bezig!</p>
+          <p className="text-[#3d4945]/60 text-sm font-body mt-1">Geen openstaande bezorgingen.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {sortedPackages.map(pkg => (
             <div
               key={pkg.id}
-              className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-opacity ${
-                pkg.status === PackageStatus.REMOVED
-                  ? 'opacity-40 border-slate-100'
-                  : !isActionable(pkg) ? 'opacity-60 border-slate-100' : 'border-slate-200'
+              className={`bg-white rounded-2xl overflow-hidden transition-opacity ${
+                pkg.status === PackageStatus.REMOVED || !isActionable(pkg) ? 'opacity-60' : ''
               }`}
+              style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}
             >
               {/* Info sectie */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
 
-                {/* Pakjenummer badge — altijd het scannummer */}
-                <div className="bg-indigo-900 text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-[8px] font-black text-indigo-300 uppercase leading-none">#</span>
-                  <span className="text-lg font-black leading-none">
+                {/* Pakjenummer badge */}
+                <div
+                  className="text-white rounded-xl w-11 h-11 flex flex-col items-center justify-center shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+                >
+                  <span className="text-[8px] font-display font-black text-white/60 uppercase leading-none">#</span>
+                  <span className="text-lg font-display font-black leading-none">
                     {pkg.scanNumber ?? '?'}
                   </span>
                 </div>
 
                 {/* Adres */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-black text-slate-900 text-base leading-tight truncate">
+                  <p className="font-display font-black text-[#191c1e] text-base leading-tight truncate">
                     {pkg.address.street} {pkg.address.houseNumber}
                   </p>
-                  <p className="text-xs text-slate-400 font-bold mt-0.5">
+                  <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
                   </p>
                 </div>
 
-                {/* Navigeer knop */}
+                {/* Navigeer */}
                 <button
                   onClick={() => handleNavigate(pkg)}
-                  className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-200 active:scale-95 transition-all shrink-0"
+                  className="w-10 h-10 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] hover:bg-[#48c2a9]/15 hover:text-[#006b5a] active:scale-95 transition-all shrink-0"
                   title="Navigeer"
                 >
                   <Navigation size={18} />
                 </button>
               </div>
 
-              {/* Actie sectie — alleen voor te-bezorgen pakketten */}
+              {/* Actie sectie */}
               {isActionable(pkg) && (
                 <div className="flex gap-2 px-4 pb-4">
                   <button
                     onClick={() => handleDeliverPkg(pkg)}
                     disabled={!!isCapturingGPS}
-                    className="flex-1 h-11 bg-emerald-500 text-white rounded-xl font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all shadow-sm shadow-emerald-200"
+                    className="flex-1 h-11 text-white rounded-full font-display font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all"
+                    style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                   >
                     {isCapturingGPS === pkg.id
                       ? <Clock size={15} className="animate-spin" />
@@ -390,14 +384,14 @@ const CourierView: React.FC<Props> = ({
                   <button
                     onClick={() => setNotHomePkg(pkg)}
                     disabled={!!isCapturingGPS}
-                    className="h-11 px-4 bg-amber-50 text-amber-700 rounded-xl font-black text-sm border border-amber-200 active:scale-95 disabled:opacity-50 transition-all"
+                    className="h-11 px-4 bg-[#d7e2fe] text-[#101c30] rounded-full font-display font-semibold text-sm active:scale-95 disabled:opacity-50 transition-all"
                   >
                     Niet thuis
                   </button>
                   <button
                     onClick={() => onUpdateMany([pkg.id], PackageStatus.REMOVED)}
                     disabled={!!isCapturingGPS}
-                    className="h-11 w-11 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center border border-slate-200 active:scale-95 disabled:opacity-50 transition-all"
+                    className="h-11 w-11 bg-[#f2f4f6] text-[#3d4945] rounded-xl flex items-center justify-center active:scale-95 disabled:opacity-50 transition-all"
                     title="Verwijder uit bezorging"
                   >
                     <Trash2 size={15} />
@@ -405,14 +399,14 @@ const CourierView: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Status — voor afgeronde pakketten */}
+              {/* Status badge */}
               {!isActionable(pkg) && (
                 <div className="px-4 pb-3 flex items-center gap-2">
-                  <span className={`text-xs font-black px-2.5 py-1 rounded-full ${getStatusStyle(pkg.status)}`}>
+                  <span className={`text-xs font-display font-black px-2.5 py-1 rounded-full ${getStatusStyle(pkg.status)}`}>
                     {getStatusLabel(pkg.status)}
                   </span>
                   {pkg.deliveryEvidence?.timestamp && (
-                    <span className="text-xs text-slate-400 font-bold">
+                    <span className="text-xs text-[#3d4945]/60 font-body font-bold">
                       {new Date(pkg.deliveryEvidence.timestamp).toLocaleTimeString('nl-NL', {
                         hour: '2-digit', minute: '2-digit',
                       })}
@@ -437,13 +431,14 @@ const CourierView: React.FC<Props> = ({
         />
       )}
 
-      {/* ── Overzicht modal — stop-voor-stop met Navigeer per stop ── */}
+      {/* ── Overzicht modal ── */}
       {showOverview && (
-        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[10000] flex flex-col animate-in fade-in duration-200"
+          style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div className="flex items-center justify-between px-5 pt-safe pt-6 pb-4 text-white">
             <div>
-              <h3 className="text-lg font-black">Overzicht</h3>
-              <p className="text-xs text-white/50 font-bold mt-0.5">
+              <h3 className="text-lg font-display font-black">Overzicht</h3>
+              <p className="text-xs text-white/50 font-body font-bold mt-0.5">
                 {stops.length} pakket{stops.length !== 1 ? 'jes' : 'je'} te bezorgen
               </p>
             </div>
@@ -459,43 +454,35 @@ const CourierView: React.FC<Props> = ({
             {stops.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-white/40">
                 <CheckCircle size={40} className="mb-3" />
-                <p className="font-black text-sm">Alle stops afgerond</p>
+                <p className="font-display font-black text-sm">Alle stops afgerond</p>
               </div>
             ) : (
               stops.map(stop => (
                 <div key={stop.addressKey} className="bg-white rounded-2xl overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3.5">
-                    {/* Pakjenummer(s) */}
                     <div className="flex flex-col gap-1 shrink-0">
                       {stop.packages.map(p => (
-                        <div key={p.id} className="bg-indigo-900 text-white rounded-xl w-10 h-8 flex items-center justify-center">
-                          <span className="text-sm font-black leading-none">#{p.scanNumber ?? '?'}</span>
+                        <div key={p.id} className="text-white rounded-xl w-10 h-8 flex items-center justify-center"
+                          style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
+                          <span className="text-sm font-display font-black leading-none">#{p.scanNumber ?? '?'}</span>
                         </div>
                       ))}
                     </div>
-
-                    {/* Adres */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-slate-900 text-sm leading-tight truncate">
+                      <p className="font-display font-black text-[#191c1e] text-sm leading-tight truncate">
                         {stop.address.street} {stop.address.houseNumber}
                       </p>
-                      <p className="text-xs text-slate-400 font-bold mt-0.5">
+                      <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                         {stop.address.postalCode} · {stop.address.city}
                       </p>
                     </div>
-
-                    {/* Navigeer knop */}
                     <button
-                      onClick={() => {
-                        handleNavigate(stop.packages[0]);
-                        setShowOverview(false);
-                      }}
-                      className="flex flex-col items-center justify-center bg-blue-600 active:bg-blue-500 active:scale-95 rounded-2xl w-14 h-14 shrink-0 transition-all"
+                      onClick={() => { handleNavigate(stop.packages[0]); setShowOverview(false); }}
+                      className="flex flex-col items-center justify-center text-white active:scale-95 rounded-2xl w-14 h-14 shrink-0 transition-all"
+                      style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                     >
-                      <Navigation size={20} className="text-white mb-0.5" />
-                      <span className="text-[8px] font-black text-blue-100 uppercase tracking-wide">
-                        Navigeer
-                      </span>
+                      <Navigation size={20} className="mb-0.5" />
+                      <span className="text-[8px] font-display font-black uppercase tracking-wide">Navigeer</span>
                     </button>
                   </div>
                 </div>

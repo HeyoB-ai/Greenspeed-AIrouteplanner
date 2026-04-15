@@ -9,10 +9,15 @@ interface ManualAddressFormProps {
 }
 
 const formatPostalCode = (raw: string): string => {
-  // Houd alleen cijfers en letters, max 6 tekens
   const clean = raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
-  // Voeg spatie in na de 4 cijfers
   return clean.length > 4 ? `${clean.slice(0, 4)} ${clean.slice(4)}` : clean;
+};
+
+const inputStyle = {
+  boxShadow: '0 0 0 1px rgba(188,202,196,0.2)',
+};
+const inputFocusStyle = {
+  boxShadow: '0 0 0 2px #006b5a40',
 };
 
 const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCancel }) => {
@@ -66,9 +71,7 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
     });
   };
 
-  const inputBase = 'w-full bg-slate-50 border rounded-2xl px-4 h-12 font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all';
-  const inputOk   = `${inputBase} border-slate-200`;
-  const inputErr  = `${inputBase} border-red-300 bg-red-50`;
+  const inputCls = 'w-full bg-white rounded-xl px-4 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all';
 
   return (
     <div
@@ -76,40 +79,43 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        onClick={onCancel}
+      />
 
       {/* Sheet */}
       <div
         ref={formRef}
-        className="relative bg-white rounded-t-3xl shadow-2xl z-10 animate-in slide-in-from-bottom duration-300 max-h-[92dvh] flex flex-col"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+        className="relative bg-white rounded-t-3xl z-10 animate-in slide-in-from-bottom duration-300 max-h-[92dvh] flex flex-col"
+        style={{ boxShadow: '0 -8px 48px rgba(25,28,30,0.12)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center">
-              <PenLine size={18} className="text-blue-600" />
+            <div className="w-10 h-10 bg-[#48c2a9]/15 rounded-2xl flex items-center justify-center">
+              <PenLine size={18} className="text-[#006b5a]" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 leading-none">Handmatig invoeren</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Nieuw pakket</p>
+              <h2 className="text-lg font-display font-black text-[#191c1e] leading-none">Handmatig invoeren</h2>
+              <p className="text-[10px] font-body text-[#3d4945]/60 uppercase tracking-widest mt-0.5">Nieuw pakket</p>
             </div>
           </div>
           <button
             onClick={onCancel}
-            className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500 active:scale-90 transition-all"
+            className="w-10 h-10 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] active:scale-90 transition-all"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Form — scrollbaar als scherm te klein */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 space-y-3 flex-1">
 
-          {/* Straat + Huisnummer naast elkaar */}
           <div className="flex gap-3">
             <div className="flex-1 space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Straat</label>
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">Straat</label>
               <input
                 type="text"
                 value={street}
@@ -117,28 +123,33 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
                 placeholder="Hoofdstraat"
                 required
                 autoComplete="street-address"
-                className={errors.street ? inputErr : inputOk}
+                className={inputCls}
+                style={errors.street ? { boxShadow: '0 0 0 2px rgba(239,68,68,0.4)' } : inputStyle}
+                onFocus={e => !errors.street && (e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40')}
+                onBlur={e => e.currentTarget.style.boxShadow = errors.street ? '0 0 0 2px rgba(239,68,68,0.4)' : '0 0 0 1px rgba(188,202,196,0.2)'}
               />
-              {errors.street && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.street}</p>}
+              {errors.street && <p className="text-[10px] font-body font-bold text-red-500 ml-1">{errors.street}</p>}
             </div>
             <div className="w-28 space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nr.</label>
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">Nr.</label>
               <input
                 type="text"
                 value={houseNumber}
                 onChange={e => { setHouseNumber(e.target.value); setErrors(p => ({ ...p, houseNumber: '' })); }}
                 placeholder="12a"
                 required
-                className={errors.houseNumber ? inputErr : inputOk}
+                className={inputCls}
+                style={errors.houseNumber ? { boxShadow: '0 0 0 2px rgba(239,68,68,0.4)' } : inputStyle}
+                onFocus={e => !errors.houseNumber && (e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40')}
+                onBlur={e => e.currentTarget.style.boxShadow = errors.houseNumber ? '0 0 0 2px rgba(239,68,68,0.4)' : '0 0 0 1px rgba(188,202,196,0.2)'}
               />
-              {errors.houseNumber && <p className="text-[10px] font-bold text-red-500 ml-1">Verplicht</p>}
+              {errors.houseNumber && <p className="text-[10px] font-body font-bold text-red-500 ml-1">Verplicht</p>}
             </div>
           </div>
 
-          {/* Postcode + Stad naast elkaar */}
           <div className="flex gap-3">
             <div className="w-36 space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Postcode</label>
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">Postcode</label>
               <div className="relative">
                 <input
                   type="text"
@@ -148,65 +159,70 @@ const ManualAddressForm: React.FC<ManualAddressFormProps> = ({ onComplete, onCan
                   onBlur={handlePostalCodeBlur}
                   placeholder="1234 AB"
                   required
-                  className={errors.postalCode ? inputErr : inputOk}
+                  className={inputCls}
+                  style={errors.postalCode ? { boxShadow: '0 0 0 2px rgba(239,68,68,0.4)' } : inputStyle}
+                  onFocus={e => !errors.postalCode && (e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40')}
                 />
                 {isValidating && (
-                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin pointer-events-none" />
+                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4945]/40 animate-spin pointer-events-none" />
                 )}
               </div>
-              {errors.postalCode && <p className="text-[10px] font-bold text-red-500 ml-1">Ongeldig</p>}
+              {errors.postalCode && <p className="text-[10px] font-body font-bold text-red-500 ml-1">Ongeldig</p>}
             </div>
             <div className="flex-1 space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Stad</label>
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">Stad</label>
               <input
                 type="text"
                 value={city}
                 onChange={e => { setCity(e.target.value); setErrors(p => ({ ...p, city: '' })); }}
                 placeholder="Amsterdam"
                 required
-                className={errors.city ? inputErr : inputOk}
+                className={inputCls}
+                style={errors.city ? { boxShadow: '0 0 0 2px rgba(239,68,68,0.4)' } : inputStyle}
+                onFocus={e => !errors.city && (e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40')}
+                onBlur={e => e.currentTarget.style.boxShadow = errors.city ? '0 0 0 2px rgba(239,68,68,0.4)' : '0 0 0 1px rgba(188,202,196,0.2)'}
               />
-              {errors.city && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.city}</p>}
+              {errors.city && <p className="text-[10px] font-body font-bold text-red-500 ml-1">{errors.city}</p>}
             </div>
           </div>
 
-          {/* PDOK adreswaarschuwing */}
           {addressWarning && (
-            <p className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 leading-snug">
+            <p className="text-[11px] font-body font-bold text-amber-700 bg-amber-50 rounded-xl px-3 py-2 leading-snug">
               ⚠️ {addressWarning}
             </p>
           )}
 
-          {/* Apotheeknaam (optioneel) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-              Apotheeknaam <span className="normal-case font-bold text-slate-300">(optioneel)</span>
+            <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+              Apotheeknaam <span className="normal-case font-body font-bold text-[#3d4945]/40">(optioneel)</span>
             </label>
             <input
               type="text"
               value={pharmacyName}
               onChange={e => setPharmacyName(e.target.value)}
               placeholder="Apotheek de Kroon"
-              className={inputOk}
+              className={inputCls}
+              style={inputStyle}
+              onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+              onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.2)'}
             />
           </div>
 
-          {/* Submit */}
           <div className="pt-2 pb-1">
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white h-14 rounded-2xl font-black text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-blue-700"
+              className="w-full text-white h-14 rounded-full font-display font-bold text-sm active:scale-95 transition-all flex items-center justify-center space-x-2"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
               <span>Pakket Toevoegen</span>
               <ArrowRight size={18} />
             </button>
           </div>
 
-          {/* Annuleer */}
           <button
             type="button"
             onClick={onCancel}
-            className="w-full py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+            className="w-full py-3 text-sm font-body text-[#3d4945]/60 hover:text-[#3d4945] transition-colors"
           >
             Annuleer
           </button>

@@ -40,24 +40,24 @@ const getStatusIcon = (status: PackageStatus): string => {
 };
 
 const STATUS_CONFIG: Record<string, { className: string; label: string }> = {
-  [PackageStatus.SCANNING]:        { className: 'bg-blue-50 text-blue-600',        label: 'Analyseren'     },
-  [PackageStatus.PENDING]:         { className: 'bg-amber-100 text-amber-700',     label: 'Wachten'        },
-  [PackageStatus.ASSIGNED]:        { className: 'bg-indigo-100 text-indigo-700',   label: 'Toegewezen'     },
-  [PackageStatus.PICKED_UP]:       { className: 'bg-indigo-100 text-indigo-700',   label: 'Opgehaald'      },
-  [PackageStatus.DELIVERED]:       { className: 'bg-emerald-100 text-emerald-700', label: 'Bezorgd'        },
-  [PackageStatus.MAILBOX]:         { className: 'bg-emerald-100 text-emerald-700', label: 'Brievenbus'     },
-  [PackageStatus.NEIGHBOUR]:       { className: 'bg-blue-100 text-blue-700',       label: 'Bij buren'      },
-  [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',     label: 'Retour'         },
-  [PackageStatus.FAILED]:          { className: 'bg-red-100 text-red-600',         label: 'Mislukt'        },
-  [PackageStatus.BILLED]:          { className: 'bg-purple-100 text-purple-700',   label: 'Gefactureerd'   },
-  [PackageStatus.MOVED]:           { className: 'bg-purple-100 text-purple-700',   label: 'Verhuisd'       },
-  [PackageStatus.OTHER_LOCATION]:  { className: 'bg-sky-100 text-sky-700',         label: 'Andere locatie' },
+  [PackageStatus.SCANNING]:        { className: 'bg-[#d7e2fe] text-[#101c30]',           label: 'Analyseren'     },
+  [PackageStatus.PENDING]:         { className: 'bg-amber-100 text-amber-700',            label: 'Wachten'        },
+  [PackageStatus.ASSIGNED]:        { className: 'bg-[#d7e2fe] text-[#101c30]',           label: 'Toegewezen'     },
+  [PackageStatus.PICKED_UP]:       { className: 'bg-[#d7e2fe] text-[#101c30]',           label: 'Opgehaald'      },
+  [PackageStatus.DELIVERED]:       { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Bezorgd'        },
+  [PackageStatus.MAILBOX]:         { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Brievenbus'     },
+  [PackageStatus.NEIGHBOUR]:       { className: 'bg-[#d7e2fe] text-[#101c30]',           label: 'Bij buren'      },
+  [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',            label: 'Retour'         },
+  [PackageStatus.FAILED]:          { className: 'bg-red-50 text-red-600',                 label: 'Mislukt'        },
+  [PackageStatus.BILLED]:          { className: 'bg-[#f2f4f6] text-[#3d4945]',           label: 'Gefactureerd'   },
+  [PackageStatus.MOVED]:           { className: 'bg-[#f2f4f6] text-[#3d4945]',           label: 'Verhuisd'       },
+  [PackageStatus.OTHER_LOCATION]:  { className: 'bg-[#f2f4f6] text-[#3d4945]',           label: 'Andere locatie' },
 };
 
 const StatusBadge: React.FC<{ status: PackageStatus }> = ({ status }) => {
-  const config = STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' };
+  const config = STATUS_CONFIG[status] ?? { label: status, className: 'bg-[#f2f4f6] text-[#3d4945]' };
   return (
-    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${config.className}`}>
+    <span className={`px-2.5 py-1 rounded-full text-[10px] font-display font-black uppercase tracking-wide ${config.className}`}>
       {config.label}
     </span>
   );
@@ -93,10 +93,10 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   const todayPkgs = packages.filter(p => new Date(p.createdAt).toDateString() === today);
 
   const stats = [
-    { label: 'Vandaag',    val: todayPkgs.length, icon: Package,       color: 'text-blue-600',    bg: 'bg-blue-50'    },
-    { label: 'In transit', val: inTransit.length, icon: Truck,         color: 'text-indigo-600',  bg: 'bg-indigo-50'  },
-    { label: 'Afgeleverd', val: delivered.length, icon: CheckCircle2,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Mislukt',    val: failed.length,    icon: AlertTriangle, color: 'text-red-500',     bg: 'bg-red-50'     },
+    { label: 'Vandaag',    val: todayPkgs.length, icon: Package       },
+    { label: 'In transit', val: inTransit.length, icon: Truck         },
+    { label: 'Afgeleverd', val: delivered.length, icon: CheckCircle2  },
+    { label: 'Mislukt',    val: failed.length,    icon: AlertTriangle },
   ];
 
   const activeCouriers = useMemo(() => {
@@ -132,12 +132,12 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           {stats.map(s => (
-            <div key={s.label} className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-              <div className={`w-10 h-10 ${s.bg} ${s.color} rounded-xl flex items-center justify-center mb-3`}>
-                <s.icon size={20} />
+            <div key={s.label} className="bg-white rounded-3xl p-5" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
+              <div className="w-10 h-10 bg-[#5dc0a7]/15 rounded-full flex items-center justify-center mb-3">
+                <s.icon size={20} className="text-[#006b5a]" />
               </div>
-              <p className="text-2xl font-black text-slate-900 leading-none">{s.val}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{s.label}</p>
+              <p className="text-2xl font-display font-black text-[#191c1e] leading-none">{s.val}</p>
+              <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-2">{s.label}</p>
             </div>
           ))}
         </div>
@@ -146,7 +146,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
         <div className="flex justify-end">
           <button
             onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+            className="flex items-center gap-2 px-5 h-10 bg-[#d7e2fe] text-[#101c30] rounded-full font-display font-black text-xs active:scale-95 transition-all"
           >
             <Download size={14} />
             Export CSV
@@ -155,78 +155,66 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
 
         {/* Pakkettenlijst / Chats / Archief */}
         <div className="w-full">
-          <div className="bg-white border border-slate-200 rounded-4xl shadow-sm overflow-hidden flex flex-col h-full">
+          <div className="bg-white rounded-4xl overflow-hidden flex flex-col h-full" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.06)' }}>
+
             {/* Tab headers */}
-            <div className="px-6 pt-5 pb-0 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-end space-x-1 mb-0">
-                <button
-                  onClick={() => setActiveTab('packages')}
-                  className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all ${
-                    activeTab === 'packages'
-                      ? 'bg-white border border-b-white border-slate-200 text-slate-900 -mb-px z-10'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Zendingen
-                </button>
-                <button
-                  onClick={() => setActiveTab('chats')}
-                  className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center space-x-1.5 ${
-                    activeTab === 'chats'
-                      ? 'bg-white border border-b-white border-slate-200 text-slate-900 -mb-px z-10'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  <MessageCircle size={12} />
-                  <span>Chats</span>
-                  {(unreadCount > 0 || pendingCallbacks > 0) && (
-                    <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none">
-                      {unreadCount + pendingCallbacks}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('archive')}
-                  className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center space-x-1.5 ${
-                    activeTab === 'archive'
-                      ? 'bg-white border border-b-white border-slate-200 text-slate-900 -mb-px z-10'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  <Archive size={12} />
-                  <span>Archief</span>
-                </button>
+            <div className="px-6 pt-5 pb-0 bg-white border-b border-[#bccac4]/20">
+              <div className="flex items-end space-x-1">
+                {(['packages', 'chats', 'archive'] as const).map(tab => {
+                  const isActive = activeTab === tab;
+                  const label = tab === 'packages' ? 'Zendingen' : tab === 'chats' ? 'Chats' : 'Archief';
+                  const icon  = tab === 'chats' ? <MessageCircle size={12} /> : tab === 'archive' ? <Archive size={12} /> : null;
+                  const badge = tab === 'chats' && (unreadCount + pendingCallbacks) > 0
+                    ? <span className="text-white text-[9px] font-display font-black px-1.5 py-0.5 rounded-full leading-none" style={{ background: '#006b5a' }}>{unreadCount + pendingCallbacks}</span>
+                    : null;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-4 pb-3 pt-1 text-xs font-display font-black uppercase tracking-widest flex items-center space-x-1.5 transition-all border-b-2 ${
+                        isActive
+                          ? 'text-[#006b5a] border-[#006b5a]'
+                          : 'text-[#3d4945]/50 border-transparent hover:text-[#3d4945]'
+                      }`}
+                    >
+                      {icon}
+                      <span>{label}</span>
+                      {badge}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
+            {/* Sub-header */}
             {activeTab === 'packages' && (
-              <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-base lg:text-lg font-black text-slate-900">Zendingen</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <div className="px-6 py-4 border-b border-[#bccac4]/20">
+                <h3 className="text-base lg:text-lg font-display font-black text-[#191c1e]">Zendingen</h3>
+                <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-0.5">
                   {packages.length} totaal
                 </p>
               </div>
             )}
 
             {activeTab === 'chats' && (
-              <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-base lg:text-lg font-black text-slate-900">Patiëntgesprekken</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <div className="px-6 py-4 border-b border-[#bccac4]/20">
+                <h3 className="text-base lg:text-lg font-display font-black text-[#191c1e]">Patiëntgesprekken</h3>
+                <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-0.5">
                   {conversations.length} gesprekken · {unreadCount} ongelezen
                 </p>
               </div>
             )}
 
             {activeTab === 'archive' && (
-              <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-base lg:text-lg font-black text-slate-900">Archief &amp; statistieken</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <div className="px-6 py-4 border-b border-[#bccac4]/20">
+                <h3 className="text-base lg:text-lg font-display font-black text-[#191c1e]">Archief &amp; statistieken</h3>
+                <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-0.5">
                   Historische bezorgdata en trends
                 </p>
               </div>
             )}
 
-            {/* Courier filter tabs + Optimaliseer route knop */}
+            {/* Courier filter tabs */}
             {activeTab === 'packages' && (() => {
               const showTabs = activeCouriers.length > 0 || packages.some(p => !p.courierId);
               const tabs = showTabs ? [
@@ -234,25 +222,23 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                 ...(packages.some(p => !p.courierId) ? [{ id: 'unassigned', label: 'Niet toegewezen', count: packages.filter(p => !p.courierId).length }] : []),
                 ...activeCouriers.map(c => ({ id: c.id, label: c.name, count: packages.filter(p => p.courierId === c.id).length })),
               ] : [];
-              const optimizableIds = filteredPackages
-                .filter(p => p.status === PackageStatus.PENDING || p.status === PackageStatus.ASSIGNED)
-                .map(p => p.id);
               if (!showTabs && !onOptimize) return null;
               return (
-                <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3">
+                <div className="px-6 py-3 border-b border-[#bccac4]/20 flex items-center gap-3">
                   <div className="flex gap-2 overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
                     {tabs.map(tab => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveCourier(tab.id)}
-                        className={`shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wide transition-all border ${
+                        className={`shrink-0 px-4 py-2 rounded-full text-xs font-display font-black uppercase tracking-wide transition-all ${
                           activeCourier === tab.id
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                            ? 'text-white'
+                            : 'bg-[#f2f4f6] text-[#3d4945]/60 hover:bg-[#e8eceb]'
                         }`}
+                        style={activeCourier === tab.id ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : {}}
                       >
                         {tab.label}
-                        <span className={`ml-1.5 text-[10px] ${activeCourier === tab.id ? 'text-blue-200' : 'text-slate-400'}`}>
+                        <span className={`ml-1.5 text-[10px] ${activeCourier === tab.id ? 'text-white/70' : 'text-[#3d4945]/40'}`}>
                           {tab.count}
                         </span>
                       </button>
@@ -266,44 +252,45 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
             {activeTab === 'packages' && (
               sorted.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                  <Package className="text-slate-200 mb-4" size={40} />
-                  <p className="text-slate-900 font-black">Geen pakketten</p>
-                  <p className="text-slate-400 text-sm mt-1">Scan een label om te beginnen.</p>
+                  <Package className="text-[#bccac4] mb-4" size={40} />
+                  <p className="text-[#191c1e] font-display font-black">Geen pakketten</p>
+                  <p className="text-[#3d4945]/60 font-body text-sm mt-1">Scan een label om te beginnen.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden m-4">
-                  <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200">
+                <div className="bg-white rounded-2xl overflow-hidden m-4" style={{ boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                  <div className="flex items-center gap-3 px-4 py-2 bg-[#f7f9fb] border-b border-[#bccac4]/20">
                     <div className="w-7 shrink-0" />
-                    <p className="flex-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Adres</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">Status</p>
+                    <p className="flex-1 text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest">Adres</p>
+                    <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest shrink-0">Status</p>
                   </div>
                   {sorted.map(p => (
-                    <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-default">
+                    <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-[#f7f9fb] transition-colors border-b border-[#bccac4]/15 last:border-0 cursor-default">
                       {p.status === PackageStatus.SCANNING ? (
-                        <div className="w-7 h-7 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-                          <RefreshCw size={12} className="text-blue-400 animate-spin" />
+                        <div className="w-7 h-7 rounded-full bg-[#48c2a9]/15 flex items-center justify-center shrink-0 mt-0.5">
+                          <RefreshCw size={12} className="text-[#006b5a] animate-spin" />
                         </div>
                       ) : p.scanNumber ? (
-                        <div className="w-7 h-7 bg-slate-900 text-white rounded-xl flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
+                        <div className="w-7 h-7 text-white rounded-full flex items-center justify-center text-xs font-display font-black shrink-0 mt-0.5"
+                          style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
                           {p.scanNumber}
                         </div>
                       ) : (
-                        <div className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <MapPin size={12} className="text-slate-400" />
+                        <div className="w-7 h-7 rounded-full bg-[#f2f4f6] flex items-center justify-center shrink-0 mt-0.5">
+                          <MapPin size={12} className="text-[#3d4945]/50" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-slate-900 text-sm truncate">
+                          <p className="font-display font-black text-[#191c1e] text-sm truncate">
                             {p.address.street} {p.address.houseNumber}
                           </p>
                           {p.routeIndex && (
-                            <span className="shrink-0 bg-blue-100 text-blue-600 text-[9px] font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
+                            <span className="shrink-0 bg-[#d7e2fe] text-[#101c30] text-[9px] font-display font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
                               →{p.routeIndex}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">
                           {p.address.postalCode} {p.address.city}
                         </p>
                       </div>
@@ -311,13 +298,13 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                         <StatusBadge status={p.status} />
                         <div className="flex items-center gap-2">
                           {p.statusHistory && p.statusHistory.length > 0 && (
-                            <span className="text-[11px] text-slate-400 font-bold">
+                            <span className="text-[11px] text-[#3d4945]/50 font-body font-bold">
                               {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                           <button
                             onClick={() => setTimelinePkg(p)}
-                            className="text-[11px] text-blue-500 hover:text-blue-700 font-bold flex items-center gap-0.5 transition-colors"
+                            className="text-[11px] text-[#006b5a] hover:text-[#48c2a9] font-display font-black flex items-center gap-0.5 transition-colors"
                           >
                             Historie
                             <ChevronRight size={10} />
@@ -341,48 +328,48 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
             {activeTab === 'chats' && (
               conversations.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                  <MessageCircle className="text-slate-200 mb-4" size={40} />
-                  <p className="text-slate-900 font-black">Geen gesprekken</p>
-                  <p className="text-slate-400 text-sm mt-1">Patiëntgesprekken verschijnen hier.</p>
+                  <MessageCircle className="text-[#bccac4] mb-4" size={40} />
+                  <p className="text-[#191c1e] font-display font-black">Geen gesprekken</p>
+                  <p className="text-[#3d4945]/60 font-body text-sm mt-1">Patiëntgesprekken verschijnen hier.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+                <div className="divide-y divide-[#bccac4]/15 overflow-y-auto flex-1">
                   {conversations.map(conv => (
                     <button
                       key={conv.id}
                       onClick={() => openConversation(conv)}
-                      className={`w-full px-4 py-4 flex items-start space-x-3 text-left transition-colors hover:bg-slate-50 border-l-4 ${
+                      className={`w-full px-4 py-4 flex items-start space-x-3 text-left transition-colors hover:bg-[#f7f9fb] border-l-4 ${
                         conv.hasRiskSignal ? 'border-red-400 bg-red-50/40'
-                        : !conv.isRead ? 'border-blue-500'
+                        : !conv.isRead ? 'border-[#006b5a]'
                         : 'border-transparent'
                       }`}
                     >
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        conv.hasRiskSignal ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'
+                        conv.hasRiskSignal ? 'bg-red-100 text-red-600' : 'bg-[#f2f4f6] text-[#3d4945]/60'
                       }`}>
                         {conv.hasRiskSignal ? <AlertTriangle size={16} /> : <MessageCircle size={16} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <span className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/50">
                             {new Date(conv.createdAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
                           </span>
-                          {!conv.isRead && <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />}
+                          {!conv.isRead && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#006b5a' }} />}
                         </div>
-                        <p className="text-sm font-bold text-slate-900 truncate">
+                        <p className="text-sm font-display font-black text-[#191c1e] truncate">
                           {conv.messages.length > 0 ? conv.messages[conv.messages.length - 1].text : 'Leeg gesprek'}
                         </p>
                         <div className="flex items-center space-x-3 mt-1">
-                          <span className="text-[10px] font-bold text-slate-400">{conv.messages.length} berichten</span>
+                          <span className="text-[10px] font-body font-bold text-[#3d4945]/50">{conv.messages.length} berichten</span>
                           {conv.callbackRequest && (
-                            <span className={`flex items-center space-x-1 text-[10px] font-black ${conv.callbackRequest.isHandled ? 'text-emerald-600' : 'text-blue-600'}`}>
+                            <span className={`flex items-center space-x-1 text-[10px] font-display font-black ${conv.callbackRequest.isHandled ? 'text-[#006b5a]' : 'text-[#101c30]'}`}>
                               <Phone size={10} />
                               <span>{conv.callbackRequest.isHandled ? 'Afgehandeld' : conv.callbackRequest.phoneNumber}</span>
                             </span>
                           )}
                         </div>
                       </div>
-                      <ChevronRight size={16} className="text-slate-300 shrink-0 mt-1" />
+                      <ChevronRight size={16} className="text-[#bccac4] shrink-0 mt-1" />
                     </button>
                   ))}
                 </div>
@@ -395,33 +382,43 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
       {/* Conversation detail overlay */}
       {selectedConv && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in slide-in-from-right duration-200">
-          <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center space-x-3 shrink-0">
-            <button onClick={() => setSelectedConv(null)} className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 active:scale-90 transition-all shrink-0">
+          <div className="bg-white border-b border-[#bccac4]/20 px-4 py-3 flex items-center space-x-3 shrink-0">
+            <button
+              onClick={() => setSelectedConv(null)}
+              className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] active:scale-90 transition-all shrink-0"
+            >
               <ArrowLeft size={16} />
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-slate-900 leading-none">Gesprek</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <p className="text-sm font-display font-black text-[#191c1e] leading-none">Gesprek</p>
+              <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-0.5">
                 {new Date(selectedConv.createdAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
             {selectedConv.hasRiskSignal && (
               <div className="flex items-center space-x-1 px-3 py-1 bg-red-100 rounded-full">
                 <AlertTriangle size={12} className="text-red-600" />
-                <span className="text-[10px] font-black text-red-700 uppercase">Risico</span>
+                <span className="text-[10px] font-display font-black text-red-700 uppercase">Risico</span>
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#f7f9fb]">
             {selectedConv.messages.map(msg => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm shadow-sm'
-                }`}>
+                <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed font-body ${
+                  msg.role === 'user'
+                    ? 'text-white rounded-tr-sm'
+                    : 'bg-white text-[#191c1e] rounded-tl-sm'
+                }`}
+                  style={msg.role === 'user'
+                    ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }
+                    : { boxShadow: '0 2px 8px rgba(25,28,30,0.06)' }
+                  }
+                >
                   {msg.text.split('\n').map((line, i) => (
                     <p key={i} className={i > 0 ? 'mt-1' : ''}>{line.replace(/\*\*(.*?)\*\*/g, '$1')}</p>
                   ))}
-                  <p className={`text-[9px] mt-1.5 ${msg.role === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                  <p className={`text-[9px] mt-1.5 ${msg.role === 'user' ? 'text-white/60' : 'text-[#3d4945]/40'}`}>
                     {new Date(msg.timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -429,15 +426,15 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
             ))}
           </div>
           {selectedConv.callbackRequest && (
-            <div className={`px-4 py-4 border-t ${selectedConv.callbackRequest.isHandled ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50 border-blue-100'}`}>
+            <div className={`px-4 py-4 border-t ${selectedConv.callbackRequest.isHandled ? 'bg-[#48c2a9]/10 border-[#48c2a9]/20' : 'bg-[#d7e2fe]/30 border-[#d7e2fe]/40'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selectedConv.callbackRequest.isHandled ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${selectedConv.callbackRequest.isHandled ? 'bg-[#48c2a9]/15 text-[#006b5a]' : 'bg-[#d7e2fe] text-[#101c30]'}`}>
                     <Phone size={16} />
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-900">{selectedConv.callbackRequest.phoneNumber}</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <p className="text-sm font-display font-black text-[#191c1e]">{selectedConv.callbackRequest.phoneNumber}</p>
+                    <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest">
                       {selectedConv.callbackRequest.preferredTime} · {selectedConv.callbackRequest.isHandled ? 'Afgehandeld' : 'Wacht op terugbel'}
                     </p>
                   </div>
@@ -448,7 +445,8 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                       onMarkCallbackHandled(selectedConv.id);
                       setSelectedConv(prev => prev ? { ...prev, callbackRequest: prev.callbackRequest ? { ...prev.callbackRequest, isHandled: true } : undefined } : null);
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black active:scale-95 transition-all"
+                    className="px-4 py-2 text-white rounded-full text-xs font-display font-black active:scale-95 transition-all"
+                    style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                   >
                     Afgehandeld
                   </button>
@@ -461,38 +459,46 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
 
       {/* Timeline modal */}
       {timelinePkg && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        >
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200"
+            style={{ boxShadow: '0 24px 64px rgba(25,28,30,0.20)' }}>
             <div className="flex items-start justify-between mb-5">
               <div>
-                <h3 className="font-black text-slate-900">Statushistorie</h3>
-                <p className="text-sm text-slate-500 mt-0.5">
+                <h3 className="font-display font-black text-[#191c1e]">Statushistorie</h3>
+                <p className="text-sm font-body text-[#3d4945]/60 mt-0.5">
                   {timelinePkg.address.street} {timelinePkg.address.houseNumber}
                 </p>
               </div>
-              <button onClick={() => setTimelinePkg(null)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X size={20} />
+              <button
+                onClick={() => setTimelinePkg(null)}
+                className="w-8 h-8 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] active:scale-90 transition-all"
+              >
+                <X size={16} />
               </button>
             </div>
             <div className="relative">
-              <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-200" />
+              <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-[#bccac4]/30" />
               <div className="space-y-4">
                 {(timelinePkg.statusHistory ?? [{ status: timelinePkg.status, timestamp: timelinePkg.createdAt }]).map((event, i, arr) => (
                   <div key={i} className="flex items-start gap-4 relative">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 text-sm border-2 border-white shadow-sm ${
-                      i === arr.length - 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 text-sm ${
+                      i === arr.length - 1 ? 'text-white' : 'bg-[#f2f4f6] text-[#3d4945]'
+                    }`}
+                      style={i === arr.length - 1 ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : {}}>
                       {getStatusIcon(event.status)}
                     </div>
                     <div className="flex-1 pb-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-black text-slate-800">{event.status}</span>
-                        <span className="text-xs text-slate-400 font-bold whitespace-nowrap">
+                        <span className="text-sm font-display font-black text-[#191c1e]">{event.status}</span>
+                        <span className="text-xs font-body text-[#3d4945]/50 whitespace-nowrap">
                           {new Date(event.timestamp).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       {event.note && (
-                        <p className="text-xs text-slate-500 mt-0.5 bg-slate-50 rounded-xl px-2 py-1">{event.note}</p>
+                        <p className="text-xs font-body text-[#3d4945]/60 mt-0.5 bg-[#f7f9fb] rounded-xl px-2 py-1">{event.note}</p>
                       )}
                     </div>
                   </div>

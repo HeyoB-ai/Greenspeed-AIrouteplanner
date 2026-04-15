@@ -12,7 +12,6 @@ interface LayoutProps {
   extraHeaderContent?: React.ReactNode;
 }
 
-// Eén actief item per rol — alleen items met een echte functie
 const NAV_ITEMS: Record<string, { icon: React.ElementType; label: string }[]> = {
   SUPERUSER:  [{ icon: LayoutDashboard, label: 'Dashboard' }],
   ADMIN:      [{ icon: Package,         label: 'Pakketten' }],
@@ -42,56 +41,56 @@ const Layout: React.FC<LayoutProps> = ({
   const navItems = NAV_ITEMS[userRole] ?? [];
   const roleLabel = ROLE_LABELS[userRole] ?? userRole;
 
-  // Scanner is fullscreen — geen layout chrome nodig
   if (hideMobileNav) {
     return <>{children}</>;
   }
 
   return (
-    <div className="flex min-h-dvh bg-slate-50">
+    <div className="flex min-h-dvh bg-[#f7f9fb]">
 
-      {/* ── Sidebar (alleen desktop) ── */}
-      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen bg-white border-r border-slate-100 overflow-y-auto z-30">
+      {/* ── Sidebar (desktop only) ── */}
+      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen bg-white overflow-y-auto z-30"
+        style={{ boxShadow: '4px 0 24px rgba(25,28,30,0.04)' }}>
 
         {/* Branding */}
-        <div className="px-6 py-6 border-b border-slate-100">
+        <div className="px-6 py-6">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
               <ShieldCheck className="text-white w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-black text-slate-900 leading-none">Greenspeed</p>
-              <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest mt-0.5">AI Route Planner</p>
+              <p className="text-sm font-display font-black text-[#191c1e] leading-none">Greenspeed</p>
+              <p className="text-[9px] font-display font-bold text-[#006b5a] uppercase tracking-widest mt-0.5">AI Route Planner</p>
             </div>
           </div>
         </div>
 
-        {/* Nav-items (visuele rolcontext) */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        {/* Nav items */}
+        <nav className="flex-1 px-3 py-2 space-y-1">
           {navItems.map((item, i) => (
             <div
               key={item.label}
               className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${
-                i === 0
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-400'
+                i === 0 ? 'text-[#006b5a]' : 'text-[#3d4945]'
               }`}
+              style={i === 0 ? { background: 'linear-gradient(135deg, rgba(0,107,90,0.08), rgba(72,194,169,0.08))' } : {}}
             >
               <item.icon size={18} className="shrink-0" />
-              <span className="text-sm font-bold">{item.label}</span>
+              <span className={`text-sm ${i === 0 ? 'font-display font-bold' : 'font-body'}`}>{item.label}</span>
             </div>
           ))}
         </nav>
 
-        {/* Gebruiker + uitloggen (onderaan) */}
-        <div className="px-4 py-5 border-t border-slate-100 space-y-3">
+        {/* User + logout */}
+        <div className="px-4 py-5 space-y-3">
           <div className="px-2">
-            <p className="text-sm font-black text-slate-900 truncate">{userName}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleLabel}</p>
+            <p className="text-sm font-display font-black text-[#191c1e] truncate">{userName}</p>
+            <p className="text-[10px] font-body text-[#3d4945] uppercase tracking-widest mt-0.5">{roleLabel}</p>
           </div>
           <button
             onClick={onLogout}
-            className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all"
+            className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-xl text-sm font-body text-[#3d4945] hover:bg-red-50 hover:text-red-600 transition-all"
           >
             <LogOut size={16} />
             <span>Uitloggen</span>
@@ -99,79 +98,82 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      {/* ── Hoofd-content ── */}
+      {/* ── Main content ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Header (sticky) */}
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-100 h-14 flex items-center px-4 lg:px-6 gap-3">
+        {/* Header */}
+        <header className="sticky top-0 z-40 h-14 flex items-center px-4 lg:px-6 gap-3"
+          style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
 
-          {/* Logo: alleen mobiel zichtbaar */}
+          {/* Logo: mobile only */}
           <div className="flex items-center space-x-2 lg:hidden shrink-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-              <ShieldCheck className="text-white w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
+              <ShieldCheck className="text-white w-4 h-4" />
             </div>
-            <span className="text-sm font-black text-slate-900">Greenspeed</span>
+            <span className="text-sm font-display font-black text-[#191c1e]">Greenspeed</span>
           </div>
 
-          {/* Extra content (cloud-status, apotheek-picker) */}
+          {/* Extra content */}
           <div className="flex-1 flex items-center justify-end lg:justify-start gap-2 min-w-0">
             {extraHeaderContent}
           </div>
 
-          {/* Gebruiker + logout: alleen mobiel (desktop via sidebar) */}
+          {/* User + logout: mobile only */}
           <div className="flex items-center gap-2 lg:hidden shrink-0">
             <div className="text-right hidden xs:block">
-              <p className="text-[11px] font-black text-slate-900 leading-none truncate max-w-[96px]">{userName}</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{roleLabel}</p>
+              <p className="text-[11px] font-display font-black text-[#191c1e] leading-none truncate max-w-[96px]">{userName}</p>
+              <p className="text-[9px] font-body text-[#3d4945] uppercase tracking-tighter">{roleLabel}</p>
             </div>
             <button
               onClick={onLogout}
               aria-label="Uitloggen"
-              className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
+              className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
             >
               <LogOut size={18} />
             </button>
           </div>
         </header>
 
-        {/* Pagina-inhoud */}
+        {/* Page content */}
         <main className="flex-1 px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto w-full">
           {children}
         </main>
 
-        {/* Footer: alleen desktop */}
-        <footer className="hidden lg:block py-8 text-center text-slate-400 text-xs border-t border-slate-100">
+        {/* Footer: desktop only */}
+        <footer className="hidden lg:block py-8 text-center text-[#3d4945]/60 text-xs">
           <div className="flex items-center justify-center space-x-2 mb-1">
-            <Shield size={13} className="text-green-500" />
+            <Shield size={13} className="text-[#006b5a]" />
             <span>AVG-Compliant &amp; Real-time Cloud Persistence</span>
           </div>
           <p>© 2025 Greenspeed. Alle data is E2E geëncrypteerd.</p>
         </footer>
       </div>
 
-      {/* ── Bottom navigation (alleen mobiel) ── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-slate-100 pb-safe flex items-stretch">
+      {/* ── Bottom nav (mobile) ── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 pb-safe flex items-stretch"
+        style={{ background: 'rgba(247,249,251,0.80)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 -4px 24px rgba(25,28,30,0.04)' }}>
         {navItems.slice(0, 3).map((item, i) => (
           <div
             key={item.label}
             className={`flex-1 flex flex-col items-center justify-center py-3 gap-0.5 ${
-              i === 0 ? 'text-blue-600' : 'text-slate-400'
+              i === 0 ? 'text-[#006b5a]' : 'text-[#3d4945]/60'
             }`}
           >
             <item.icon size={22} />
-            <span className="text-[10px] font-bold leading-none">{item.label}</span>
+            <span className="text-[10px] font-display font-bold leading-none">{item.label}</span>
           </div>
         ))}
         <button
           onClick={onLogout}
-          className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5 text-slate-400 hover:text-red-500 active:text-red-600 transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5 text-[#3d4945]/60 hover:text-red-500 active:text-red-600 transition-colors"
         >
           <LogOut size={22} />
-          <span className="text-[10px] font-bold leading-none">Uitloggen</span>
+          <span className="text-[10px] font-display font-bold leading-none">Uitloggen</span>
         </button>
       </nav>
 
-      {/* Ruimte voor mobile bottom nav */}
+      {/* Spacer for mobile bottom nav */}
       <div className="lg:hidden h-16 pb-safe" aria-hidden />
     </div>
   );
