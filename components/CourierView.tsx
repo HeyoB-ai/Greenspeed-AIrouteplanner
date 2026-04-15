@@ -18,6 +18,7 @@ interface Props {
   onManualAdd?: () => void;
   onOptimize?: (selectedIds: string[]) => void;
   isOptimizing?: boolean;
+  onNewRit?: () => void;
 }
 
 interface Stop {
@@ -65,6 +66,7 @@ const CourierView: React.FC<Props> = ({
   onManualAdd,
   onOptimize,
   isOptimizing = false,
+  onNewRit,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -416,6 +418,15 @@ const CourierView: React.FC<Props> = ({
               )}
             </div>
           ))}
+          {actionableCount === 0 && onNewRit && (
+            <button
+              onClick={onNewRit}
+              className="w-full mt-4 h-12 rounded-full font-display font-bold text-white text-sm active:scale-95 transition-all"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+            >
+              🚀 Nieuwe rit starten
+            </button>
+          )}
         </div>
       )}
 

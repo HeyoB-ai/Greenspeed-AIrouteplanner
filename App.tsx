@@ -215,10 +215,17 @@ const App: React.FC = () => {
         return session.user.pharmacyId
           ? packages.filter(p => p.pharmacyId === session.user.pharmacyId)
           : packages;
-      case UserRole.COURIER:
+      case UserRole.COURIER: {
+        const today = new Date().toDateString();
         return session.user.courierId
-          ? packages.filter(p => p.courierId === session.user.courierId)
-          : packages;
+          ? packages.filter(p =>
+              p.courierId === session.user.courierId &&
+              new Date(p.createdAt).toDateString() === today
+            )
+          : packages.filter(p =>
+              new Date(p.createdAt).toDateString() === today
+            );
+      }
       default:
         return packages;
     }
@@ -383,6 +390,21 @@ const App: React.FC = () => {
     setPackages(newPackages);
     await db.syncMultiplePackages(pkgsToSync);
   };
+
+  const isActionable = (pkg: Package): boolean =>
+    [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(pkg.status);
+
+  const handleNewRit = useCallback(() => {
+    if (!confirm('Nieuwe rit starten? De huidige rit wordt gearchiveerd.')) return;
+    const toArchive = packages.filter(p =>
+      p.courierId === session?.user.courierId &&
+      !isActionable(p) &&
+      p.status !== PackageStatus.REMOVED
+    );
+    if (toArchive.length > 0) {
+      updateMultipleStatus(toArchive.map(p => p.id), PackageStatus.REMOVED);
+    }
+  }, [packages, session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
     // 1. Direct toevoegen aan lokale state (optimistic)
@@ -648,6 +670,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
+            onNewRit={handleNewRit}
           />
         )}
 
