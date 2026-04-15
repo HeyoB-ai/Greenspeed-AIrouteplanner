@@ -32,16 +32,13 @@ const makeConversation = (pharmacyId: string): ChatConversation => {
 };
 
 const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) => {
-  // ── Toestemming ──
   const [consentChecked, setConsentChecked] = useState(false);
   const [isConsented, setIsConsented]       = useState(false);
 
-  // ── Gesprek ──
   const [conversation, setConversation] = useState<ChatConversation>(() => makeConversation(pharmacyId));
   const [input, setInput]               = useState('');
   const [isLoading, setIsLoading]       = useState(false);
 
-  // ── Terugbellen ──
   const [showCallbackForm, setShowCallbackForm] = useState(false);
   const [phoneNumber, setPhoneNumber]           = useState('');
   const [preferredTime, setPreferredTime]       = useState('');
@@ -75,19 +72,12 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
       timestamp: new Date().toISOString(),
     };
 
-    const next = {
-      ...conversation,
-      messages: [...conversation.messages, userMsg],
-    };
+    const next = { ...conversation, messages: [...conversation.messages, userMsg] };
     setConversation(next);
     setIsLoading(true);
 
     try {
-      const { text: reply, hasRisk } = await answerPatientQuestion(
-        text,
-        conversation.messages,
-        pharmacyName
-      );
+      const { text: reply, hasRisk } = await answerPatientQuestion(text, conversation.messages, pharmacyName);
 
       const assistantMsg: ChatMessage = {
         id:        makeId(),
@@ -129,20 +119,22 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
   // ── Toestemmingsscherm ──────────────────────────────────────────────
   if (!isConsented) {
     return (
-      <div className="fixed inset-0 z-[9998] bg-black/60 flex items-end sm:items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center p-4"
+        style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div className="w-full max-w-md bg-white rounded-3xl p-6 animate-in slide-in-from-bottom duration-300"
+          style={{ boxShadow: '0 24px 64px rgba(25,28,30,0.20)' }}>
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+            <div className="w-12 h-12 bg-[#48c2a9]/15 rounded-full flex items-center justify-center text-[#006b5a]">
               <ShieldCheck size={24} />
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-              <X size={20} />
+            <button onClick={onClose} className="w-8 h-8 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] transition-colors">
+              <X size={16} />
             </button>
           </div>
 
-          <h2 className="text-lg font-black text-slate-900 mb-2">Voordat u begint</h2>
+          <h2 className="text-lg font-display font-black text-[#191c1e] mb-2">Voordat u begint</h2>
 
-          <div className="space-y-3 text-sm text-slate-600 leading-relaxed mb-6">
+          <div className="space-y-3 text-sm font-body text-[#3d4945] leading-relaxed mb-6">
             <p>
               Deze assistent geeft <strong>alleen algemene informatie</strong> over medicijnen,
               vergelijkbaar met een bijsluiter. Hij vervangt nooit uw apotheker of huisarts.
@@ -151,7 +143,7 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
               Uw gesprek wordt bewaard zodat uw apotheker het kan inzien als u hulp nodig heeft.
               Gesprekken worden na 30 dagen automatisch verwijderd.
             </p>
-            <p className="font-black text-slate-800">Bij een noodgeval: bel 112.</p>
+            <p className="font-display font-black text-[#191c1e]">Bij een noodgeval: bel 112.</p>
           </div>
 
           <label className="flex items-start gap-3 mb-5 cursor-pointer">
@@ -159,9 +151,10 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
               type="checkbox"
               checked={consentChecked}
               onChange={e => setConsentChecked(e.target.checked)}
-              className="mt-0.5 w-5 h-5 rounded accent-blue-600 shrink-0"
+              className="mt-0.5 w-5 h-5 rounded shrink-0"
+              style={{ accentColor: '#006b5a' }}
             />
-            <span className="text-sm text-slate-700">
+            <span className="text-sm font-body text-[#3d4945]">
               Ik begrijp dat dit geen medisch advies is en ga akkoord met het bewaren van dit gesprek.
             </span>
           </label>
@@ -169,7 +162,8 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
           <button
             onClick={() => setIsConsented(true)}
             disabled={!consentChecked}
-            className="w-full h-12 bg-blue-600 text-white rounded-2xl font-black text-sm disabled:opacity-40 transition-all active:scale-95"
+            className="w-full h-12 text-white rounded-full font-display font-black text-sm disabled:opacity-40 transition-all active:scale-95"
+            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
           >
             Starten
           </button>
@@ -180,20 +174,20 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
   // ── Chat UI ──────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[9998] flex flex-col bg-slate-50 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9998] flex flex-col bg-[#f7f9fb] animate-in fade-in duration-200">
 
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center space-x-3 shrink-0">
-        <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
+      <div className="bg-white border-b border-[#bccac4]/20 px-4 py-3 flex items-center space-x-3 shrink-0">
+        <div className="w-9 h-9 bg-[#48c2a9]/15 rounded-xl flex items-center justify-center text-[#006b5a] shrink-0">
           <MessageCircle size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-slate-900 leading-none truncate">Apotheek Assistent</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">{pharmacyName}</p>
+          <p className="text-sm font-display font-black text-[#191c1e] leading-none truncate">Apotheek Assistent</p>
+          <p className="text-[10px] font-body font-bold text-[#3d4945]/50 uppercase tracking-widest mt-0.5 truncate">{pharmacyName}</p>
         </div>
         <button
           onClick={onClose}
-          className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 active:scale-90 transition-all shrink-0"
+          className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] active:scale-90 transition-all shrink-0"
         >
           <X size={16} />
         </button>
@@ -201,10 +195,9 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
       {/* Berichten */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {/* Welkomstbericht */}
         {conversation.messages.length === 0 && (
-          <div className="max-w-xs bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-            <p className="text-sm text-slate-700 leading-relaxed">
+          <div className="max-w-xs bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+            <p className="text-sm font-body text-[#3d4945] leading-relaxed">
               Hallo! Ik ben de assistent van {pharmacyName}. Ik beantwoord graag uw vragen over medicijnen.
               Waarmee kan ik u helpen?
             </p>
@@ -212,15 +205,14 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
         )}
 
         {conversation.messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm font-body leading-relaxed ${
               msg.role === 'user'
-                ? 'bg-blue-600 text-white rounded-tr-sm'
-                : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm shadow-sm'
-            }`}>
+                ? 'text-white rounded-tr-sm'
+                : 'bg-white text-[#191c1e] rounded-tl-sm shadow-sm'
+            }`}
+              style={msg.role === 'user' ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : {}}
+            >
               {msg.text.split('\n').map((line, i) => (
                 <p key={i} className={i > 0 ? 'mt-1' : ''}>
                   {line.replace(/\*\*(.*?)\*\*/g, '$1')}
@@ -232,8 +224,8 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-              <Loader2 size={16} className="text-slate-400 animate-spin" />
+            <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+              <Loader2 size={16} className="text-[#3d4945]/40 animate-spin" />
             </div>
           </div>
         )}
@@ -245,7 +237,7 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
       {conversation.hasRiskSignal && (
         <div className="mx-4 mb-2 p-3 bg-red-50 border border-red-200 rounded-2xl flex items-start space-x-2">
           <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
-          <p className="text-xs font-bold text-red-700 leading-relaxed">
+          <p className="text-xs font-body font-bold text-red-700 leading-relaxed">
             Bij een noodgeval: bel <strong>112</strong>. Voor de Zelfmoordpreventielijn: bel <strong>113</strong>.
           </p>
         </div>
@@ -255,7 +247,7 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
       {callbackConfirm && (
         <div className="mx-4 mb-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center space-x-2 animate-in slide-in-from-bottom duration-200">
           <Check size={16} className="text-emerald-600 shrink-0" />
-          <p className="text-xs font-bold text-emerald-700">
+          <p className="text-xs font-body font-bold text-emerald-700">
             Verzoek ontvangen — wij bellen u zo snel mogelijk op <strong>{phoneNumber}</strong>.
           </p>
         </div>
@@ -263,13 +255,14 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
       {/* Terugbel-banner */}
       {!callbackDone && conversation.messages.length > 0 && (
-        <div className="mx-4 mb-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between gap-3">
-          <p className="text-xs text-blue-700 font-bold leading-snug">
+        <div className="mx-4 mb-2 p-3 bg-[#48c2a9]/10 border border-[#48c2a9]/30 rounded-2xl flex items-center justify-between gap-3">
+          <p className="text-xs font-body font-bold text-[#006b5a] leading-snug">
             Liever een apotheker spreken?
           </p>
           <button
             onClick={() => setShowCallbackForm(true)}
-            className="shrink-0 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all"
+            className="shrink-0 px-3 py-1.5 text-white rounded-full text-xs font-display font-black whitespace-nowrap active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
           >
             Bel mij terug
           </button>
@@ -278,7 +271,7 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
       {/* Input */}
       <div
-        className="bg-white border-t border-slate-100 px-4 pt-3 pb-4 flex gap-3 shrink-0"
+        className="bg-white border-t border-[#bccac4]/20 px-4 pt-3 pb-4 flex gap-3 shrink-0"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         <input
@@ -289,40 +282,44 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder="Stel uw vraag..."
           disabled={isLoading}
-          className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 h-12 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50"
+          className="flex-1 bg-[#f7f9fb] rounded-2xl px-4 h-12 text-sm font-body font-bold text-[#191c1e] focus:outline-none transition-all disabled:opacity-50"
+          style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
+          onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+          onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.3)'}
         />
         <button
           onClick={sendMessage}
           disabled={!input.trim() || isLoading}
-          className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center active:scale-90 disabled:opacity-40 transition-all shrink-0"
+          className="w-12 h-12 text-white rounded-full flex items-center justify-center active:scale-90 disabled:opacity-40 transition-all shrink-0"
+          style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
         >
           <Send size={18} />
         </button>
       </div>
 
-      {/* Terugbelformulier — overlay op de chat */}
+      {/* Terugbelformulier */}
       {showCallbackForm && (
         <div className="absolute inset-0 bg-white rounded-3xl z-10 p-6 flex flex-col animate-in fade-in duration-200">
           <button
             onClick={() => setShowCallbackForm(false)}
-            className="self-end text-slate-400 hover:text-slate-600 mb-4"
+            className="self-end w-8 h-8 bg-[#f2f4f6] rounded-xl flex items-center justify-center text-[#3d4945] mb-4"
           >
-            <X size={20} />
+            <X size={16} />
           </button>
 
           <div className="flex items-center space-x-3 mb-5">
-            <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
+            <div className="w-10 h-10 bg-[#48c2a9]/15 rounded-full flex items-center justify-center text-[#006b5a] shrink-0">
               <Phone size={18} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 leading-none">Terugbelverzoek</h3>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">Een apotheker belt u zo snel mogelijk terug</p>
+              <h3 className="text-lg font-display font-black text-[#191c1e] leading-none">Terugbelverzoek</h3>
+              <p className="text-xs font-body text-[#3d4945]/50 mt-0.5">Een apotheker belt u zo snel mogelijk terug</p>
             </div>
           </div>
 
           <div className="space-y-4 flex-1">
             <div>
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5 block">
+              <label className="text-xs font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-1.5 block">
                 Uw telefoonnummer
               </label>
               <input
@@ -330,12 +327,15 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
                 placeholder="06 12 34 56 78"
-                className="w-full h-12 px-4 rounded-2xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                className="w-full h-12 px-4 rounded-2xl text-sm font-body font-bold text-[#191c1e] focus:outline-none transition-all"
+                style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
+                onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+                onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.3)'}
               />
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 block">
+              <label className="text-xs font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-2 block">
                 Wanneer schikt het?
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -344,11 +344,12 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
                     key={time}
                     type="button"
                     onClick={() => setPreferredTime(time)}
-                    className={`h-11 rounded-2xl text-sm font-black border transition-all active:scale-95 ${
+                    className={`h-11 rounded-2xl text-sm font-display font-black transition-all active:scale-95 ${
                       preferredTime === time
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                        ? 'text-white'
+                        : 'bg-[#f2f4f6] text-[#3d4945]/60 hover:bg-[#e8eceb]'
                     }`}
+                    style={preferredTime === time ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : {}}
                   >
                     {time}
                   </button>
@@ -360,7 +361,8 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
           <button
             onClick={handleCallbackSubmit}
             disabled={!phoneNumber.trim() || !preferredTime}
-            className="w-full h-12 bg-blue-600 text-white rounded-2xl font-black text-sm mt-6 disabled:opacity-40 active:scale-95 transition-all"
+            className="w-full h-12 text-white rounded-full font-display font-black text-sm mt-6 disabled:opacity-40 active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
           >
             Verzoek versturen
           </button>
