@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  ShieldCheck, LogOut, Shield, Package, Truck, LayoutDashboard, Search
+  LogOut, Shield, Package, Truck, LayoutDashboard, Search
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -54,16 +54,7 @@ const Layout: React.FC<LayoutProps> = ({
 
         {/* Branding */}
         <div className="px-6 py-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
-              <ShieldCheck className="text-white w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-display font-black text-[#191c1e] leading-none">Greenspeed</p>
-              <p className="text-[9px] font-display font-bold text-[#006b5a] uppercase tracking-widest mt-0.5">AI Route Planner</p>
-            </div>
-          </div>
+          <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-10 w-auto" />
         </div>
 
         {/* Nav items */}
@@ -106,12 +97,8 @@ const Layout: React.FC<LayoutProps> = ({
           style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
 
           {/* Logo: mobile only */}
-          <div className="flex items-center space-x-2 lg:hidden shrink-0">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
-              <ShieldCheck className="text-white w-4 h-4" />
-            </div>
-            <span className="text-sm font-display font-black text-[#191c1e]">Greenspeed</span>
+          <div className="flex items-center lg:hidden shrink-0">
+            <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-8 w-auto" />
           </div>
 
           {/* Extra content */}

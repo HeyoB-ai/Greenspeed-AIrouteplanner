@@ -157,14 +157,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
 
         {/* Logo */}
         <div className="text-center mb-6">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', boxShadow: '0 16px 48px rgba(0,107,90,0.40)' }}
-          >
-            <ShieldCheck className="text-white w-9 h-9" />
-          </div>
-          <h1 className="text-3xl font-display font-black text-white tracking-tight">Greenspeed</h1>
-          <p className="text-[#81f7dc]/70 text-sm font-body font-medium mt-1 uppercase tracking-widest">AI Route Planner</p>
+          <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-16 w-auto mx-auto mb-8" />
         </div>
 
         {/* Card */}
