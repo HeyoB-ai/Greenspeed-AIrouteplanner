@@ -237,7 +237,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
           <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)]">
             {(['tl', 'tr', 'bl', 'br'] as const).map(corner => (
-              <div key={corner} className={`absolute w-8 h-8 border-blue-500 ${
+              <div key={corner} className={`absolute w-8 h-8 border-[#48c2a9] ${
                 corner === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-xl' :
                 corner === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-xl' :
                 corner === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-xl' :
@@ -314,7 +314,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           }`}>
             <Camera size={40} />
           </div>
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-[#48c2a9] uppercase tracking-widest whitespace-nowrap">
             {!cameraReady ? 'Camera starten...' : 'Klik om te scannen'}
           </div>
         </button>

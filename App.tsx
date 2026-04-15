@@ -499,7 +499,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
   const syncIndicator = (
     <div className={`flex items-center space-x-2 px-3 py-1 border rounded-full transition-colors ${hasCloudConfig ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-100'}`}>
       {isSyncing ? (
-        <RefreshCw size={14} className="text-blue-500 animate-spin" />
+        <RefreshCw size={14} className="text-[#006b5a] animate-spin" />
       ) : hasCloudConfig ? (
         <Cloud size={14} className="text-emerald-500" />
       ) : (
@@ -543,7 +543,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
 
           {showSetupHelp && (
             <div className="mt-6 p-5 bg-white border border-amber-200 rounded-3xl animate-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-900/5">
-              <div className="flex items-center space-x-2 mb-4 text-blue-600">
+              <div className="flex items-center space-x-2 mb-4 text-[#006b5a]">
                 <Info size={16} />
                 <p className="text-xs font-black uppercase tracking-tighter">Stap-voor-stap Setup</p>
               </div>
@@ -554,7 +554,8 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
                 </pre>
                 <button
                   onClick={copySQL}
-                  className="absolute top-2 right-2 p-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white transition-all flex items-center space-x-2 shadow-lg"
+                  className="absolute top-2 right-2 p-2 text-white rounded-xl transition-all flex items-center space-x-2 shadow-lg active:scale-95"
+                  style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                 >
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                   <span className="text-[8px] font-black uppercase">{copied ? 'Gekopieerd' : 'Copy SQL'}</span>
@@ -564,7 +565,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
                 <p className="text-xs font-black text-slate-800">2. Voeg toe in Netlify → Environment Variables:</p>
                 {['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'GEMINI_API_KEY'].map(k => (
                   <div key={k} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <code className="text-[10px] font-black text-blue-600">{k}</code>
+                    <code className="text-[10px] font-black text-[#006b5a]">{k}</code>
                   </div>
                 ))}
               </div>

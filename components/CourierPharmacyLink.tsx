@@ -40,15 +40,17 @@ const CourierPharmacyLink: React.FC<Props> = ({
   };
 
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center p-5">
+    <div className="min-h-dvh flex flex-col items-center justify-center p-5"
+      style={{ background: 'linear-gradient(135deg, #006b5a 0%, #191c1e 50%, #191c1e 100%)' }}>
       <div className="w-full max-w-sm space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
         <div className="text-center mb-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl shadow-2xl shadow-blue-500/30 mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl shadow-2xl mb-4"
+            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', boxShadow: '0 8px 32px rgba(0,107,90,0.40)' }}>
             <Link size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-black text-white">Apotheek koppelen</h1>
-          <p className="text-blue-300 text-sm mt-1 font-bold">
+          <p className="text-[#48c2a9] text-sm mt-1 font-bold">
             Voer de code in die je van de apotheek hebt gekregen
           </p>
         </div>
@@ -56,7 +58,7 @@ const CourierPharmacyLink: React.FC<Props> = ({
         {/* Reeds gekoppelde apotheken */}
         {linkedPharmacies.length > 0 && (
           <div className="bg-white/10 rounded-3xl p-4 space-y-2">
-            <p className="text-xs font-black text-blue-200 uppercase tracking-widest mb-3">
+            <p className="text-xs font-black text-[#48c2a9] uppercase tracking-widest mb-3">
               Gekoppelde apotheken
             </p>
             {linkedPharmacies.map(ph => (
@@ -79,7 +81,7 @@ const CourierPharmacyLink: React.FC<Props> = ({
 
         {/* Code invoer */}
         <div className="bg-white rounded-3xl p-6 shadow-2xl shadow-black/30">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#3d4945]/50 mb-3">
             {linkedPharmacies.length > 0 ? 'Nieuwe apotheek koppelen' : 'Apotheekcode'}
           </p>
           <form onSubmit={handleLink} className="space-y-3">
@@ -89,7 +91,10 @@ const CourierPharmacyLink: React.FC<Props> = ({
               onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); }}
               placeholder="bijv. KR-4821"
               maxLength={7}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 h-14 font-black text-slate-900 text-xl text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full bg-[#f7f9fb] rounded-2xl px-5 h-14 font-black text-[#191c1e] text-xl text-center tracking-widest focus:outline-none transition-all"
+              style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
+              onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+              onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.3)'}
               autoCapitalize="characters"
               autoCorrect="off"
             />
@@ -99,7 +104,8 @@ const CourierPharmacyLink: React.FC<Props> = ({
             <button
               type="submit"
               disabled={isLinking || code.replace(/[^A-Z0-9]/g, '').length < 6}
-              className="w-full bg-blue-600 text-white h-12 rounded-2xl font-black text-sm disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="w-full text-white h-12 rounded-full font-black text-sm disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
               {isLinking ? <Loader2 size={18} className="animate-spin" /> : <Link size={18} />}
               {isLinking ? 'Koppelen...' : 'Koppelen'}
@@ -110,7 +116,7 @@ const CourierPharmacyLink: React.FC<Props> = ({
         {onSkip && linkedPharmacies.length > 0 && (
           <button
             onClick={onSkip}
-            className="w-full text-center text-blue-300 hover:text-white text-sm font-bold py-2 transition-colors"
+            className="w-full text-center text-[#48c2a9] hover:text-white text-sm font-bold py-2 transition-colors"
           >
             Overslaan
           </button>
