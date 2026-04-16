@@ -194,14 +194,8 @@ export async function optimizeRoute(
   if (addresses.length === 0) return [];
   if (addresses.length === 1) return [addresses[0].id];
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    console.warn('[Route] Geen Google Maps API key — originele volgorde gebruikt');
-    return addresses.map(a => a.id);
-  }
-
   try {
-    const result = await optimizeBatch(addresses, apiKey);
+    const result = await optimizeBatch(addresses);
     console.log('[Route] Geoptimaliseerde volgorde (fiets):');
     result.forEach((id, i) => {
       const addr = addresses.find(a => a.id === id);
@@ -215,33 +209,28 @@ export async function optimizeRoute(
 }
 
 async function optimizeBatch(
-  addresses: (Address & { id: string })[],
-  apiKey: string
+  addresses: (Address & { id: string })[]
 ): Promise<string[]> {
   if (addresses.length <= 25) {
-    return await optimizeSingleBatch(addresses, apiKey);
+    return await optimizeSingleBatch(addresses);
   }
 
   const mid = Math.ceil(addresses.length / 2);
-  const batch1 = addresses.slice(0, mid);
-  const batch2 = addresses.slice(mid);
-
   const [order1, order2] = await Promise.all([
-    optimizeSingleBatch(batch1, apiKey),
-    optimizeSingleBatch(batch2, apiKey),
+    optimizeSingleBatch(addresses.slice(0, mid)),
+    optimizeSingleBatch(addresses.slice(mid)),
   ]);
 
   return [...order1, ...order2];
 }
 
 async function optimizeSingleBatch(
-  addresses: (Address & { id: string })[],
-  apiKey: string
+  addresses: (Address & { id: string })[]
 ): Promise<string[]> {
   if (addresses.length <= 1) return addresses.map(a => a.id);
 
   const formatAddress = (a: Address) =>
-    encodeURIComponent(`${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`);
+    `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`;
 
   const origin      = formatAddress(addresses[0]);
   const destination = formatAddress(addresses[addresses.length - 1]);
@@ -249,21 +238,18 @@ async function optimizeSingleBatch(
     .map(a => formatAddress(a))
     .join('|');
 
-  const url =
-    `https://maps.googleapis.com/maps/api/directions/json` +
-    `?origin=${origin}` +
-    `&destination=${destination}` +
-    (waypoints ? `&waypoints=optimize:true|${waypoints}` : '') +
-    `&mode=bicycling` +
-    `&key=${apiKey}`;
-
   console.log('[Route] Google Maps aanroep voor', addresses.length, 'stops (fiets)...');
 
-  const response = await fetch(url);
+  const response = await fetch('/.netlify/functions/maps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ origin, destination, waypoints }),
+  });
+
   const data = await response.json();
 
   if (data.status !== 'OK') {
-    throw new Error(`Google Maps API fout: ${data.status} — ${data.error_message ?? ''}`);
+    throw new Error(`Google Maps fout: ${data.status} — ${data.error_message ?? ''}`);
   }
 
   const waypointOrder: number[] = data.routes[0].waypoint_order ?? [];
@@ -271,7 +257,7 @@ async function optimizeSingleBatch(
 
   const reordered = [
     addresses[0].id,
-    ...waypointOrder.map(i => addresses[i + 1].id),
+    ...waypointOrder.map((i: number) => addresses[i + 1].id),
     addresses[addresses.length - 1].id,
   ];
 
