@@ -309,7 +309,10 @@ const App: React.FC = () => {
     await db.syncPackage(pkg);
   }, [currentPharmacy]); // packages weggelaten — wordt gelezen via packagesRef
 
-  const handleOptimizeRoute = useCallback(async (selectedIds: string[]) => {
+  const handleOptimizeRoute = useCallback(async (
+    selectedIds: string[],
+    startFrom: 'pharmacy' | 'current' = 'pharmacy'
+  ) => {
     if (selectedIds.length === 0) return;
     setIsOptimizing(true);
 
@@ -324,7 +327,20 @@ const App: React.FC = () => {
         city:        p.address.city,
       }));
 
-      const orderedIds = await optimizeRoute(stops);
+      let startAddress: string | null = null;
+      if (startFrom === 'pharmacy' && currentPharmacy.address) {
+        startAddress = `${currentPharmacy.address}, Netherlands`;
+      } else if (startFrom === 'current') {
+        startAddress = await new Promise<string | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve(`${pos.coords.latitude},${pos.coords.longitude}`),
+            ()  => resolve(null),
+            { enableHighAccuracy: true, timeout: 5000 }
+          );
+        });
+      }
+
+      const orderedIds = await optimizeRoute(stops, startAddress);
 
       console.log('=== ROUTE OPTIMALISATIE ===');
       console.log('Geselecteerde IDs:', selectedIds);

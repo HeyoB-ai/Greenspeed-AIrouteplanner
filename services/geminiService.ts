@@ -189,13 +189,14 @@ export async function answerPatientQuestion(
 // ── Route-optimalisatie via Google Maps Directions API ───────────────
 
 export async function optimizeRoute(
-  addresses: (Address & { id: string })[]
+  addresses: (Address & { id: string })[],
+  startAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length === 0) return [];
   if (addresses.length === 1) return [addresses[0].id];
 
   try {
-    const result = await optimizeBatch(addresses);
+    const result = await optimizeBatch(addresses, startAddress);
     console.log('[Route] Geoptimaliseerde volgorde (fiets):');
     result.forEach((id, i) => {
       const addr = addresses.find(a => a.id === id);
@@ -209,15 +210,16 @@ export async function optimizeRoute(
 }
 
 async function optimizeBatch(
-  addresses: (Address & { id: string })[]
+  addresses: (Address & { id: string })[],
+  startAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length <= 25) {
-    return await optimizeSingleBatch(addresses);
+    return await optimizeSingleBatch(addresses, startAddress);
   }
 
   const mid = Math.ceil(addresses.length / 2);
   const [order1, order2] = await Promise.all([
-    optimizeSingleBatch(addresses.slice(0, mid)),
+    optimizeSingleBatch(addresses.slice(0, mid), startAddress),
     optimizeSingleBatch(addresses.slice(mid)),
   ]);
 
@@ -225,18 +227,24 @@ async function optimizeBatch(
 }
 
 async function optimizeSingleBatch(
-  addresses: (Address & { id: string })[]
+  addresses: (Address & { id: string })[],
+  startAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length <= 1) return addresses.map(a => a.id);
 
   const formatAddress = (a: Address) =>
     `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`;
 
-  const origin      = formatAddress(addresses[0]);
+  // Bij een extern startpunt (apotheek/GPS) zitten alle adressen als waypoints.
+  // Bij geen startpunt is het eerste adres de origin en het laatste de destination.
+  const hasExternalStart = !!startAddress;
+
+  const origin      = startAddress ?? formatAddress(addresses[0]);
   const destination = formatAddress(addresses[addresses.length - 1]);
-  const waypoints   = addresses.slice(1, -1)
-    .map(a => formatAddress(a))
-    .join('|');
+  const waypointAddresses = hasExternalStart
+    ? addresses.slice(0, -1)          // alles behalve het laatste
+    : addresses.slice(1, -1);         // alles behalve eerste én laatste
+  const waypoints = waypointAddresses.map(a => formatAddress(a)).join('|');
 
   console.log('[Route] Google Maps aanroep voor', addresses.length, 'stops (fiets)...');
 
@@ -255,11 +263,17 @@ async function optimizeSingleBatch(
   const waypointOrder: number[] = data.routes[0].waypoint_order ?? [];
   console.log('[Route] Google waypoint_order:', waypointOrder);
 
-  const reordered = [
-    addresses[0].id,
-    ...waypointOrder.map((i: number) => addresses[i + 1].id),
-    addresses[addresses.length - 1].id,
-  ];
+  // Herbouw de volgorde op basis van of het startpunt extern is of niet
+  const reordered = hasExternalStart
+    ? [
+        ...waypointOrder.map((i: number) => waypointAddresses[i].id),
+        addresses[addresses.length - 1].id,
+      ]
+    : [
+        addresses[0].id,
+        ...waypointOrder.map((i: number) => addresses[i + 1].id),
+        addresses[addresses.length - 1].id,
+      ];
 
   return [...new Set(reordered)];
 }

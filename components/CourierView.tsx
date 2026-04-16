@@ -16,7 +16,7 @@ interface Props {
   pharmacyAddress?: string;
   onScanStart?: () => void;
   onManualAdd?: () => void;
-  onOptimize?: (selectedIds: string[]) => void;
+  onOptimize?: (selectedIds: string[], startFrom?: 'pharmacy' | 'current') => void;
   isOptimizing?: boolean;
   onNewRit?: () => void;
 }
@@ -72,6 +72,13 @@ const CourierView: React.FC<Props> = ({
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
+  const [showRouteOptions, setShowRouteOptions]     = useState(false);
+  const [pendingRouteIds, setPendingRouteIds]       = useState<string[]>([]);
+
+  const handleRouteClick = (ids: string[]) => {
+    setPendingRouteIds(ids);
+    setShowRouteOptions(true);
+  };
 
   const pendingPackages = useMemo(
     () => packages.filter(p => p.status === PackageStatus.PENDING),
@@ -225,7 +232,7 @@ const CourierView: React.FC<Props> = ({
             <button
               onClick={() => {
                 const ids = sortedPackages.filter(p => isActionable(p)).map(p => p.id);
-                onOptimize(ids);
+                handleRouteClick(ids);
               }}
               disabled={isOptimizing || sortedPackages.filter(p => isActionable(p)).length === 0}
               className="flex items-center gap-1.5 px-4 h-10 rounded-full font-display font-bold text-xs disabled:opacity-40 transition-all active:scale-95"
@@ -298,7 +305,7 @@ const CourierView: React.FC<Props> = ({
 
           {onOptimize && (
             <button
-              onClick={() => selectedPendingIds.length > 0 && onOptimize(selectedPendingIds)}
+              onClick={() => selectedPendingIds.length > 0 && handleRouteClick(selectedPendingIds)}
               disabled={isOptimizing || selectedPendingIds.length === 0}
               className="w-full flex items-center justify-center gap-2 text-white h-12 rounded-full font-display font-bold text-sm active:scale-95 disabled:opacity-40 transition-all"
               style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
@@ -499,6 +506,65 @@ const CourierView: React.FC<Props> = ({
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+      {showRouteOptions && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="bg-white w-full rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom">
+            <h3 className="font-display font-black text-[#191c1e] text-lg mb-1">
+              Route starten
+            </h3>
+            <p className="text-sm text-[#3d4945] mb-6">
+              Waar begin je jouw rit?
+            </p>
+
+            <button
+              onClick={() => {
+                setShowRouteOptions(false);
+                onOptimize?.(pendingRouteIds, 'pharmacy');
+              }}
+              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                <Building2 size={20} className="text-[#006b5a]" />
+              </div>
+              <div className="text-left">
+                <p className="font-display font-black text-[#191c1e] text-sm">
+                  Vanuit de apotheek
+                </p>
+                <p className="text-xs text-[#3d4945]">
+                  {pharmacyAddress ?? pharmacyName}
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowRouteOptions(false);
+                onOptimize?.(pendingRouteIds, 'current');
+              }}
+              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-6 active:scale-[0.98] transition-all"
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                <Navigation size={20} className="text-[#006b5a]" />
+              </div>
+              <div className="text-left">
+                <p className="font-display font-black text-[#191c1e] text-sm">
+                  Vanuit mijn huidige locatie
+                </p>
+                <p className="text-xs text-[#3d4945]">
+                  GPS bepaalt het startpunt
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowRouteOptions(false)}
+              className="w-full h-12 rounded-full border border-[#48c2a9]/30 text-[#3d4945] font-display font-bold text-sm active:scale-[0.98] transition-all"
+            >
+              Annuleren
+            </button>
           </div>
         </div>
       )}
