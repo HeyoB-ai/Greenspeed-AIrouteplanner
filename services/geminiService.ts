@@ -186,62 +186,85 @@ export async function answerPatientQuestion(
   }
 }
 
-// ── Route-optimalisatie ──────────────────────────────────────────────
+// ── Route-optimalisatie via GPS + nearest-neighbor ───────────────────
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const query = encodeURIComponent(address + ', Netherlands');
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`;
+  try {
+    const r = await fetch(url);
+    const data = await r.json();
+    if (data.status === 'OK' && data.results[0]) {
+      return data.results[0].geometry.location;
+    }
+  } catch {}
+  return null;
+}
+
+function nearestNeighborRoute(
+  stops: Array<{ id: string; lat: number; lng: number }>
+): string[] {
+  if (stops.length === 0) return [];
+
+  const visited = new Set<string>();
+  const route: string[] = [];
+
+  let current = stops[0];
+  visited.add(current.id);
+  route.push(current.id);
+
+  while (visited.size < stops.length) {
+    let nearest: typeof stops[0] | null = null;
+    let minDist = Infinity;
+
+    for (const stop of stops) {
+      if (visited.has(stop.id)) continue;
+
+      const dLat = (stop.lat - current.lat) * Math.PI / 180;
+      const dLng = (stop.lng - current.lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(current.lat * Math.PI / 180) *
+        Math.cos(stop.lat * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
+      const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = stop;
+      }
+    }
+
+    if (!nearest) break;
+    visited.add(nearest.id);
+    route.push(nearest.id);
+    current = nearest;
+  }
+
+  return route;
+}
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[]
 ): Promise<string[]> {
   if (addresses.length === 0) return [];
 
-  const addressList = addresses
-    .map((addr, i) => `${i}: ${addr.street} ${addr.houseNumber}, ${addr.postalCode ?? ''} ${addr.city}`.trim())
-    .join('\n');
+  const geocoded = await Promise.all(
+    addresses.map(addr =>
+      geocodeAddress(
+        `${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.city}`
+      ).then(coords => coords ? { id: addr.id, ...coords } : null)
+    )
+  );
 
-  try {
-    const text = await callGemini({
-      contents: [{
-        parts: [{
-          text: `Je bent een routeplanner voor een Nederlandse fietskoerier.
+  const withCoords = geocoded.filter(Boolean) as Array<{ id: string; lat: number; lng: number }>;
+  const withoutCoords = addresses
+    .filter(a => !withCoords.find(g => g.id === a.id))
+    .map(a => a.id);
 
-Adressen met dezelfde postcode liggen in dezelfde buurt.
-De eerste 4 cijfers van de postcode geven het gebied aan,
-de letters geven de straat aan.
-
-Hier zijn de bezorgadressen:
-${addressList}
-
-Optimaliseer op minimale fietsafstand. Regels:
-- Groepeer adressen met dezelfde 4-cijferige postcodeprefix zoveel mogelijk bij elkaar
-- Ga nooit ver weg om later terug te komen
-- Binnen een postcodecluster: sorteer op huisnummer
-- Tussen clusters: kies de geografisch logische volgorde
-
-Geef ALLEEN de nummers terug, kommagescheiden. Geen uitleg.
-Voorbeeld output: 3,0,5,2,1,4`,
-        }],
-      }],
-      generationConfig: {
-        responseMimeType: 'text/plain',
-      },
-    });
-
-    if (!text) throw new Error('Geen response van Gemini');
-
-    const orderedIndices = text
-      .split(',')
-      .map(s => parseInt(s.trim(), 10))
-      .filter(n => !isNaN(n) && n >= 0 && n < addresses.length);
-
-    // Voeg eventueel door Gemini overgeslagen indices toe aan het einde
-    const seen = new Set(orderedIndices);
-    for (let i = 0; i < addresses.length; i++) {
-      if (!seen.has(i)) orderedIndices.push(i);
-    }
-
-    return orderedIndices.map(i => addresses[i].id);
-
-  } catch (error: any) {
-    console.error('AI Route Error:', error);
+  if (withCoords.length === 0) {
     return addresses.map(a => a.id);
   }
+
+  const orderedIds = nearestNeighborRoute(withCoords);
+  return [...orderedIds, ...withoutCoords];
 }
