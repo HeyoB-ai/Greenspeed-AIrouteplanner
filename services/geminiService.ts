@@ -186,85 +186,94 @@ export async function answerPatientQuestion(
   }
 }
 
-// ── Route-optimalisatie via GPS + nearest-neighbor ───────────────────
-
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  const query = encodeURIComponent(address + ', Netherlands');
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`;
-  try {
-    const r = await fetch(url);
-    const data = await r.json();
-    if (data.status === 'OK' && data.results[0]) {
-      return data.results[0].geometry.location;
-    }
-  } catch {}
-  return null;
-}
-
-function nearestNeighborRoute(
-  stops: Array<{ id: string; lat: number; lng: number }>
-): string[] {
-  if (stops.length === 0) return [];
-
-  const visited = new Set<string>();
-  const route: string[] = [];
-
-  let current = stops[0];
-  visited.add(current.id);
-  route.push(current.id);
-
-  while (visited.size < stops.length) {
-    let nearest: typeof stops[0] | null = null;
-    let minDist = Infinity;
-
-    for (const stop of stops) {
-      if (visited.has(stop.id)) continue;
-
-      const dLat = (stop.lat - current.lat) * Math.PI / 180;
-      const dLng = (stop.lng - current.lng) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(current.lat * Math.PI / 180) *
-        Math.cos(stop.lat * Math.PI / 180) *
-        Math.sin(dLng / 2) ** 2;
-      const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = stop;
-      }
-    }
-
-    if (!nearest) break;
-    visited.add(nearest.id);
-    route.push(nearest.id);
-    current = nearest;
-  }
-
-  return route;
-}
+// ── Route-optimalisatie via Google Maps Directions API ───────────────
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[]
 ): Promise<string[]> {
   if (addresses.length === 0) return [];
+  if (addresses.length === 1) return [addresses[0].id];
 
-  const geocoded = await Promise.all(
-    addresses.map(addr =>
-      geocodeAddress(
-        `${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.city}`
-      ).then(coords => coords ? { id: addr.id, ...coords } : null)
-    )
-  );
-
-  const withCoords = geocoded.filter(Boolean) as Array<{ id: string; lat: number; lng: number }>;
-  const withoutCoords = addresses
-    .filter(a => !withCoords.find(g => g.id === a.id))
-    .map(a => a.id);
-
-  if (withCoords.length === 0) {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.warn('[Route] Geen Google Maps API key — originele volgorde gebruikt');
     return addresses.map(a => a.id);
   }
 
-  const orderedIds = nearestNeighborRoute(withCoords);
-  return [...orderedIds, ...withoutCoords];
+  try {
+    const result = await optimizeBatch(addresses, apiKey);
+    console.log('[Route] Geoptimaliseerde volgorde (fiets):');
+    result.forEach((id, i) => {
+      const addr = addresses.find(a => a.id === id);
+      console.log(`  Stop ${i + 1}: ${addr?.street} ${addr?.houseNumber}, ${addr?.postalCode}`);
+    });
+    return result;
+  } catch (err) {
+    console.error('[Route] Google Maps mislukt, fallback op originele volgorde:', err);
+    return addresses.map(a => a.id);
+  }
+}
+
+async function optimizeBatch(
+  addresses: (Address & { id: string })[],
+  apiKey: string
+): Promise<string[]> {
+  if (addresses.length <= 25) {
+    return await optimizeSingleBatch(addresses, apiKey);
+  }
+
+  const mid = Math.ceil(addresses.length / 2);
+  const batch1 = addresses.slice(0, mid);
+  const batch2 = addresses.slice(mid);
+
+  const [order1, order2] = await Promise.all([
+    optimizeSingleBatch(batch1, apiKey),
+    optimizeSingleBatch(batch2, apiKey),
+  ]);
+
+  return [...order1, ...order2];
+}
+
+async function optimizeSingleBatch(
+  addresses: (Address & { id: string })[],
+  apiKey: string
+): Promise<string[]> {
+  if (addresses.length <= 1) return addresses.map(a => a.id);
+
+  const formatAddress = (a: Address) =>
+    encodeURIComponent(`${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`);
+
+  const origin      = formatAddress(addresses[0]);
+  const destination = formatAddress(addresses[addresses.length - 1]);
+  const waypoints   = addresses.slice(1, -1)
+    .map(a => formatAddress(a))
+    .join('|');
+
+  const url =
+    `https://maps.googleapis.com/maps/api/directions/json` +
+    `?origin=${origin}` +
+    `&destination=${destination}` +
+    (waypoints ? `&waypoints=optimize:true|${waypoints}` : '') +
+    `&mode=bicycling` +
+    `&key=${apiKey}`;
+
+  console.log('[Route] Google Maps aanroep voor', addresses.length, 'stops (fiets)...');
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (data.status !== 'OK') {
+    throw new Error(`Google Maps API fout: ${data.status} — ${data.error_message ?? ''}`);
+  }
+
+  const waypointOrder: number[] = data.routes[0].waypoint_order ?? [];
+  console.log('[Route] Google waypoint_order:', waypointOrder);
+
+  const reordered = [
+    addresses[0].id,
+    ...waypointOrder.map(i => addresses[i + 1].id),
+    addresses[addresses.length - 1].id,
+  ];
+
+  return [...new Set(reordered)];
 }
