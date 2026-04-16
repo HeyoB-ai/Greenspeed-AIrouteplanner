@@ -124,7 +124,7 @@ const Scanner: React.FC<ScannerProps> = ({ onCapture, onClose }) => {
       </div>
 
       {/* Burst Mode Controls */}
-      <div className="px-8 pt-8 pb-20 bg-slate-950 flex justify-between items-center border-t border-white/5 relative">
+      <div className="px-8 pt-8 bg-slate-950 flex justify-between items-center border-t border-white/5 relative" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}>
         {/* Cancel/Dismiss */}
         <button 
           onClick={onClose} 

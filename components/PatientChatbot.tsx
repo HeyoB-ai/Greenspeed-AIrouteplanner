@@ -205,8 +205,8 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
         )}
 
         {conversation.messages.map(msg => (
-          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm font-body leading-relaxed ${
+          <div key={msg.id} className={`flex w-full overflow-hidden ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[75%] overflow-hidden px-4 py-3 rounded-2xl text-sm font-body leading-relaxed ${
               msg.role === 'user'
                 ? 'text-white rounded-tr-sm'
                 : 'bg-white text-[#191c1e] rounded-tl-sm shadow-sm'
@@ -255,14 +255,14 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
 
       {/* Terugbel-banner */}
       {!callbackDone && conversation.messages.length > 0 && (
-        <div className="mx-4 mb-2 p-3 bg-[#48c2a9]/10 border border-[#48c2a9]/30 rounded-2xl flex items-center justify-between gap-3">
-          <p className="text-xs font-body font-bold text-[#006b5a] leading-snug">
+        <div className="mx-4 mb-2 p-3 bg-[#48c2a9]/10 border border-[#48c2a9]/20 rounded-2xl">
+          <p className="text-xs font-body font-bold text-[#006b5a] mb-2">
             Liever een apotheker spreken?
           </p>
           <button
             onClick={() => setShowCallbackForm(true)}
-            className="shrink-0 px-3 py-1.5 text-white rounded-full text-xs font-display font-black whitespace-nowrap active:scale-95 transition-all"
-            style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+            className="w-full h-10 text-white rounded-full font-display font-bold text-sm active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg, #253046, #3a4a6b)' }}
           >
             Bel mij terug
           </button>
@@ -282,7 +282,7 @@ const PatientChatbot: React.FC<Props> = ({ pharmacyId, pharmacyName, onClose }) 
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder="Stel uw vraag..."
           disabled={isLoading}
-          className="flex-1 bg-[#f7f9fb] rounded-2xl px-4 h-12 text-sm font-body font-bold text-[#191c1e] focus:outline-none transition-all disabled:opacity-50"
+          className="flex-1 min-w-0 bg-[#f7f9fb] rounded-2xl px-4 h-12 text-sm font-body font-bold text-[#191c1e] focus:outline-none transition-all disabled:opacity-50"
           style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.3)' }}
           onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
           onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.3)'}

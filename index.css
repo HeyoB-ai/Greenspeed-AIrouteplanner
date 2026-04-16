@@ -37,6 +37,15 @@
     color: var(--on-surface);
     overscroll-behavior: none;
   }
+
+  html, body, #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
 }
 
 @layer components {
