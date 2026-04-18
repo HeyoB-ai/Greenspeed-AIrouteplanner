@@ -16,7 +16,7 @@ interface Props {
   pharmacyAddress?: string;
   onScanStart?: () => void;
   onManualAdd?: () => void;
-  onOptimize?: (selectedIds: string[], startFrom?: 'pharmacy' | 'current') => void;
+  onOptimize?: (selectedIds: string[], startFrom?: 'pharmacy' | 'current', returnTo?: 'pharmacy' | 'none') => void;
   isOptimizing?: boolean;
   onNewRit?: () => void;
 }
@@ -74,6 +74,7 @@ const CourierView: React.FC<Props> = ({
   const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
   const [showRouteOptions, setShowRouteOptions]     = useState(false);
   const [pendingRouteIds, setPendingRouteIds]       = useState<string[]>([]);
+  const [returnTo, setReturnTo]                     = useState<'pharmacy' | 'none'>('pharmacy');
 
   const handleRouteClick = (ids: string[]) => {
     setPendingRouteIds(ids);
@@ -522,7 +523,7 @@ const CourierView: React.FC<Props> = ({
             <button
               onClick={() => {
                 setShowRouteOptions(false);
-                onOptimize?.(pendingRouteIds, 'pharmacy');
+                onOptimize?.(pendingRouteIds, 'pharmacy', returnTo);
               }}
               className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
             >
@@ -542,9 +543,9 @@ const CourierView: React.FC<Props> = ({
             <button
               onClick={() => {
                 setShowRouteOptions(false);
-                onOptimize?.(pendingRouteIds, 'current');
+                onOptimize?.(pendingRouteIds, 'current', returnTo);
               }}
-              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-6 active:scale-[0.98] transition-all"
+              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
                 <Navigation size={20} className="text-[#006b5a]" />
@@ -557,6 +558,69 @@ const CourierView: React.FC<Props> = ({
                   GPS bepaalt het startpunt
                 </p>
               </div>
+            </button>
+
+            {/* Scheidingslijn */}
+            <div className="border-t border-[#48c2a9]/20 my-4" />
+
+            <p className="text-sm font-display font-bold text-[#191c1e] mb-3">
+              Eindpunt
+            </p>
+
+            {/* Optie: terug naar apotheek */}
+            <button
+              onClick={() => setReturnTo('pharmacy')}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                          active:scale-[0.98] transition-all border-2 ${
+                returnTo === 'pharmacy'
+                  ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                  : 'bg-[#f2f4f6] border-transparent'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                <Building2 size={20} className="text-[#006b5a]" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="font-display font-black text-[#191c1e] text-sm">
+                  Terug naar de apotheek
+                </p>
+                <p className="text-xs text-[#3d4945]">
+                  {pharmacyAddress ?? pharmacyName}
+                </p>
+              </div>
+              {returnTo === 'pharmacy' && (
+                <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                  <Check size={12} className="text-white" />
+                </div>
+              )}
+            </button>
+
+            {/* Optie: geen terugreis */}
+            <button
+              onClick={() => setReturnTo('none')}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-6
+                          active:scale-[0.98] transition-all border-2 ${
+                returnTo === 'none'
+                  ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                  : 'bg-[#f2f4f6] border-transparent'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#f2f4f6]">
+                <X size={20} className="text-[#3d4945]" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="font-display font-black text-[#191c1e] text-sm">
+                  Geen terugreis
+                </p>
+                <p className="text-xs text-[#3d4945]">
+                  Route eindigt bij het laatste adres
+                </p>
+              </div>
+              {returnTo === 'none' && (
+                <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                  <Check size={12} className="text-white" />
+                </div>
+              )}
             </button>
 
             <button

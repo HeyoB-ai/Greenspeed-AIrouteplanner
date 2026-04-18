@@ -190,13 +190,14 @@ export async function answerPatientQuestion(
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[],
-  startAddress?: string | null
+  startAddress?: string | null,
+  endAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length === 0) return [];
   if (addresses.length === 1) return [addresses[0].id];
 
   try {
-    const result = await optimizeBatch(addresses, startAddress);
+    const result = await optimizeBatch(addresses, startAddress, endAddress);
     console.log('[Route] Geoptimaliseerde volgorde (fiets):');
     result.forEach((id, i) => {
       const addr = addresses.find(a => a.id === id);
@@ -211,15 +212,16 @@ export async function optimizeRoute(
 
 async function optimizeBatch(
   addresses: (Address & { id: string })[],
-  startAddress?: string | null
+  startAddress?: string | null,
+  endAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length <= 25) {
-    return await optimizeSingleBatch(addresses, startAddress);
+    return await optimizeSingleBatch(addresses, startAddress, endAddress);
   }
 
   const mid = Math.ceil(addresses.length / 2);
   const [order1, order2] = await Promise.all([
-    optimizeSingleBatch(addresses.slice(0, mid), startAddress),
+    optimizeSingleBatch(addresses.slice(0, mid), startAddress, endAddress),
     optimizeSingleBatch(addresses.slice(mid)),
   ]);
 
@@ -228,22 +230,29 @@ async function optimizeBatch(
 
 async function optimizeSingleBatch(
   addresses: (Address & { id: string })[],
-  startAddress?: string | null
+  startAddress?: string | null,
+  endAddress?: string | null
 ): Promise<string[]> {
   if (addresses.length <= 1) return addresses.map(a => a.id);
 
   const formatAddress = (a: Address) =>
     `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`;
 
-  // Bij een extern startpunt (apotheek/GPS) zitten alle adressen als waypoints.
-  // Bij geen startpunt is het eerste adres de origin en het laatste de destination.
+  // Als eindadres opgegeven: alle stops zijn waypoints (origin en destination zijn extern).
+  // Als alleen startadres: alles behalve het laatste adres is waypoint.
+  // Anders: eerste en laatste zijn origin/destination, de rest zijn waypoints.
   const hasExternalStart = !!startAddress;
+  const hasExternalEnd   = !!endAddress;
 
   const origin      = startAddress ?? formatAddress(addresses[0]);
-  const destination = formatAddress(addresses[addresses.length - 1]);
-  const waypointAddresses = hasExternalStart
-    ? addresses.slice(0, -1)          // alles behalve het laatste
-    : addresses.slice(1, -1);         // alles behalve eerste én laatste
+  const destination = endAddress   ?? formatAddress(addresses[addresses.length - 1]);
+
+  const waypointAddresses = hasExternalEnd
+    ? addresses                    // alle stops zijn waypoints
+    : hasExternalStart
+      ? addresses.slice(0, -1)     // alles behalve het laatste
+      : addresses.slice(1, -1);    // alles behalve eerste én laatste
+
   const waypoints = waypointAddresses.map(a => formatAddress(a)).join('|');
 
   console.log('[Route] Google Maps aanroep voor', addresses.length, 'stops (fiets)...');
@@ -263,17 +272,21 @@ async function optimizeSingleBatch(
   const waypointOrder: number[] = data.routes[0].waypoint_order ?? [];
   console.log('[Route] Google waypoint_order:', waypointOrder);
 
-  // Herbouw de volgorde op basis van of het startpunt extern is of niet
-  const reordered = hasExternalStart
-    ? [
-        ...waypointOrder.map((i: number) => waypointAddresses[i].id),
-        addresses[addresses.length - 1].id,
-      ]
-    : [
-        addresses[0].id,
-        ...waypointOrder.map((i: number) => addresses[i + 1].id),
-        addresses[addresses.length - 1].id,
-      ];
+  // Als eindadres extern: indices 0..n-1 verwijzen naar alle addresses
+  // Als alleen startadres extern: indices verwijzen naar addresses[0..n-2], laatste vaste stop achteraan
+  // Anders: indices verwijzen naar addresses[1..n-2], eerste en laatste zijn vast
+  const reordered = hasExternalEnd
+    ? waypointOrder.map((i: number) => waypointAddresses[i].id)
+    : hasExternalStart
+      ? [
+          ...waypointOrder.map((i: number) => waypointAddresses[i].id),
+          addresses[addresses.length - 1].id,
+        ]
+      : [
+          addresses[0].id,
+          ...waypointOrder.map((i: number) => addresses[i + 1].id),
+          addresses[addresses.length - 1].id,
+        ];
 
   return [...new Set(reordered)];
 }

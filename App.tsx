@@ -311,7 +311,8 @@ const App: React.FC = () => {
 
   const handleOptimizeRoute = useCallback(async (
     selectedIds: string[],
-    startFrom: 'pharmacy' | 'current' = 'pharmacy'
+    startFrom: 'pharmacy' | 'current' = 'pharmacy',
+    returnTo: 'pharmacy' | 'none' = 'pharmacy'
   ) => {
     if (selectedIds.length === 0) return;
     setIsOptimizing(true);
@@ -340,7 +341,12 @@ const App: React.FC = () => {
         });
       }
 
-      const orderedIds = await optimizeRoute(stops, startAddress);
+      let endAddress: string | null = null;
+      if (returnTo === 'pharmacy' && currentPharmacy.address) {
+        endAddress = `${currentPharmacy.address}, Netherlands`;
+      }
+
+      const orderedIds = await optimizeRoute(stops, startAddress, endAddress);
 
       console.log('=== ROUTE OPTIMALISATIE ===');
       console.log('Geselecteerde IDs:', selectedIds);
