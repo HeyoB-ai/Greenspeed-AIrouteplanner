@@ -15,7 +15,7 @@ import { optimizeRoute } from './services/geminiService';
 import { getSession, logout, saveSession } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2 } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
@@ -53,8 +53,11 @@ const App: React.FC = () => {
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
 
-  // Courier: welke apotheek is actief voor deze rit
-  const [courierActivePharmacyId, setCourierActivePharmacyId] = useState<string | null>(null);
+  // Courier: welke apotheken zitten in de huidige rit
+  const [courierPharmacyIds, setCourierPharmacyIds] = useState<string[]>([]);
+  const [scanPharmacyId, setScanPharmacyId] = useState<string | null>(null);
+  const [showAddPharmacy, setShowAddPharmacy] = useState(false);
+  const [showPharmacySwitcher, setShowPharmacySwitcher] = useState(false);
 
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
@@ -220,7 +223,8 @@ const App: React.FC = () => {
         return session.user.courierId
           ? packages.filter(p =>
               p.courierId === session.user.courierId &&
-              new Date(p.createdAt).toDateString() === today
+              new Date(p.createdAt).toDateString() === today &&
+              (courierPharmacyIds.length === 0 || courierPharmacyIds.includes(p.pharmacyId))
             )
           : packages.filter(p =>
               new Date(p.createdAt).toDateString() === today
@@ -229,7 +233,7 @@ const App: React.FC = () => {
       default:
         return packages;
     }
-  }, [packages, session, role]);
+  }, [packages, session, role, courierPharmacyIds]);
 
   // Apotheken en pakketten gefilterd op wat de ingelogde gebruiker mag zien
   const accessiblePharmacies = useMemo(
@@ -246,7 +250,8 @@ const App: React.FC = () => {
     const sess = { user, loggedInAt: new Date().toISOString() };
     setSession(sess);
     if (activePharmacyId) {
-      setCourierActivePharmacyId(activePharmacyId);
+      setCourierPharmacyIds([activePharmacyId]);
+      setScanPharmacyId(activePharmacyId);
     }
   };
 
@@ -255,7 +260,8 @@ const App: React.FC = () => {
       await logout();
       setSession(null);
       setPackages([]);
-      setCourierActivePharmacyId(null);
+      setCourierPharmacyIds([]);
+      setScanPharmacyId(null);
     }
   };
 
@@ -279,14 +285,25 @@ const App: React.FC = () => {
 
   // Ref zodat handleNewScan altijd de actuele packages ziet zonder afhankelijk te zijn
   // van de packages-state in de closure (voorkomt stale-closure race condition bij burst scans)
-  const packagesRef = useRef<Package[]>(packages);
+  const packagesRef      = useRef<Package[]>(packages);
   useEffect(() => { packagesRef.current = packages; }, [packages]);
+
+  const pharmaciesRef    = useRef<Pharmacy[]>(pharmacies);
+  useEffect(() => { pharmaciesRef.current = pharmacies; }, [pharmacies]);
+
+  const scanPharmacyRef  = useRef<string | null>(null);
+  useEffect(() => { scanPharmacyRef.current = scanPharmacyId ?? courierPharmacyIds[0] ?? null; }, [scanPharmacyId, courierPharmacyIds]);
 
   const handleNewScan = useCallback(async (address: Address) => {
     const currentSession = getSession();
-    const isKoerier = currentSession?.user?.role === UserRole.COURIER;
+    const isKoerier  = currentSession?.user?.role === UserRole.COURIER;
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
-    const pharmacyId = currentSession?.user?.pharmacyId ?? currentPharmacy.id;
+    const pharmacyId = isKoerier
+      ? (scanPharmacyRef.current ?? currentSession?.user?.pharmacyId ?? currentPharmacy.id)
+      : (currentSession?.user?.pharmacyId ?? currentPharmacy.id);
+    const pharmacyName = isKoerier
+      ? (pharmaciesRef.current.find(p => p.id === pharmacyId)?.name ?? currentPharmacy.name)
+      : currentPharmacy.name;
 
     // Atomisch scanNumber — ref verhoogt direct zodat parallelle aanroepen altijd unieke nummers krijgen
     const scanNumber = nextScanNumberRef.current++;
@@ -301,7 +318,7 @@ const App: React.FC = () => {
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId,
-      pharmacyName: currentPharmacy.name,
+      pharmacyName,
       address,
       status: isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
       courierId,
@@ -451,6 +468,8 @@ const App: React.FC = () => {
     if (toArchive.length > 0) {
       updateMultipleStatus(toArchive.map(p => p.id), PackageStatus.REMOVED);
     }
+    setCourierPharmacyIds([]);
+    setScanPharmacyId(null);
   }, [packages, session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
@@ -705,20 +724,26 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
         {/* COURIER — eigen rit, scannen en route plannen */}
         {role === UserRole.COURIER && (
           <CourierView
-            packages={visiblePackages.filter(p =>
-              !courierActivePharmacyId || p.pharmacyId === courierActivePharmacyId
-            )}
+            packages={visiblePackages}
             onUpdate={() => {}}
             onUpdateMany={updateMultipleStatus}
-            pharmacyName={courierActivePharmacyId
-              ? (pharmacies.find(p => p.id === courierActivePharmacyId)?.name ?? currentPharmacy.name)
-              : currentPharmacy.name}
-            pharmacyAddress={currentPharmacy.address}
+            pharmacyName={courierPharmacyIds.length === 1
+              ? (pharmacies.find(p => p.id === courierPharmacyIds[0])?.name ?? currentPharmacy.name)
+              : courierPharmacyIds.length > 1
+                ? `${courierPharmacyIds.length} apotheken`
+                : currentPharmacy.name}
+            pharmacyAddress={courierPharmacyIds.length === 1
+              ? pharmacies.find(p => p.id === courierPharmacyIds[0])?.address
+              : undefined}
+            activePharmacyNames={courierPharmacyIds
+              .map(id => pharmacies.find(p => p.id === id)?.name)
+              .filter(Boolean) as string[]}
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
             onNewRit={handleNewRit}
+            onAddPharmacy={() => setShowAddPharmacy(true)}
           />
         )}
 
@@ -747,6 +772,64 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
           onScanComplete={({ address }) => handleNewScan(address)}
           onCancel={() => setShowScanner(false)}
         />
+      )}
+
+      {/* Apotheek-switcher tijdens scannen */}
+      {showPharmacySwitcher && (
+        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm">
+            <h3 className="font-display font-black text-[#191c1e] mb-4">Voor welke apotheek scan je?</h3>
+            {courierPharmacyIds.map(id => {
+              const pharm = pharmacies.find(p => p.id === id);
+              if (!pharm) return null;
+              return (
+                <button key={id} onClick={() => { setScanPharmacyId(id); setShowPharmacySwitcher(false); }}
+                  className={`w-full p-4 rounded-2xl mb-3 text-left font-display font-bold text-sm transition-all active:scale-[0.98] ${scanPharmacyId === id ? 'bg-[#006b5a] text-white' : 'bg-[#f2f4f6] text-[#191c1e]'}`}>
+                  {pharm.name}{scanPharmacyId === id ? ' ✓' : ''}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Apotheek toevoegen aan rit */}
+      {showAddPharmacy && role === UserRole.COURIER && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="bg-white w-full rounded-t-3xl p-6 pb-10">
+            <h3 className="font-display font-black text-[#191c1e] text-lg mb-1">Apotheek toevoegen aan rit</h3>
+            <p className="text-sm text-[#3d4945] mb-6">Kies een apotheek waar je pakketten ophaalt</p>
+            <div className="space-y-3 mb-6">
+              {pharmacies.filter(p => !courierPharmacyIds.includes(p.id)).map(pharmacy => (
+                <button key={pharmacy.id}
+                  onClick={() => {
+                    setCourierPharmacyIds(prev => {
+                      const updated = [...prev, pharmacy.id];
+                      if (prev.length === 0) setScanPharmacyId(pharmacy.id);
+                      return updated;
+                    });
+                    setShowAddPharmacy(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl active:scale-[0.98] transition-all">
+                  <div className="w-10 h-10 rounded-xl bg-[#48c2a9]/20 flex items-center justify-center">
+                    <Building2 size={20} className="text-[#006b5a]" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-display font-black text-[#191c1e] text-sm">{pharmacy.name}</p>
+                    {pharmacy.address && <p className="text-xs text-[#3d4945]">{pharmacy.address}</p>}
+                  </div>
+                </button>
+              ))}
+              {pharmacies.filter(p => !courierPharmacyIds.includes(p.id)).length === 0 && (
+                <p className="text-sm text-[#3d4945] text-center py-4">Alle apotheken zijn al toegevoegd aan je rit</p>
+              )}
+            </div>
+            <button onClick={() => setShowAddPharmacy(false)}
+              className="w-full h-12 rounded-full border border-[#48c2a9]/30 text-[#3d4945] font-display font-bold text-sm">
+              Annuleren
+            </button>
+          </div>
+        </div>
       )}
 
       {showManualForm && (

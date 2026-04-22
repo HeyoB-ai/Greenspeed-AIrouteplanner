@@ -4,7 +4,7 @@ import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed,
-  Map as MapIcon, RefreshCw, Building2, Trash2
+  Map as MapIcon, RefreshCw, Building2, Trash2, Plus
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -19,6 +19,8 @@ interface Props {
   onOptimize?: (selectedIds: string[], startFrom?: 'pharmacy' | 'current', returnTo?: 'pharmacy' | 'none') => void;
   isOptimizing?: boolean;
   onNewRit?: () => void;
+  onAddPharmacy?: () => void;
+  activePharmacyNames?: string[];
 }
 
 interface Stop {
@@ -67,6 +69,8 @@ const CourierView: React.FC<Props> = ({
   onOptimize,
   isOptimizing = false,
   onNewRit,
+  onAddPharmacy,
+  activePharmacyNames,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -252,8 +256,28 @@ const CourierView: React.FC<Props> = ({
               Invoeren
             </button>
           )}
+          {onAddPharmacy && (
+            <button
+              onClick={onAddPharmacy}
+              className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+            >
+              <Plus size={14} />
+              Apotheek
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Actieve apotheken */}
+      {activePharmacyNames && activePharmacyNames.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {activePharmacyNames.map(name => (
+            <span key={name} className="text-xs font-bold px-3 py-1 bg-[#48c2a9]/15 text-[#006b5a] rounded-full">
+              ✓ {name}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── Wachtende pakketten ── */}
       {pendingPackages.length > 0 && (
