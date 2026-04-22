@@ -7,20 +7,82 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 const DELIVERED_STATUSES = ['BEZORGD', 'BRIEVENBUS', 'BIJ BUREN', 'ANDERE LOCATIE'];
 const DELAYED_STATUSES   = ['RETOUR APOTHEEK', 'MISLUKT', 'VERHUISD', 'FAILED', 'RETURN'];
 
-function toResultString(status: string, verwachte_leverdatum: string | null): string {
-  const s = (status ?? '').toUpperCase();
-  if (DELIVERED_STATUSES.some(d => s.includes(d))) return 'De zending is bezorgd.';
-  if (DELAYED_STATUSES.some(d => s.includes(d)))   return 'De zending heeft helaas vertraging.';
-  const datum = verwachte_leverdatum ?? 'onbekende datum';
+const DAYS    = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+const MONTHS  = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+const NUMBERS = ['nul','één','twee','drie','vier','vijf','zes','zeven','acht','negen','tien',
+                 'elf','twaalf','dertien','veertien','kwartier','zestien','zeventien','achttien','negentien','twintig',
+                 'eenentwintig','tweeëntwintig','drieëntwintig','vierentwintig'];
+
+function dutchDate(iso: string): string {
+  const d = new Date(iso);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function dutchTime(iso: string): string {
+  const d   = new Date(iso);
+  const h   = d.getHours();
+  const min = d.getMinutes();
+
+  let timeStr: string;
+  if (min === 0) {
+    timeStr = `${NUMBERS[h] ?? h} uur`;
+  } else if (min === 30) {
+    timeStr = `half ${NUMBERS[h + 1] ?? (h + 1)}`;
+  } else if (min === 15) {
+    timeStr = `kwart over ${NUMBERS[h] ?? h}`;
+  } else if (min === 45) {
+    timeStr = `kwart voor ${NUMBERS[h + 1] ?? (h + 1)}`;
+  } else {
+    timeStr = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+
+  let suffix: string;
+  if (h >= 6  && h < 12) suffix = "'s ochtends";
+  else if (h >= 12 && h < 18) suffix = "'s middags";
+  else if (h >= 18)            suffix = "'s avonds";
+  else                         suffix = "'s nachts";
+
+  return `${timeStr} ${suffix}`;
+}
+
+function buildResultString(data: any): string {
+  const status = (data.status ?? '').toUpperCase();
+  const evidence = data.deliveryEvidence ?? {};
+
+  // Bepaal afleverlocatie uit deliveryEvidence
+  let locatie = '';
+  if (data.status === 'BRIEVENBUS') {
+    locatie = ' in de brievenbus';
+  } else if (data.status === 'BIJ BUREN') {
+    locatie = evidence.deliveryNote ? ` bij de buren (${evidence.deliveryNote})` : ' bij de buren';
+  } else if (data.status === 'ANDERE LOCATIE' && evidence.deliveryNote) {
+    locatie = ` op een andere locatie: ${evidence.deliveryNote}`;
+  } else if (evidence.notHomeOption) {
+    locatie = `: ${evidence.notHomeOption}`;
+  } else if (evidence.deliveryNote) {
+    locatie = ` — opmerking: ${evidence.deliveryNote}`;
+  }
+
+  if (DELIVERED_STATUSES.some(d => status.includes(d))) {
+    if (data.deliveredAt) {
+      return `De zending is bezorgd op ${dutchDate(data.deliveredAt)} om ${dutchTime(data.deliveredAt)}${locatie}.`;
+    }
+    return `De zending is bezorgd${locatie}.`;
+  }
+
+  if (DELAYED_STATUSES.some(d => status.includes(d))) {
+    return 'De zending heeft helaas vertraging opgelopen. Een collega neemt contact met u op.';
+  }
+
+  // Onderweg
+  const datum = data.createdAt ? dutchDate(data.createdAt) : 'onbekende datum';
   return `De zending is onderweg en wordt verwacht op ${datum}.`;
 }
 
 function vapiResponse(toolCallId: string | null, result: string) {
-  // Vapi server-tool webhook verwacht results array met toolCallId
   if (toolCallId) {
     return JSON.stringify({ results: [{ toolCallId, result }] });
   }
-  // Fallback voor directe test-calls zonder Vapi wrapper
   return JSON.stringify({ result });
 }
 
@@ -31,7 +93,6 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-// Postcode normalisaties: "3513GX" → ["3513GX", "3513 GX"]
 function postcodeVariants(raw: string): string[] {
   const clean = raw.replace(/\s/g, '').toUpperCase();
   const withSpace = clean.length === 6 ? `${clean.slice(0, 4)} ${clean.slice(4)}` : clean;
@@ -58,8 +119,6 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body ?? '{}');
-
-    // Vapi stuurt parameters genest in message.toolCalls[0]
     const toolCall = body?.message?.toolCalls?.[0]
                   ?? body?.message?.toolCallList?.[0];
     toolCallId = toolCall?.id ?? null;
@@ -92,13 +151,14 @@ export const handler: Handler = async (event) => {
     for (const variant of variants) {
       const { data: row, error } = await supabase
         .from('packages')
-        .select('id, status, createdAt, deliveredAt')
+        .select('id, status, createdAt, deliveredAt, deliveryEvidence')
         .filter('address->>postalCode', 'ilike', variant)
         .filter('address->>houseNumber', 'ilike', huisnummer)
         .order('createdAt', { ascending: false })
         .limit(1)
         .maybeSingle();
 
+      if (row) console.log('VOLLEDIGE ROW:', JSON.stringify(row));
       console.log(`[track-and-trace] Query variant "${variant}":`, { row, error });
 
       if (error) { queryError = error; break; }
@@ -118,13 +178,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers: CORS_HEADERS, body };
     }
 
-    const verwachte_leverdatum = data.deliveredAt
-      ? data.deliveredAt.split('T')[0]
-      : data.createdAt
-        ? data.createdAt.split('T')[0]
-        : null;
-
-    const result = toResultString(data.status, verwachte_leverdatum);
+    const result = buildResultString(data);
     const body = vapiResponse(toolCallId, result);
     console.log('[track-and-trace] RESPONSE NAAR VAPI:', body);
 
