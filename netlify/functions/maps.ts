@@ -17,7 +17,32 @@ export const handler: Handler = async (event) => {
     };
   }
   try {
-    const { origin, destination, waypoints } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}');
+
+    // Geocode actie: converteer adressen naar lat/lng
+    if (body.action === 'geocode') {
+      const { addresses } = body as { addresses: string[] };
+      console.log('[Maps] Geocoderen van', addresses.length, 'adressen');
+      const results = await Promise.all(
+        addresses.map(async (addr: string) => {
+          const url = `https://maps.googleapis.com/maps/api/geocode/json` +
+            `?address=${encodeURIComponent(addr)}&key=${GOOGLE_MAPS_API_KEY}`;
+          const r = await fetch(url);
+          const d = await r.json();
+          if (d.status === 'OK') return d.results[0].geometry.location as { lat: number; lng: number };
+          console.warn('[Maps] Geocode mislukt voor:', addr, d.status);
+          return null;
+        })
+      );
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results }),
+      };
+    }
+
+    // Directions actie: route optimalisatie
+    const { origin, destination, waypoints } = body;
     const params = new URLSearchParams({
       origin,
       destination,

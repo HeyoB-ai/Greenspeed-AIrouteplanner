@@ -210,6 +210,91 @@ export async function optimizeRoute(
   }
 }
 
+type GeoStop = Address & { id: string; lat: number; lng: number };
+
+function clusterByGeography(stops: GeoStop[], maxClusterSize = 23): GeoStop[][] {
+  const k = Math.ceil(stops.length / maxClusterSize);
+  if (k === 1) return [stops];
+
+  const centroids = stops
+    .filter((_, i) => i % Math.floor(stops.length / k) === 0)
+    .slice(0, k)
+    .map(s => ({ lat: s.lat, lng: s.lng }));
+
+  let assignments = new Array(stops.length).fill(0);
+  for (let iter = 0; iter < 5; iter++) {
+    assignments = stops.map(stop => {
+      let minDist = Infinity, nearest = 0;
+      centroids.forEach((c, ci) => {
+        const d = (stop.lat - c.lat) ** 2 + (stop.lng - c.lng) ** 2;
+        if (d < minDist) { minDist = d; nearest = ci; }
+      });
+      return nearest;
+    });
+    centroids.forEach((_, ci) => {
+      const members = stops.filter((_, i) => assignments[i] === ci);
+      if (!members.length) return;
+      centroids[ci] = {
+        lat: members.reduce((s, m) => s + m.lat, 0) / members.length,
+        lng: members.reduce((s, m) => s + m.lng, 0) / members.length,
+      };
+    });
+  }
+
+  const clusters: GeoStop[][] = Array.from({ length: k }, () => []);
+  stops.forEach((stop, i) => clusters[assignments[i]].push(stop));
+
+  const result: GeoStop[][] = [];
+  clusters.forEach(cluster => {
+    if (cluster.length <= maxClusterSize) {
+      result.push(cluster);
+    } else {
+      result.push(...clusterByGeography(cluster, maxClusterSize));
+    }
+  });
+
+  return result.filter(c => c.length > 0);
+}
+
+function orderClusters(clusters: GeoStop[][], startCoord?: { lat: number; lng: number }): GeoStop[][] {
+  if (clusters.length <= 1) return clusters;
+
+  const centroids = clusters.map(c => ({
+    lat: c.reduce((s, p) => s + p.lat, 0) / c.length,
+    lng: c.reduce((s, p) => s + p.lng, 0) / c.length,
+  }));
+
+  const visited = new Set<number>();
+  const ordered: number[] = [];
+  let current = 0;
+
+  if (startCoord) {
+    let minDist = Infinity;
+    centroids.forEach((c, i) => {
+      const d = (c.lat - startCoord.lat) ** 2 + (c.lng - startCoord.lng) ** 2;
+      if (d < minDist) { minDist = d; current = i; }
+    });
+  }
+
+  visited.add(current);
+  ordered.push(current);
+
+  while (visited.size < clusters.length) {
+    let nearest = -1, minDist = Infinity;
+    centroids.forEach((c, i) => {
+      if (visited.has(i)) return;
+      const d = (c.lat - centroids[current].lat) ** 2 + (c.lng - centroids[current].lng) ** 2;
+      if (d < minDist) { minDist = d; nearest = i; }
+    });
+    if (nearest === -1) break;
+    visited.add(nearest);
+    ordered.push(nearest);
+    current = nearest;
+  }
+
+  return ordered.map(i => clusters[i]);
+}
+
 async function optimizeBatch(
   addresses: (Address & { id: string })[],
   startAddress?: string | null,
@@ -219,13 +304,41 @@ async function optimizeBatch(
     return await optimizeSingleBatch(addresses, startAddress, endAddress);
   }
 
-  const mid = Math.ceil(addresses.length / 2);
-  const [order1, order2] = await Promise.all([
-    optimizeSingleBatch(addresses.slice(0, mid), startAddress, endAddress),
-    optimizeSingleBatch(addresses.slice(mid)),
-  ]);
+  console.log('[Route] Geocoderen van', addresses.length, 'adressen voor clustering...');
 
-  return [...order1, ...order2];
+  const geocodeResponse = await fetch('/.netlify/functions/maps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'geocode',
+      addresses: addresses.map(a =>
+        `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`
+      ),
+    }),
+  });
+  const { results } = await geocodeResponse.json() as { results: ({ lat: number; lng: number } | null)[] };
+
+  const geoStops: GeoStop[] = addresses
+    .map((a, i) => results[i] ? { ...a, lat: results[i]!.lat, lng: results[i]!.lng } : null)
+    .filter((x): x is GeoStop => x !== null);
+
+  const startCoord = results[0] ?? undefined;
+  const rawClusters  = clusterByGeography(geoStops, 23);
+  const orderedClusters = orderClusters(rawClusters, startCoord ?? undefined);
+
+  console.log('[Route] Clusters na geografisch groeperen:', orderedClusters.map(c => c.length).join(' / '), 'stops');
+
+  const orderedIds: string[] = [];
+  for (let ci = 0; ci < orderedClusters.length; ci++) {
+    const clusterIds = await optimizeSingleBatch(
+      orderedClusters[ci],
+      ci === 0 ? startAddress : null,
+      ci === orderedClusters.length - 1 ? endAddress : null,
+    );
+    orderedIds.push(...clusterIds);
+  }
+
+  return [...new Set(orderedIds)];
 }
 
 async function optimizeSingleBatch(
