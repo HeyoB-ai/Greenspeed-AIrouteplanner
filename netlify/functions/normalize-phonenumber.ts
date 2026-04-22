@@ -20,7 +20,10 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body ?? '{}');
-    nummer = (body.nummer ?? '').toString();
+    const vapiArgs = body?.message?.toolCalls?.[0]?.function?.arguments
+                  ?? body?.message?.toolCallList?.[0]?.function?.arguments;
+    const args = vapiArgs ?? body;
+    nummer = (args.nummer ?? '').toString();
   } catch {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Ongeldige invoer' }) };
   }
