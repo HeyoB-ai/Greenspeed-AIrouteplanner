@@ -11,6 +11,13 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+// Postcode normalisaties: "3513GX" → ["3513GX", "3513 GX"]
+function postcodeVariants(raw: string): string[] {
+  const clean = raw.replace(/\s/g, '').toUpperCase();
+  const withSpace = clean.length === 6 ? `${clean.slice(0, 4)} ${clean.slice(4)}` : clean;
+  return Array.from(new Set([clean, withSpace]));
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
@@ -30,7 +37,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body ?? '{}');
-    postcode   = (body.postcode   ?? '').replace(/\s/g, '').toUpperCase();
+    postcode   = (body.postcode   ?? '').trim();
     huisnummer = (body.huisnummer ?? '').trim();
   } catch {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Ongeldige JSON body' }) };
@@ -40,26 +47,40 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'postcode en huisnummer zijn verplicht' }) };
   }
 
+  const variants = postcodeVariants(postcode);
+  console.log('[track-and-trace] Zoeken op:', { postcode, huisnummer, variants });
+
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { data, error } = await supabase
-      .from('packages')
-      .select('id, status, createdAt, deliveredAt')
-      .filter('address->>postalCode', 'eq', postcode)
-      .filter('address->>houseNumber', 'eq', huisnummer)
-      .order('createdAt', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    let data: any = null;
+    let queryError: any = null;
 
-    if (error) {
-      console.error('[track-and-trace] Supabase fout:', error.message);
+    for (const variant of variants) {
+      const { data: row, error } = await supabase
+        .from('packages')
+        .select('id, status, createdAt, deliveredAt')
+        .filter('address->>postalCode', 'ilike', variant)
+        .filter('address->>houseNumber', 'ilike', huisnummer)
+        .order('createdAt', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      console.log(`[track-and-trace] Query variant "${variant}":`, { row, error });
+
+      if (error) { queryError = error; break; }
+      if (row)   { data = row; break; }
+    }
+
+    if (queryError) {
+      console.error('[track-and-trace] Supabase fout:', queryError.message);
       return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Technische fout' }) };
     }
 
     if (!data) {
+      console.log('[track-and-trace] Geen resultaat gevonden voor alle varianten');
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
