@@ -11,6 +11,10 @@ import {
   buildHeatmapPoints,
   Period,
 } from '../services/archiveService';
+import {
+  Package, CheckCircle2, MailCheck, Users, Undo2,
+  XCircle, MapPin, TrendingUp, BarChart3, LayoutGrid,
+} from 'lucide-react';
 
 // Fix Leaflet default icon paths broken by Vite bundling
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -33,17 +37,25 @@ const TABS: { key: Period; label: string }[] = [
   { key: 'year',      label: 'Afgelopen jaar'  },
 ];
 
-const STAT_CARDS = (s: ReturnType<typeof calculateStats>) => [
-  { label: 'Totaal',         value: s.totalPackages,       icon: '📦' },
-  { label: 'Bezorgd',        value: s.delivered,           icon: '✅' },
-  { label: 'Brievenbus',     value: s.mailbox,             icon: '📬' },
-  { label: 'Bij buren',      value: s.neighbour,           icon: '🏠' },
-  { label: 'Retour',         value: s.returned,            icon: '🔙' },
-  { label: 'Mislukt',        value: s.failed,              icon: '❌' },
-  { label: 'Verhuisd',       value: s.moved,               icon: '📦' },
-  { label: 'Andere locatie', value: s.otherLocation,       icon: '🏥' },
-  { label: 'Bezorgd %',      value: `${s.deliveryRate}%`,  icon: '📊' },
-  { label: 'Gem. per dag',   value: s.avgPerDay,           icon: '📅' },
+type StatCard = {
+  label: string;
+  value: number | string;
+  Icon:  React.ElementType;
+  iconBg:    string;
+  iconColor: string;
+};
+
+const STAT_CARDS = (s: ReturnType<typeof calculateStats>): StatCard[] => [
+  { label: 'Totaal',         value: s.totalPackages,      Icon: Package,      iconBg: 'bg-[#f2f4f6]',       iconColor: 'text-[#3d4945]'   },
+  { label: 'Bezorgd',        value: s.delivered,          Icon: CheckCircle2, iconBg: 'bg-[#48c2a9]/15',    iconColor: 'text-[#006b5a]'   },
+  { label: 'Brievenbus',     value: s.mailbox,            Icon: MailCheck,    iconBg: 'bg-[#48c2a9]/15',    iconColor: 'text-[#006b5a]'   },
+  { label: 'Bij buren',      value: s.neighbour,          Icon: Users,        iconBg: 'bg-[#48c2a9]/15',    iconColor: 'text-[#006b5a]'   },
+  { label: 'Retour',         value: s.returned,           Icon: Undo2,        iconBg: 'bg-red-50',           iconColor: 'text-red-500'     },
+  { label: 'Mislukt',        value: s.failed,             Icon: XCircle,      iconBg: 'bg-red-50',           iconColor: 'text-red-500'     },
+  { label: 'Verhuisd',       value: s.moved,              Icon: MapPin,       iconBg: 'bg-[#f2f4f6]',       iconColor: 'text-[#3d4945]'   },
+  { label: 'Andere locatie', value: s.otherLocation,      Icon: LayoutGrid,   iconBg: 'bg-[#f2f4f6]',       iconColor: 'text-[#3d4945]'   },
+  { label: 'Bezorgd %',      value: `${s.deliveryRate}%`, Icon: TrendingUp,   iconBg: 'bg-[#253046]/10',     iconColor: 'text-[#253046]'   },
+  { label: 'Gem. per dag',   value: s.avgPerDay,          Icon: BarChart3,    iconBg: 'bg-[#253046]/10',     iconColor: 'text-[#253046]'   },
 ];
 
 const MapBounds: React.FC<{ points: HeatmapPoint[] }> = ({ points }) => {
@@ -152,12 +164,14 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
         {STAT_CARDS(stats).map(card => (
           <div
             key={card.label}
-            className="bg-white rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white rounded-2xl p-5"
             style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}
           >
-            <div className="text-2xl mb-2">{card.icon}</div>
-            <div className="text-2xl font-display font-black text-[#191c1e]">{card.value}</div>
-            <div className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest mt-1">{card.label}</div>
+            <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center mb-4`}>
+              <card.Icon size={20} className={card.iconColor} />
+            </div>
+            <p className="text-2xl font-display font-black text-[#191c1e] leading-none mb-1">{card.value}</p>
+            <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest">{card.label}</p>
           </div>
         ))}
       </div>
@@ -212,11 +226,15 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
             <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
               {notHomePkgs.map(p => (
                 <div key={p.id} className="px-5 py-3 flex items-start gap-3">
-                  <div className="shrink-0 mt-0.5">
-                    {p.status === PackageStatus.MOVED          && <span className="text-base">📦</span>}
-                    {p.status === PackageStatus.OTHER_LOCATION && <span className="text-base">🏥</span>}
-                    {p.status === PackageStatus.RETURN         && <span className="text-base">🔙</span>}
-                    {p.status === PackageStatus.FAILED         && <span className="text-base">❌</span>}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    p.status === PackageStatus.RETURN  ? 'bg-amber-50'      :
+                    p.status === PackageStatus.FAILED  ? 'bg-red-50'        :
+                    'bg-[#f2f4f6]'
+                  }`}>
+                    {p.status === PackageStatus.MOVED          && <MapPin  size={14} className="text-[#3d4945]" />}
+                    {p.status === PackageStatus.OTHER_LOCATION && <LayoutGrid size={14} className="text-[#3d4945]" />}
+                    {p.status === PackageStatus.RETURN         && <Undo2   size={14} className="text-amber-600" />}
+                    {p.status === PackageStatus.FAILED         && <XCircle size={14} className="text-red-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-display font-black text-[#191c1e] leading-tight truncate">
@@ -279,7 +297,9 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
             {heatmapPoints.length === 0 ? (
               <div className="h-80 flex items-center justify-center">
                 <div className="text-center text-[#3d4945]/50">
-                  <p className="text-3xl mb-2">📍</p>
+                  <div className="w-12 h-12 bg-[#f2f4f6] rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <MapPin size={22} className="text-[#3d4945]/40" />
+                  </div>
                   <p className="font-display font-black text-sm">Geen GPS-data voor deze periode</p>
                   <p className="text-xs font-body mt-1">
                     GPS-locatie wordt opgeslagen bij bezorging via de koeriers-app
