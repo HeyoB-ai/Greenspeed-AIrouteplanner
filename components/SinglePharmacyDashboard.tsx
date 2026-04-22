@@ -140,17 +140,50 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
     if (!conv.isRead && onMarkConversationRead) onMarkConversationRead(conv.id);
   };
 
-  const today     = new Date().toDateString();
-  const inTransit = packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP);
-  const delivered = packages.filter(p => p.status === PackageStatus.DELIVERED);
-  const failed    = packages.filter(p => p.status === PackageStatus.FAILED);
-  const todayPkgs = packages.filter(p => new Date(p.createdAt).toDateString() === today);
+  const [statsPeriod, setStatsPeriod] = useState<'today' | 'week' | 'all'>('today');
+
+  const statPackages = useMemo(() => {
+    const now = new Date();
+    return packages.filter(p => {
+      if (p.status === PackageStatus.REMOVED) return false;
+      if (statsPeriod === 'today') {
+        return new Date(p.createdAt).toDateString() === now.toDateString();
+      }
+      if (statsPeriod === 'week') {
+        const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+        return new Date(p.createdAt) >= weekAgo;
+      }
+      return true;
+    });
+  }, [packages, statsPeriod]);
 
   const stats = [
-    { label: 'Vandaag',    val: todayPkgs.length, icon: Package       },
-    { label: 'In transit', val: inTransit.length, icon: Truck         },
-    { label: 'Afgeleverd', val: delivered.length, icon: CheckCircle2  },
-    { label: 'Mislukt',    val: failed.length,    icon: AlertTriangle },
+    {
+      label: 'Aangemaakt',
+      val:   statPackages.length,
+      icon:  Package,
+    },
+    {
+      label: 'In transit',
+      val:   statPackages.filter(p =>
+        [PackageStatus.PENDING, PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(p.status)
+      ).length,
+      icon: Truck,
+    },
+    {
+      label: 'Afgeleverd',
+      val:   statPackages.filter(p =>
+        [PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR, PackageStatus.BILLED].includes(p.status)
+      ).length,
+      icon: CheckCircle2,
+    },
+    {
+      label: 'Niet bezorgd',
+      val:   statPackages.filter(p =>
+        [PackageStatus.FAILED, PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION].includes(p.status)
+      ).length,
+      icon: AlertTriangle,
+    },
   ];
 
   const activeCouriers = useMemo(() => {
@@ -184,6 +217,28 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   return (
     <>
       <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-24 lg:pb-8">
+
+        {/* Periode filter */}
+        <div className="flex gap-2">
+          {([
+            { key: 'today', label: 'Vandaag'     },
+            { key: 'week',  label: 'Deze week'   },
+            { key: 'all',   label: 'Alles'       },
+          ] as const).map(p => (
+            <button
+              key={p.key}
+              onClick={() => setStatsPeriod(p.key)}
+              className={`px-4 h-8 rounded-full text-xs font-display font-bold transition-all active:scale-95 ${
+                statsPeriod === p.key
+                  ? 'text-white'
+                  : 'bg-[#f2f4f6] text-[#3d4945]'
+              }`}
+              style={statsPeriod === p.key ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : {}}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
