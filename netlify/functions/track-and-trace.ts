@@ -4,8 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
-const DELIVERED_STATUSES = ['BEZORGD', 'BRIEVENBUS', 'BIJ BUREN', 'ANDERE LOCATIE'];
-const DELAYED_STATUSES   = ['RETOUR APOTHEEK', 'MISLUKT', 'VERHUISD', 'FAILED', 'RETURN'];
+const DELIVERED_STATUSES  = ['BEZORGD', 'BRIEVENBUS', 'BIJ BUREN', 'ANDERE LOCATIE'];
+const RETOUR_STATUSES     = ['RETOUR APOTHEEK', 'RETOUR', 'RETURN', 'NIET_THUIS', 'NIET THUIS', 'MISLUKT', 'FAILED'];
+const VERTRAAGD_STATUSES  = ['VERHUISD'];
 
 const DAYS    = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const MONTHS  = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
@@ -46,37 +47,51 @@ function dutchTime(iso: string): string {
 }
 
 function buildResultString(data: any): string {
-  const status = (data.status ?? '').toUpperCase();
+  const status   = (data.status ?? '').toUpperCase();
   const evidence = data.deliveryEvidence ?? {};
 
-  // Bepaal afleverlocatie uit deliveryEvidence
+  // Bepaal tijdstip van bezorgpoging (deliveryEvidence.timestamp heeft voorrang)
+  const pogingTs = evidence.timestamp ?? data.deliveredAt ?? null;
+
+  // Bepaal afleverlocatie
   let locatie = '';
-  if (data.status === 'BRIEVENBUS') {
+  if (status === 'BRIEVENBUS') {
     locatie = ' in de brievenbus';
-  } else if (data.status === 'BIJ BUREN') {
+  } else if (status === 'BIJ BUREN') {
     locatie = evidence.deliveryNote ? ` bij de buren (${evidence.deliveryNote})` : ' bij de buren';
-  } else if (data.status === 'ANDERE LOCATIE' && evidence.deliveryNote) {
+  } else if (status === 'ANDERE LOCATIE' && evidence.deliveryNote) {
     locatie = ` op een andere locatie: ${evidence.deliveryNote}`;
   } else if (evidence.notHomeOption) {
     locatie = `: ${evidence.notHomeOption}`;
   } else if (evidence.deliveryNote) {
-    locatie = ` — opmerking: ${evidence.deliveryNote}`;
+    locatie = ` — ${evidence.deliveryNote}`;
   }
 
+  // BEZORGD
   if (DELIVERED_STATUSES.some(d => status.includes(d))) {
     if (data.deliveredAt) {
-      return `De zending is bezorgd op ${dutchDate(data.deliveredAt)} om ${dutchTime(data.deliveredAt)}${locatie}.`;
+      return `Uw zending is bezorgd op ${dutchDate(data.deliveredAt)} om ${dutchTime(data.deliveredAt)}${locatie}.`;
     }
-    return `De zending is bezorgd${locatie}.`;
+    return `Uw zending is bezorgd${locatie}.`;
   }
 
-  if (DELAYED_STATUSES.some(d => status.includes(d))) {
+  // RETOUR / NIET THUIS
+  if (RETOUR_STATUSES.some(d => status.includes(d))) {
+    if (pogingTs) {
+      return `De koerier is langs geweest op ${dutchDate(pogingTs)} om ${dutchTime(pogingTs)} maar er was niemand thuis. De zending is retour gegaan naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.`;
+    }
+    return 'De koerier is langs geweest maar er was niemand thuis. De zending is retour gegaan naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.';
+  }
+
+  // VERTRAAGD
+  if (VERTRAAGD_STATUSES.some(d => status.includes(d))) {
     return 'De zending heeft helaas vertraging opgelopen. Een collega neemt contact met u op.';
   }
 
-  // Onderweg
+  // ONDERWEG (of onbekende status)
+  console.log('ONBEKENDE STATUS:', data.status);
   const datum = data.createdAt ? dutchDate(data.createdAt) : 'onbekende datum';
-  return `De zending is onderweg en wordt verwacht op ${datum}.`;
+  return `Uw zending is onderweg en wordt verwacht op ${datum}.`;
 }
 
 function vapiResponse(toolCallId: string | null, result: string) {
