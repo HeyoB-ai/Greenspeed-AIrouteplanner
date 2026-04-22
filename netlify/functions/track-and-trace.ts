@@ -43,18 +43,25 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
+  console.log('RAW BODY:', event.body);
+  console.log('HTTP METHOD:', event.httpMethod);
+
   let postcode: string;
   let huisnummer: string;
 
   try {
     const body = JSON.parse(event.body ?? '{}');
+    console.log('PARSED BODY:', JSON.stringify(body));
     postcode   = (body.postcode   ?? '').trim();
     huisnummer = (body.huisnummer ?? '').trim();
+    console.log('INPUT postcode:', postcode);
+    console.log('INPUT huisnummer:', huisnummer);
   } catch {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
   if (!postcode || !huisnummer) {
+    console.log('VROEG AFGEBROKEN: postcode of huisnummer leeg');
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
