@@ -4,9 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
-const DELIVERED_STATUSES  = ['BEZORGD', 'BRIEVENBUS', 'BIJ BUREN', 'ANDERE LOCATIE'];
-const RETOUR_STATUSES     = ['RETOUR APOTHEEK', 'RETOUR', 'RETURN', 'NIET_THUIS', 'NIET THUIS', 'MISLUKT', 'FAILED'];
-const VERTRAAGD_STATUSES  = ['VERHUISD'];
+const DELIVERED_STATUSES  = ['DELIVERED', 'MAILBOX', 'NEIGHBOUR', 'OTHER_LOCATION'];
+const RETOUR_STATUSES     = ['RETURN', 'FAILED'];
+const VERTRAAGD_STATUSES  = ['MOVED'];
 
 const DAYS    = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const MONTHS  = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
@@ -60,11 +60,11 @@ function buildResultString(data: any): string {
 
   // Bepaal afleverlocatie
   let locatie = '';
-  if (status === 'BRIEVENBUS') {
+  if (status === 'MAILBOX') {
     locatie = ' in de brievenbus';
-  } else if (status === 'BIJ BUREN') {
+  } else if (status === 'NEIGHBOUR') {
     locatie = evidence.deliveryNote ? ` bij de buren (${evidence.deliveryNote})` : ' bij de buren';
-  } else if (status === 'ANDERE LOCATIE' && evidence.deliveryNote) {
+  } else if (status === 'OTHER_LOCATION' && evidence.deliveryNote) {
     locatie = ` op een andere locatie: ${evidence.deliveryNote}`;
   } else if (evidence.notHomeOption) {
     locatie = `: ${evidence.notHomeOption}`;

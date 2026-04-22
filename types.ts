@@ -31,19 +31,19 @@ export enum CourierStatus {
 }
 
 export enum PackageStatus {
-  SCANNING  = 'ANALYSEREN...',
-  PENDING   = 'WACHTEN',
-  ASSIGNED  = 'TOEGEWEZEN',
-  PICKED_UP = 'OPGEHAALD',
-  DELIVERED = 'BEZORGD',
-  MAILBOX   = 'BRIEVENBUS',
-  NEIGHBOUR = 'BIJ BUREN',
-  RETURN          = 'RETOUR APOTHEEK',
-  BILLED          = 'GEFACTUREERD',
-  FAILED          = 'MISLUKT',
-  MOVED           = 'VERHUISD',
-  OTHER_LOCATION  = 'ANDERE LOCATIE',
-  REMOVED         = 'removed',
+  SCANNING       = 'SCANNING',
+  PENDING        = 'PENDING',
+  ASSIGNED       = 'ASSIGNED',
+  PICKED_UP      = 'PICKED_UP',
+  DELIVERED      = 'DELIVERED',
+  MAILBOX        = 'MAILBOX',
+  NEIGHBOUR      = 'NEIGHBOUR',
+  RETURN         = 'RETURN',
+  BILLED         = 'BILLED',
+  FAILED         = 'FAILED',
+  MOVED          = 'MOVED',
+  OTHER_LOCATION = 'OTHER_LOCATION',
+  REMOVED        = 'REMOVED',
 }
 
 export interface Address {
