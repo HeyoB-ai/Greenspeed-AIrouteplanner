@@ -361,11 +361,6 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                                   <p className="font-display font-black text-[#191c1e] text-sm truncate">
                                     {p.address.street} {p.address.houseNumber}
                                   </p>
-                                  {p.routeIndex && (
-                                    <span className="shrink-0 bg-[#d7e2fe] text-[#101c30] text-[9px] font-display font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
-                                      →{p.routeIndex}
-                                    </span>
-                                  )}
                                 </div>
                                 <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">
                                   {p.address.postalCode} {p.address.city}

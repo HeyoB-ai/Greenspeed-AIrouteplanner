@@ -285,11 +285,6 @@ const PharmacyView: React.FC<Props> = ({
                           <p className="font-bold text-[#191c1e] text-sm truncate">
                             {p.address.street} {p.address.houseNumber}
                           </p>
-                          {p.routeIndex && (
-                            <span className="shrink-0 bg-[#d7e2fe] text-[#101c30] text-[9px] font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
-                              →{p.routeIndex}
-                            </span>
-                          )}
                         </div>
                         <p className="text-xs text-[#3d4945]/50 mt-0.5">
                           {p.address.postalCode} {p.address.city}
