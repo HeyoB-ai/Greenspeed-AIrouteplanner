@@ -530,10 +530,35 @@ const App: React.FC = () => {
     }
   }, [packages]);
 
+  const BESCHERMDE_STATUSSEN = [
+    PackageStatus.DELIVERED,
+    PackageStatus.MAILBOX,
+    PackageStatus.NEIGHBOUR,
+    PackageStatus.RETURN,
+    PackageStatus.MOVED,
+    PackageStatus.OTHER_LOCATION,
+    PackageStatus.FAILED,
+  ];
+
   const updateMultipleStatus = async (ids: string[], status: PackageStatus, evidence?: DeliveryEvidence) => {
+    // Beschermde statussen mogen nooit overschreven worden door REMOVED
+    const safeIds = status === PackageStatus.REMOVED
+      ? ids.filter(id => {
+          const pkg = packages.find(p => p.id === id);
+          return pkg && !BESCHERMDE_STATUSSEN.includes(pkg.status);
+        })
+      : ids;
+
+    if (safeIds.length < ids.length) {
+      console.warn(
+        `[Status] ${ids.length - safeIds.length} pakket(jes) overgeslagen — beschermde status kan niet overschreven worden door REMOVED`
+      );
+    }
+    if (safeIds.length === 0) return;
+
     const pkgsToSync: Package[] = [];
     const newPackages = packages.map(p => {
-      if (ids.includes(p.id)) {
+      if (safeIds.includes(p.id)) {
         const newEvent: StatusEvent = {
           status,
           timestamp: evidence?.timestamp ?? new Date().toISOString(),
@@ -563,7 +588,8 @@ const App: React.FC = () => {
     const toArchive = packages.filter(p =>
       p.courierId === session?.user.courierId &&
       !isActionable(p) &&
-      p.status !== PackageStatus.REMOVED
+      p.status !== PackageStatus.REMOVED &&
+      !BESCHERMDE_STATUSSEN.includes(p.status)
     );
     if (toArchive.length > 0) {
       updateMultipleStatus(toArchive.map(p => p.id), PackageStatus.REMOVED);

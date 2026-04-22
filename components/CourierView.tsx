@@ -423,7 +423,11 @@ const CourierView: React.FC<Props> = ({
                     Niet thuis
                   </button>
                   <button
-                    onClick={() => onUpdateMany([pkg.id], PackageStatus.REMOVED)}
+                    onClick={() => {
+                      if (confirm('Dit pakket uit de rit verwijderen?')) {
+                        onUpdateMany([pkg.id], PackageStatus.REMOVED);
+                      }
+                    }}
                     disabled={!!isCapturingGPS}
                     className="h-11 w-11 bg-[#f2f4f6] text-[#3d4945] rounded-xl flex items-center justify-center active:scale-95 disabled:opacity-50 transition-all"
                     title="Verwijder uit bezorging"
