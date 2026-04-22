@@ -123,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto w-full">
+        <main className="flex-1 px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto w-full touch-pan-y">
           {children}
         </main>
 
