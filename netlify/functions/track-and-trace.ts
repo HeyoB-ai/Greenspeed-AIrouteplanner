@@ -95,7 +95,15 @@ function buildResultString(data: any): string {
 
   // ONDERWEG (of onbekende status)
   console.log('ONBEKENDE STATUS:', data.status);
-  const datum = data.createdAt ? dutchDate(data.createdAt) : 'onbekende datum';
+  const verwachtTs = data.createdAt ? new Date(data.createdAt) : null;
+  const vandaag    = new Date();
+  vandaag.setHours(0, 0, 0, 0);
+
+  if (verwachtTs && verwachtTs < vandaag) {
+    return `De verwachte leverdatum van uw zending was ${dutchDate(data.createdAt)}, maar de zending is nog niet als bezorgd geregistreerd in ons systeem. Een collega neemt contact met u op om dit uit te zoeken.`;
+  }
+
+  const datum = verwachtTs ? dutchDate(data.createdAt) : 'onbekende datum';
   return `Uw zending is onderweg en wordt verwacht op ${datum}.`;
 }
 
