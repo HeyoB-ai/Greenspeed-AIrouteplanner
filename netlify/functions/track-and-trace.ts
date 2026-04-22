@@ -14,15 +14,20 @@ const NUMBERS = ['nul','één','twee','drie','vier','vijf','zes','zeven','acht',
                  'elf','twaalf','dertien','veertien','kwartier','zestien','zeventien','achttien','negentien','twintig',
                  'eenentwintig','tweeëntwintig','drieëntwintig','vierentwintig'];
 
+const TZ = 'Europe/Amsterdam';
+
 function dutchDate(iso: string): string {
-  const d = new Date(iso);
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const d   = new Date(iso);
+  const dag = new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, weekday: 'long' }).format(d);
+  const num = Number(new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, day: 'numeric' }).format(d));
+  const mnd = Number(new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, month: 'numeric' }).format(d)) - 1;
+  return `${dag} ${num} ${MONTHS[mnd]}`;
 }
 
 function dutchTime(iso: string): string {
   const d   = new Date(iso);
-  const h   = d.getHours();
-  const min = d.getMinutes();
+  const h   = Number(new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, hour: 'numeric',  hour12: false }).format(d));
+  const min = Number(new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, minute: 'numeric' }).format(d));
 
   let timeStr: string;
   if (min === 0) {
