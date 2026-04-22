@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, Archive, X, Map as MapIcon,
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, ChevronDown, Archive, X, Map as MapIcon,
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
@@ -63,6 +63,52 @@ const StatusBadge: React.FC<{ status: PackageStatus }> = ({ status }) => {
   );
 };
 
+// ── Datumgroepering helpers ────────────────────────────────────────────
+function getDateLabel(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const dayBefore  = new Date(today); dayBefore.setDate(today.getDate() - 2);
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 7);
+
+  const dateOnly = new Date(dateStr);
+  dateOnly.setHours(0, 0, 0, 0);
+
+  if (dateOnly.getTime() === today.getTime())     return 'Vandaag';
+  if (dateOnly.getTime() === yesterday.getTime()) return 'Gisteren';
+  if (dateOnly.getTime() === dayBefore.getTime()) return 'Eergisteren';
+  if (dateOnly >= sevenDaysAgo) {
+    return new Date(dateStr).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  return 'Ouder';
+}
+
+function groupByDate<T extends { createdAt: string }>(
+  items: T[]
+): Array<{ label: string; date: Date; items: T[] }> {
+  const groups = new Map<string, { label: string; date: Date; items: T[] }>();
+  items.forEach(item => {
+    const label = getDateLabel(item.createdAt);
+    if (!groups.has(label)) {
+      groups.set(label, { label, date: new Date(item.createdAt), items: [] });
+    }
+    groups.get(label)!.items.push(item);
+  });
+
+  const fixedOrder = ['Vandaag', 'Gisteren', 'Eergisteren'];
+  return Array.from(groups.values()).sort((a, b) => {
+    const ai = fixedOrder.indexOf(a.label);
+    const bi = fixedOrder.indexOf(b.label);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    if (a.label === 'Ouder') return 1;
+    if (b.label === 'Ouder') return -1;
+    return b.date.getTime() - a.date.getTime(); // nieuwste dag eerst
+  });
+}
+
 const SinglePharmacyDashboard: React.FC<Props> = ({
   packages,
   pharmacy,
@@ -77,6 +123,14 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   const [activeCourier, setActiveCourier] = useState<string>('all');
   const [timelinePkg, setTimelinePkg]   = useState<PackageType | null>(null);
   const [showExport, setShowExport]     = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['Ouder']));
+
+  const toggleGroup = (label: string) =>
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -124,6 +178,8 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
     }),
     [filteredPackages]
   );
+
+  const groupedPackages = useMemo(() => groupByDate(sorted), [sorted]);
 
   return (
     <>
@@ -257,60 +313,83 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                   <p className="text-[#3d4945]/60 font-body text-sm mt-1">Scan een label om te beginnen.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl overflow-hidden m-4" style={{ boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                  <div className="flex items-center gap-3 px-4 py-2 bg-[#f7f9fb] border-b border-[#bccac4]/20">
-                    <div className="w-7 shrink-0" />
-                    <p className="flex-1 text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest">Adres</p>
-                    <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest shrink-0">Status</p>
-                  </div>
-                  {sorted.map(p => (
-                    <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-[#f7f9fb] transition-colors border-b border-[#bccac4]/15 last:border-0 cursor-default">
-                      {p.status === PackageStatus.SCANNING ? (
-                        <div className="w-7 h-7 rounded-full bg-[#48c2a9]/15 flex items-center justify-center shrink-0 mt-0.5">
-                          <RefreshCw size={12} className="text-[#006b5a] animate-spin" />
-                        </div>
-                      ) : p.scanNumber ? (
-                        <div className="w-7 h-7 text-white rounded-full flex items-center justify-center text-xs font-display font-black shrink-0 mt-0.5"
-                          style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
-                          {p.scanNumber}
-                        </div>
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-[#f2f4f6] flex items-center justify-center shrink-0 mt-0.5">
-                          <MapPin size={12} className="text-[#3d4945]/50" />
+                <div className="m-4 space-y-2">
+                  {groupedPackages.map(group => (
+                    <div key={group.label}>
+                      {/* Datum groep header */}
+                      <button
+                        onClick={() => toggleGroup(group.label)}
+                        className="flex items-center gap-2 w-full px-1 py-2.5 text-left active:opacity-70 transition-opacity"
+                      >
+                        <ChevronDown
+                          size={14}
+                          className={`text-[#3d4945]/50 transition-transform duration-200 ${collapsedGroups.has(group.label) ? '-rotate-90' : ''}`}
+                        />
+                        <span className="font-display font-black text-sm text-[#191c1e] capitalize">{group.label}</span>
+                        <span className="text-[10px] font-display font-black text-[#3d4945]/50 bg-[#f2f4f6] px-2 py-0.5 rounded-full">
+                          {group.items.length}
+                        </span>
+                        <div className="flex-1 h-px bg-[#f2f4f6]" />
+                      </button>
+
+                      {/* Pakketten van deze dag */}
+                      {!collapsedGroups.has(group.label) && (
+                        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                          <div className="flex items-center gap-3 px-4 py-2 bg-[#f7f9fb] border-b border-[#bccac4]/20">
+                            <div className="w-7 shrink-0" />
+                            <p className="flex-1 text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest">Adres</p>
+                            <p className="text-[10px] font-display font-black text-[#3d4945]/50 uppercase tracking-widest shrink-0">Status</p>
+                          </div>
+                          {group.items.map(p => (
+                            <div key={p.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-[#f7f9fb] transition-colors border-b border-[#bccac4]/15 last:border-0 cursor-default">
+                              {p.status === PackageStatus.SCANNING ? (
+                                <div className="w-7 h-7 rounded-full bg-[#48c2a9]/15 flex items-center justify-center shrink-0 mt-0.5">
+                                  <RefreshCw size={12} className="text-[#006b5a] animate-spin" />
+                                </div>
+                              ) : p.scanNumber ? (
+                                <div className="w-7 h-7 text-white rounded-full flex items-center justify-center text-xs font-display font-black shrink-0 mt-0.5"
+                                  style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}>
+                                  {p.scanNumber}
+                                </div>
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-[#f2f4f6] flex items-center justify-center shrink-0 mt-0.5">
+                                  <MapPin size={12} className="text-[#3d4945]/50" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-display font-black text-[#191c1e] text-sm truncate">
+                                    {p.address.street} {p.address.houseNumber}
+                                  </p>
+                                  {p.routeIndex && (
+                                    <span className="shrink-0 bg-[#d7e2fe] text-[#101c30] text-[9px] font-display font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
+                                      →{p.routeIndex}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">
+                                  {p.address.postalCode} {p.address.city}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <StatusBadge status={p.status} />
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] text-[#3d4945]/50 font-body font-bold">
+                                    {new Date(p.createdAt).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  <button
+                                    onClick={() => setTimelinePkg(p)}
+                                    className="text-[11px] text-[#006b5a] hover:text-[#48c2a9] font-display font-black flex items-center gap-0.5 transition-colors"
+                                  >
+                                    Historie
+                                    <ChevronRight size={10} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-display font-black text-[#191c1e] text-sm truncate">
-                            {p.address.street} {p.address.houseNumber}
-                          </p>
-                          {p.routeIndex && (
-                            <span className="shrink-0 bg-[#d7e2fe] text-[#101c30] text-[9px] font-display font-black px-1.5 py-0.5 rounded-md" title={`Stop ${p.routeIndex} in de route`}>
-                              →{p.routeIndex}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">
-                          {p.address.postalCode} {p.address.city}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <StatusBadge status={p.status} />
-                        <div className="flex items-center gap-2">
-                          {p.statusHistory && p.statusHistory.length > 0 && (
-                            <span className="text-[11px] text-[#3d4945]/50 font-body font-bold">
-                              {new Date(p.statusHistory[p.statusHistory.length - 1].timestamp).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                          <button
-                            onClick={() => setTimelinePkg(p)}
-                            className="text-[11px] text-[#006b5a] hover:text-[#48c2a9] font-display font-black flex items-center gap-0.5 transition-colors"
-                          >
-                            Historie
-                            <ChevronRight size={10} />
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
