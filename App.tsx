@@ -260,6 +260,23 @@ const App: React.FC = () => {
   };
 
   const nextScanNumberRef  = useRef<number>(1);
+  async function geocodeAddress(address: Address): Promise<{ lat: number; lng: number } | null> {
+    try {
+      const res = await fetch('/.netlify/functions/maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'geocode',
+          addresses: [`${address.street} ${address.houseNumber}, ${address.postalCode} ${address.city}, Netherlands`],
+        }),
+      });
+      const { results } = await res.json();
+      return results?.[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   // Ref zodat handleNewScan altijd de actuele packages ziet zonder afhankelijk te zijn
   // van de packages-state in de closure (voorkomt stale-closure race condition bij burst scans)
   const packagesRef = useRef<Package[]>(packages);
@@ -307,6 +324,14 @@ const App: React.FC = () => {
     }
 
     await db.syncPackage(pkg);
+
+    // Geocodeer op de achtergrond — blokkeert de UI niet
+    geocodeAddress(address).then(coords => {
+      if (!coords) return;
+      const updatedPkg = { ...pkg, address: { ...pkg.address, lat: coords.lat, lng: coords.lng } };
+      setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
+      db.syncPackage(updatedPkg).catch(() => {});
+    }).catch(() => {});
   }, [currentPharmacy]); // packages weggelaten — wordt gelezen via packagesRef
 
   const handleOptimizeRoute = useCallback(async (

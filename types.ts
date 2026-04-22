@@ -51,6 +51,8 @@ export interface Address {
   houseNumber: string;
   postalCode: string;
   city: string;
+  lat?: number; // gecached bij inscannen
+  lng?: number; // gecached bij inscannen
 }
 
 export interface DeliveryEvidence {

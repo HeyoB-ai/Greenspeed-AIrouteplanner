@@ -304,41 +304,57 @@ async function optimizeBatch(
     return await optimizeSingleBatch(addresses, startAddress, endAddress);
   }
 
-  console.log('[Route] Geocoderen van', addresses.length, 'adressen voor clustering...');
+  // Splits in reeds geocodeerde en nog te geocoderen adressen
+  const cached   = addresses.filter(a => a.lat != null && a.lng != null);
+  const uncached = addresses.filter(a => a.lat == null || a.lng == null);
 
-  const geocodeResponse = await fetch('/.netlify/functions/maps', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'geocode',
-      addresses: addresses.map(a =>
-        `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`
-      ),
-    }),
-  });
-  const { results } = await geocodeResponse.json() as { results: ({ lat: number; lng: number } | null)[] };
+  console.log(`[Route] ${cached.length} adressen hebben GPS, ${uncached.length} nog te geocoderen`);
 
-  const geoStops: GeoStop[] = addresses
-    .map((a, i) => results[i] ? { ...a, lat: results[i]!.lat, lng: results[i]!.lng } : null)
-    .filter((x): x is GeoStop => x !== null);
+  const withCoords: GeoStop[] = cached.map(a => ({ ...a, lat: a.lat!, lng: a.lng! }));
 
-  const startCoord = results[0] ?? undefined;
-  const rawClusters  = clusterByGeography(geoStops, 23);
-  const orderedClusters = orderClusters(rawClusters, startCoord ?? undefined);
-
-  console.log('[Route] Clusters na geografisch groeperen:', orderedClusters.map(c => c.length).join(' / '), 'stops');
-
-  const orderedIds: string[] = [];
-  for (let ci = 0; ci < orderedClusters.length; ci++) {
-    const clusterIds = await optimizeSingleBatch(
-      orderedClusters[ci],
-      ci === 0 ? startAddress : null,
-      ci === orderedClusters.length - 1 ? endAddress : null,
-    );
-    orderedIds.push(...clusterIds);
+  if (uncached.length > 0) {
+    console.log('[Route] Geocoderen van', uncached.length, 'ontbrekende adressen...');
+    const geocodeResponse = await fetch('/.netlify/functions/maps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'geocode',
+        addresses: uncached.map(a =>
+          `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`
+        ),
+      }),
+    });
+    const { results } = await geocodeResponse.json() as { results: ({ lat: number; lng: number } | null)[] };
+    uncached.forEach((addr, i) => {
+      if (results[i]) withCoords.push({ ...addr, lat: results[i]!.lat, lng: results[i]!.lng });
+    });
   }
 
-  return [...new Set(orderedIds)];
+  // Herstel originele volgorde, houd adressen zonder coords apart als fallback
+  const geoStops = addresses
+    .map(a => withCoords.find(w => w.id === a.id))
+    .filter((x): x is GeoStop => x !== null && x !== undefined);
+  const missingIds = addresses.filter(a => !withCoords.find(w => w.id === a.id)).map(a => a.id);
+
+  if (geoStops.length === 0) return addresses.map(a => a.id);
+
+  const startCoord      = geoStops[0];
+  const rawClusters     = clusterByGeography(geoStops, 23);
+  const orderedClusters = orderClusters(rawClusters, startCoord);
+
+  console.log('[Route]', orderedClusters.length, 'geografische clusters:', orderedClusters.map(c => c.length).join(' / '), 'stops');
+
+  const allIds: string[] = [];
+  for (let i = 0; i < orderedClusters.length; i++) {
+    const ids = await optimizeSingleBatch(
+      orderedClusters[i],
+      i === 0 ? startAddress : null,
+      i === orderedClusters.length - 1 ? endAddress : null,
+    );
+    allIds.push(...ids);
+  }
+
+  return [...new Set([...allIds, ...missingIds])];
 }
 
 async function optimizeSingleBatch(

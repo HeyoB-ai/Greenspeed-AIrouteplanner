@@ -47,8 +47,16 @@ export const db = {
       if (supabase) {
         const { data, error } = await supabase.from('packages').select('*').order('createdAt', { ascending: false });
         if (!error && data && data.length > 0) {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-          return data;
+          const mapped = data.map((row: any) => ({
+            ...row,
+            address: {
+              ...row.address,
+              ...(row.addressLat != null ? { lat: row.addressLat } : {}),
+              ...(row.addressLng != null ? { lng: row.addressLng } : {}),
+            },
+          }));
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mapped));
+          return mapped;
         }
       }
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -158,7 +166,12 @@ export const db = {
     // 4. Update cloud op de achtergrond (Asynchroon)
     if (supabase) {
       try {
-        await supabase.from('packages').upsert(pkg);
+        const row = {
+          ...pkg,
+          addressLat: pkg.address.lat ?? null,
+          addressLng: pkg.address.lng ?? null,
+        };
+        await supabase.from('packages').upsert(row);
       } catch (err) {
         console.warn('Cloud sync tijdelijk niet beschikbaar:', err);
       }
