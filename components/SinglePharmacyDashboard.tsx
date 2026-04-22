@@ -424,9 +424,11 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                               <div className="flex flex-col items-end gap-1 shrink-0">
                                 <StatusBadge status={p.status} />
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] text-[#3d4945]/50 font-body font-bold">
-                                    {new Date(p.createdAt).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                                  {p.deliveredAt && (
+                                    <span className="text-[11px] text-[#3d4945]/50 font-body font-bold">
+                                      {new Date(p.deliveredAt).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
                                   <button
                                     onClick={() => setTimelinePkg(p)}
                                     className="text-[11px] text-[#006b5a] hover:text-[#48c2a9] font-display font-black flex items-center gap-0.5 transition-colors"
