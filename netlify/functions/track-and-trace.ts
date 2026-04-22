@@ -4,6 +4,17 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
+const DELIVERED_STATUSES = ['BEZORGD', 'BRIEVENBUS', 'BIJ BUREN', 'ANDERE LOCATIE'];
+const DELAYED_STATUSES   = ['RETOUR APOTHEEK', 'MISLUKT', 'VERHUISD', 'FAILED', 'RETURN'];
+
+function toResultString(status: string, verwachte_leverdatum: string | null): string {
+  const s = (status ?? '').toUpperCase();
+  if (DELIVERED_STATUSES.some(d => s.includes(d))) return 'De zending is bezorgd.';
+  if (DELAYED_STATUSES.some(d => s.includes(d)))   return 'De zending heeft helaas vertraging.';
+  const datum = verwachte_leverdatum ?? 'onbekende datum';
+  return `De zending is onderweg en wordt verwacht op ${datum}.`;
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -29,7 +40,7 @@ export const handler: Handler = async (event) => {
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.error('[track-and-trace] Supabase niet geconfigureerd');
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Technische fout' }) };
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
   let postcode: string;
@@ -40,11 +51,11 @@ export const handler: Handler = async (event) => {
     postcode   = (body.postcode   ?? '').trim();
     huisnummer = (body.huisnummer ?? '').trim();
   } catch {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Ongeldige JSON body' }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
   if (!postcode || !huisnummer) {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'postcode en huisnummer zijn verplicht' }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
   const variants = postcodeVariants(postcode);
@@ -76,7 +87,7 @@ export const handler: Handler = async (event) => {
 
     if (queryError) {
       console.error('[track-and-trace] Supabase fout:', queryError.message);
-      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Technische fout' }) };
+      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
     }
 
     if (!data) {
@@ -84,7 +95,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ found: false, message: 'Geen zending gevonden' }),
+        body: JSON.stringify({ result: 'Geen zending gevonden op dit adres.' }),
       };
     }
 
@@ -94,20 +105,17 @@ export const handler: Handler = async (event) => {
         ? data.createdAt.split('T')[0]
         : null;
 
+    const result = toResultString(data.status, verwachte_leverdatum);
+    console.log('[track-and-trace] Resultaat:', { status: data.status, verwachte_leverdatum, result });
+
     return {
       statusCode: 200,
       headers: CORS_HEADERS,
-      body: JSON.stringify({
-        found: true,
-        status: data.status ?? 'onbekend',
-        verwachte_leverdatum,
-        tracking_code: data.id,
-        laatst_bijgewerkt: data.deliveredAt ?? data.createdAt ?? null,
-      }),
+      body: JSON.stringify({ result }),
     };
 
   } catch (err) {
     console.error('[track-and-trace] Onverwachte fout:', err);
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Technische fout' }) };
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 };
