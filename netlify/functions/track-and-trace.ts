@@ -66,6 +66,14 @@ export const handler: Handler = async (event) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Diagnostiek: log de 3 meest recente packages om het opslagformaat te zien
+    const { data: sample } = await supabase
+      .from('packages')
+      .select('id, address, status')
+      .order('createdAt', { ascending: false })
+      .limit(3);
+    console.log('[track-and-trace] DB sample (3 meest recent):', JSON.stringify(sample));
+
     let data: any = null;
     let queryError: any = null;
 
