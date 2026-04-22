@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, Pharmacy } from '../types';
 import {
   Building2, Search, ChevronRight, Package,
-  CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2,
+  CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2, Pencil,
 } from 'lucide-react';
 
 const PAGE_SIZE = 20;
@@ -37,13 +37,14 @@ export interface PharmacyOverviewProps {
   onExport?:        () => void;           // optioneel — toon Export-knop als aanwezig
   canAddPharmacy?:  boolean;              // toon "+ Nieuwe apotheek" knop
   onAddPharmacy?:   (pharmacy: Pharmacy) => Promise<void>;
+  onEditPharmacy?:  (pharmacy: Pharmacy) => void;
 }
 
 const rateColor = (rate: number) =>
   rate >= 80 ? 'text-[#006b5a]' : rate >= 60 ? 'text-amber-600' : 'text-red-500';
 
 const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
-  packages, pharmacies, onSelectPharmacy, onExport, canAddPharmacy, onAddPharmacy,
+  packages, pharmacies, onSelectPharmacy, onExport, canAddPharmacy, onAddPharmacy, onEditPharmacy,
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage]     = useState(0);
@@ -217,25 +218,46 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {pageItems.map(s => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => onSelectPharmacy(s.id)}
-                className="bg-white rounded-4xl p-6 text-left transition-all group hover:scale-[1.01] active:scale-[0.99]"
+                className="bg-white rounded-4xl p-6 transition-all"
                 style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => onSelectPharmacy(s.id)}
+                    className="flex items-center space-x-3 text-left group flex-1 min-w-0"
+                  >
                     <div className="w-10 h-10 bg-[#5dc0a7]/15 rounded-full flex items-center justify-center shrink-0">
                       <Building2 size={18} className="text-[#006b5a]" />
                     </div>
-                    <div>
-                      <h3 className="font-display font-black text-[#191c1e] text-base leading-tight">{s.name}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-display font-black text-[#191c1e] text-base leading-tight truncate">{s.name}</h3>
                       <p className="text-[9px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest mt-0.5">
                         {s.total} pakket{s.total !== 1 ? 'ten' : ''}
                       </p>
                     </div>
+                  </button>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    {onEditPharmacy && (
+                      <button
+                        onClick={() => {
+                          const ph = pharmacies.find(p => p.id === s.id);
+                          if (ph) onEditPharmacy(ph);
+                        }}
+                        title="Apotheek bewerken"
+                        className="w-8 h-8 rounded-xl bg-[#f2f4f6] flex items-center justify-center text-[#3d4945] hover:bg-[#5dc0a7]/20 hover:text-[#006b5a] transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onSelectPharmacy(s.id)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-[#bccac4] hover:text-[#006b5a] transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
-                  <ChevronRight size={16} className="text-[#bccac4] group-hover:text-[#006b5a] transition-colors mt-1 shrink-0" />
                 </div>
 
                 <div className="mb-3">
@@ -262,7 +284,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                     </>
                   )}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}

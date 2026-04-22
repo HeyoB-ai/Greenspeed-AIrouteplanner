@@ -35,6 +35,106 @@ const enrichWithHistory = (pkg: Package): Package => {
   return { ...pkg, statusHistory: history };
 };
 
+// ── Apotheek bewerken modal ────────────────────────────────────────────
+const EditPharmacyModal: React.FC<{
+  pharmacy: Pharmacy;
+  onSave:   (updated: Pharmacy) => Promise<void>;
+  onClose:  () => void;
+}> = ({ pharmacy, onSave, onClose }) => {
+  const [name,    setName]    = useState(pharmacy.name);
+  const [address, setAddress] = useState(pharmacy.address ?? '');
+  const [groupId, setGroupId] = useState(pharmacy.groupId ?? '');
+  const [code,    setCode]    = useState(pharmacy.code ?? '');
+  const [saving,  setSaving]  = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({
+        ...pharmacy,
+        name:    name.trim(),
+        address: address.trim() || undefined,
+        groupId: groupId.trim() || undefined,
+        code:    code.trim() || undefined,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+    >
+      <div
+        className="bg-white rounded-4xl w-full max-w-md animate-in slide-in-from-bottom-4 duration-300"
+        style={{ boxShadow: '0 24px 64px rgba(25,28,30,0.20)' }}
+      >
+        <div className="flex items-center justify-between px-7 pt-7 pb-5">
+          <div>
+            <h2 className="text-xl font-display font-black text-[#191c1e]">Apotheek bewerken</h2>
+            <p className="text-[10px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest mt-0.5">{pharmacy.name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl bg-[#f2f4f6] flex items-center justify-center text-[#3d4945] transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-7 py-6 space-y-4">
+          {[
+            { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: name,    set: setName,    required: true  },
+            { label: 'Adres',         placeholder: 'bijv. Hoofdstraat 1, …',   val: address, set: setAddress, required: false },
+            { label: 'Groep / regio', placeholder: 'bijv. regio-noord',        val: groupId, set: setGroupId, required: false },
+            { label: 'Interne code',  placeholder: 'bijv. KRO',                val: code,    set: setCode,    required: false },
+          ].map(f => (
+            <div key={f.label} className="space-y-1.5">
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+                {f.label} {f.required && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="text"
+                value={f.val}
+                onChange={e => f.set(e.target.value)}
+                placeholder={f.placeholder}
+                required={f.required}
+                className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all"
+                style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+                onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+                onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.2)'}
+              />
+            </div>
+          ))}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-12 rounded-full font-display font-semibold text-sm text-[#101c30] bg-[#d7e2fe] transition-all active:scale-95"
+            >
+              Annuleren
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !name.trim()}
+              className="flex-1 h-12 rounded-full text-white font-display font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+            >
+              {saving ? <>{/* Loader2 imported via lucide */}<span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" /></> : null}
+              {saving ? 'Opslaan...' : 'Opslaan'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [showPatientView, setShowPatientView] = useState(false);
@@ -486,6 +586,17 @@ const App: React.FC = () => {
     }
   };
 
+  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
+
+  const handleUpdatePharmacy = async (updated: Pharmacy) => {
+    setPharmacies(prev => prev.map(p => p.id === updated.id ? updated : p));
+    await db.savePharmacy(updated);
+    if (supabase) {
+      const { data } = await supabase.from('pharmacies').select('*').order('name');
+      if (data && data.length > 0) setPharmacies(data);
+    }
+  };
+
   const canAddPharmacy = role === UserRole.SUPERUSER || role === UserRole.SUPERVISOR;
 
   const copySQL = () => {
@@ -692,6 +803,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}
+            onEditPharmacy={setEditingPharmacy}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
           />
@@ -756,6 +868,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             onUpdateStatus={updateMultipleStatus}
             canAddPharmacy={canAddPharmacy}
             onAddPharmacy={handleAddPharmacy}
+            onEditPharmacy={setEditingPharmacy}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
           />
@@ -836,6 +949,15 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
         <ManualAddressForm
           onComplete={result => { handleNewScan(result.address); setShowManualForm(false); }}
           onCancel={() => setShowManualForm(false)}
+        />
+      )}
+
+      {/* Apotheek bewerken modal */}
+      {editingPharmacy && (
+        <EditPharmacyModal
+          pharmacy={editingPharmacy}
+          onSave={async (updated) => { await handleUpdatePharmacy(updated); setEditingPharmacy(null); }}
+          onClose={() => setEditingPharmacy(null)}
         />
       )}
     </Layout>

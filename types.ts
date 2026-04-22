@@ -100,6 +100,7 @@ export interface Pharmacy {
   name:     string;
   address?: string;
   groupId?: string;  // vrije groepering, bijv. 'regio-noord'
+  code?:    string;  // optionele interne code / shortcode
 }
 
 export interface ChatMessage {
