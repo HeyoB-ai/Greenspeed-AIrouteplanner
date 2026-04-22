@@ -78,9 +78,9 @@ function buildResultString(data: any): string {
   // RETOUR / NIET THUIS
   if (RETOUR_STATUSES.some(d => status.includes(d))) {
     if (pogingTs) {
-      return `De koerier is langs geweest op ${dutchDate(pogingTs)} om ${dutchTime(pogingTs)} maar er was niemand thuis. De zending is retour gegaan naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.`;
+      return `De koerier is op ${dutchDate(pogingTs)} om ${dutchTime(pogingTs)} bij u langs geweest, maar er was niemand thuis om de zending in ontvangst te nemen. De zending is daarop teruggebracht naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.`;
     }
-    return 'De koerier is langs geweest maar er was niemand thuis. De zending is retour gegaan naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.';
+    return 'De koerier is bij u langs geweest, maar er was niemand thuis om de zending in ontvangst te nemen. De zending is daarop teruggebracht naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.';
   }
 
   // VERTRAAGD
