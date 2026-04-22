@@ -15,6 +15,15 @@ function toResultString(status: string, verwachte_leverdatum: string | null): st
   return `De zending is onderweg en wordt verwacht op ${datum}.`;
 }
 
+function vapiResponse(toolCallId: string | null, result: string) {
+  // Vapi server-tool webhook verwacht results array met toolCallId
+  if (toolCallId) {
+    return JSON.stringify({ results: [{ toolCallId, result }] });
+  }
+  // Fallback voor directe test-calls zonder Vapi wrapper
+  return JSON.stringify({ result });
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -45,44 +54,37 @@ export const handler: Handler = async (event) => {
 
   let postcode: string;
   let huisnummer: string;
+  let toolCallId: string | null = null;
 
   try {
     const body = JSON.parse(event.body ?? '{}');
 
-    // Vapi stuurt parameters genest in message.toolCalls[0].function.arguments
-    const vapiArgs = body?.message?.toolCalls?.[0]?.function?.arguments
-                  ?? body?.message?.toolCallList?.[0]?.function?.arguments;
+    // Vapi stuurt parameters genest in message.toolCalls[0]
+    const toolCall = body?.message?.toolCalls?.[0]
+                  ?? body?.message?.toolCallList?.[0];
+    toolCallId = toolCall?.id ?? null;
+
+    const vapiArgs = toolCall?.function?.arguments;
     const args = vapiArgs ?? body;
 
     postcode   = (args.postcode   ?? '').trim();
     huisnummer = (args.huisnummer ?? '').trim();
-    console.log('[track-and-trace] INPUT:', { postcode, huisnummer });
+    console.log('[track-and-trace] INPUT:', { postcode, huisnummer, toolCallId });
   } catch {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
 
   if (!postcode || !huisnummer) {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: vapiResponse(toolCallId, 'Er is een technische fout opgetreden.') };
   }
 
   const variants = postcodeVariants(postcode);
-  console.log('[track-and-trace] Zoeken op:', { postcode, huisnummer, variants });
+  console.log('[track-and-trace] Zoeken op:', { variants, huisnummer });
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-
-    console.log('INPUT postcode:', postcode);
-    console.log('INPUT huisnummer:', huisnummer);
-
-    // Haal eerste 5 rijen op om structuur te zien
-    const { data: sample, error: sampleError } = await supabase
-      .from('packages')
-      .select('*')
-      .limit(5);
-    console.log('TABEL STRUCTUUR:', JSON.stringify(sample, null, 2));
-    console.log('SAMPLE ERROR:', sampleError);
 
     let data: any = null;
     let queryError: any = null;
@@ -105,16 +107,15 @@ export const handler: Handler = async (event) => {
 
     if (queryError) {
       console.error('[track-and-trace] Supabase fout:', queryError.message);
-      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
+      const body = vapiResponse(toolCallId, 'Er is een technische fout opgetreden.');
+      console.log('[track-and-trace] RESPONSE NAAR VAPI:', body);
+      return { statusCode: 500, headers: CORS_HEADERS, body };
     }
 
     if (!data) {
-      console.log('[track-and-trace] Geen resultaat gevonden voor alle varianten');
-      return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ result: 'Geen zending gevonden op dit adres.' }),
-      };
+      const body = vapiResponse(toolCallId, 'Geen zending gevonden op dit adres.');
+      console.log('[track-and-trace] RESPONSE NAAR VAPI:', body);
+      return { statusCode: 200, headers: CORS_HEADERS, body };
     }
 
     const verwachte_leverdatum = data.deliveredAt
@@ -124,16 +125,14 @@ export const handler: Handler = async (event) => {
         : null;
 
     const result = toResultString(data.status, verwachte_leverdatum);
-    console.log('[track-and-trace] Resultaat:', { status: data.status, verwachte_leverdatum, result });
+    const body = vapiResponse(toolCallId, result);
+    console.log('[track-and-trace] RESPONSE NAAR VAPI:', body);
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ result }),
-    };
+    return { statusCode: 200, headers: CORS_HEADERS, body };
 
   } catch (err) {
     console.error('[track-and-trace] Onverwachte fout:', err);
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
+    const body = vapiResponse(toolCallId, 'Er is een technische fout opgetreden.');
+    return { statusCode: 500, headers: CORS_HEADERS, body };
   }
 };
