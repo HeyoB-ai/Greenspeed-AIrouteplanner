@@ -4,7 +4,7 @@ import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
   MousePointerClick, CheckCircle2, MapPin, DoorClosed,
-  Map as MapIcon, RefreshCw, Building2, Trash2, Plus
+  Map as MapIcon, RefreshCw, Building2, Trash2, Plus, MoreHorizontal
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
 
@@ -90,6 +90,7 @@ const CourierView: React.FC<Props> = ({
   const [pendingRouteIds, setPendingRouteIds]       = useState<string[]>([]);
   const [returnTo, setReturnTo]                     = useState<'pharmacy' | 'none'>('pharmacy');
   const [deliveredInstitutions, setDeliveredInstitutions] = useState<Set<string>>(new Set());
+  const [showMoreMenu, setShowMoreMenu]             = useState(false);
 
   const handleRouteClick = (ids: string[]) => {
     setPendingRouteIds(ids);
@@ -247,11 +248,13 @@ const CourierView: React.FC<Props> = ({
             {actionableCount} te bezorgen · {doneCount} klaar
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+
+          {/* Primair — altijd zichtbaar */}
           {onScanStart && (
             <button
               onClick={onScanStart}
-              className="flex items-center gap-1.5 px-4 h-10 text-white rounded-full font-display font-bold text-xs"
+              className="flex items-center gap-1.5 px-3 h-10 text-white rounded-full font-display font-bold text-xs active:scale-95 transition-all"
               style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
               <ScanLine size={14} />
@@ -266,39 +269,102 @@ const CourierView: React.FC<Props> = ({
                 handleRouteClick(ids);
               }}
               disabled={isOptimizing || !hasRoutableItems}
-              className="flex items-center gap-1.5 px-4 h-10 rounded-full font-display font-bold text-xs disabled:opacity-40 transition-all active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', color: '#fff' }}
+              className="flex items-center gap-1.5 px-3 h-10 bg-[#253046] text-white rounded-full font-display font-bold text-xs disabled:opacity-40 active:scale-95 transition-all"
             >
               {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <MapIcon size={14} />}
               {isOptimizing ? 'Bezig...' : 'Route'}
             </button>
           )}
-          {onManualAdd && (
-            <button
-              onClick={onManualAdd}
-              className="flex items-center gap-1.5 px-4 h-10 bg-[#d7e2fe] text-[#101c30] rounded-full font-display font-semibold text-xs transition-all active:scale-95"
-            >
-              <PenLine size={14} />
-              Invoeren
-            </button>
-          )}
-          {onInstitutionRoute && (
-            <button
-              onClick={onInstitutionRoute}
-              className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
-            >
-              <Building2 size={14} />
-              Instellingen
-            </button>
-          )}
-          {onAddPharmacy && (
-            <button
-              onClick={onAddPharmacy}
-              className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
-            >
-              <Plus size={14} />
-              Apotheek
-            </button>
+
+          {/* Secundair — desktop: zichtbaar | mobiel: in "Meer" menu */}
+          <div className="hidden md:flex gap-2">
+            {onManualAdd && (
+              <button
+                onClick={onManualAdd}
+                className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+              >
+                <PenLine size={14} />
+                Invoeren
+              </button>
+            )}
+            {onInstitutionRoute && (
+              <button
+                onClick={onInstitutionRoute}
+                className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+              >
+                <Building2 size={14} />
+                Instellingen
+              </button>
+            )}
+            {onAddPharmacy && (
+              <button
+                onClick={onAddPharmacy}
+                className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+              >
+                <Plus size={14} />
+                Apotheek
+              </button>
+            )}
+          </div>
+
+          {/* Mobiel — "Meer" menu met de secundaire acties */}
+          {(onManualAdd || onInstitutionRoute || onAddPharmacy || onNewRit) && (
+            <div className="relative md:hidden">
+              <button
+                onClick={() => setShowMoreMenu(prev => !prev)}
+                aria-label="Meer acties"
+                className="flex items-center justify-center px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+
+              {showMoreMenu && (
+                <>
+                  {/* Backdrop om het menu te sluiten */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+
+                  {/* Dropdown */}
+                  <div className="absolute right-0 top-12 z-50 bg-white rounded-2xl shadow-xl shadow-black/10 border border-[#f2f4f6] min-w-[180px] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                    {onManualAdd && (
+                      <button
+                        onClick={() => { onManualAdd(); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#191c1e] hover:bg-[#f2f4f6] transition-colors text-left"
+                      >
+                        <PenLine size={16} className="text-[#3d4945]" />
+                        Invoeren
+                      </button>
+                    )}
+                    {onInstitutionRoute && (
+                      <button
+                        onClick={() => { onInstitutionRoute(); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#191c1e] hover:bg-[#f2f4f6] transition-colors text-left border-t border-[#f2f4f6]"
+                      >
+                        <Building2 size={16} className="text-[#3d4945]" />
+                        Instellingen
+                      </button>
+                    )}
+                    {onAddPharmacy && (
+                      <button
+                        onClick={() => { onAddPharmacy(); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#191c1e] hover:bg-[#f2f4f6] transition-colors text-left border-t border-[#f2f4f6]"
+                      >
+                        <Plus size={16} className="text-[#3d4945]" />
+                        Apotheek toevoegen
+                      </button>
+                    )}
+                    {onNewRit && (
+                      <button
+                        onClick={() => { onNewRit(); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors text-left border-t border-[#f2f4f6]"
+                      >
+                        <RefreshCw size={16} />
+                        Nieuwe rit
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
