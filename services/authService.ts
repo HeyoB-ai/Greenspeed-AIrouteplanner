@@ -213,18 +213,15 @@ export async function acceptInvitation(
 export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: string } | null> {
   if (!supabase) return null;
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-
   const normalized = code.trim().toUpperCase();
-
   let pharmacyId: string | null = null;
 
-  // 1. Permanente koppelcode op de apotheek zelf (huidige model)
+  // 1. Zoek de apotheek op de permanente koppelcode (hoofdletter-ongevoelig).
+  //    Geen auth-sessie nodig om de code te valideren — de code is het geheim.
   const { data: phRow } = await supabase
     .from('pharmacies')
     .select('id')
-    .eq('courierCode', normalized)
+    .ilike('courierCode', normalized)
     .maybeSingle();
   if (phRow) {
     pharmacyId = phRow.id as string;
@@ -233,7 +230,7 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
     const { data: codeRow } = await supabase
       .from('pharmacy_codes')
       .select('pharmacy_id')
-      .eq('code', normalized)
+      .ilike('code', normalized)
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
     if (codeRow) pharmacyId = codeRow.pharmacy_id as string;
@@ -241,37 +238,47 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
 
   if (!pharmacyId) return null;
 
-  // Voeg koppeling toe
-  await supabase.from('courier_pharmacy_access').upsert({
-    courier_id:  session.user.id,
-    pharmacy_id: pharmacyId,
-  });
+  // 3. Persistente koppeling opslaan — best-effort, alleen als er een
+  //    Supabase auth-sessie is. Mislukt dit (geen sessie / RLS), dan gaat
+  //    de koerier toch verder met de lokale koppeling.
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await supabase.from('courier_pharmacy_access').upsert({
+        courier_id:  session.user.id,
+        pharmacy_id: pharmacyId,
+      });
 
-  // Update profiel pharmacy_ids
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('pharmacy_ids')
-    .eq('id', session.user.id)
-    .single();
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('pharmacy_ids')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-  const existing: string[] = profile?.pharmacy_ids ?? [];
-  if (!existing.includes(pharmacyId)) {
-    await supabase
-      .from('user_profiles')
-      .update({ pharmacy_ids: [...existing, pharmacyId] })
-      .eq('id', session.user.id);
-
-    // Update lokale sessie
-    const localSession = getSession();
-    if (localSession) {
-      const updatedPharmacyIds = [...(localSession.user.pharmacyIds ?? []), pharmacyId];
-      const updatedUser: AuthUser = {
-        ...localSession.user,
-        pharmacyIds: updatedPharmacyIds,
-        pharmacyId:  updatedPharmacyIds[0],
-      };
-      saveLocalSession(updatedUser);
+      const existing: string[] = profile?.pharmacy_ids ?? [];
+      if (!existing.includes(pharmacyId)) {
+        await supabase
+          .from('user_profiles')
+          .update({ pharmacy_ids: [...existing, pharmacyId] })
+          .eq('id', session.user.id);
+      }
     }
+  } catch (err) {
+    console.warn('[linkPharmacyCode] persistente koppeling mislukt, ga lokaal verder:', err);
+  }
+
+  // 4. Lokale sessie bijwerken zodat de koerier de apotheek meteen ziet
+  const localSession = getSession();
+  if (localSession) {
+    const updatedPharmacyIds = Array.from(
+      new Set([...(localSession.user.pharmacyIds ?? []), pharmacyId])
+    );
+    const updatedUser: AuthUser = {
+      ...localSession.user,
+      pharmacyIds: updatedPharmacyIds,
+      pharmacyId:  localSession.user.pharmacyId ?? updatedPharmacyIds[0],
+    };
+    saveLocalSession(updatedUser);
   }
 
   return { pharmacyId };
