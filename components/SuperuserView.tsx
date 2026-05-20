@@ -16,11 +16,13 @@ interface Props {
   onEditPharmacy?: (pharmacy: Pharmacy) => void;
   onOptimize?:     (ids: string[]) => Promise<void>;
   isOptimizing?:   boolean;
+  onPharmacyCodeChange?: (pharmacyId: string, code: string) => void;
 }
 
 const SuperuserView: React.FC<Props> = ({
   packages, pharmacies, userRole, onUpdateStatus,
   canAddPharmacy, onAddPharmacy, onEditPharmacy, onOptimize, isOptimizing,
+  onPharmacyCodeChange,
 }) => {
   const [selected, setSelected]     = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
@@ -46,6 +48,7 @@ const SuperuserView: React.FC<Props> = ({
           conversations={[]}
           onOptimize={onOptimize}
           isOptimizing={isOptimizing}
+          onPharmacyCodeChange={onPharmacyCodeChange}
         />
       </>
     );

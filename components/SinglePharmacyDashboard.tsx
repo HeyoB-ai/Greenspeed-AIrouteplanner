@@ -8,6 +8,7 @@ import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
 import ExportModal from './ExportModal';
 import InstitutionManager from './InstitutionManager';
+import PharmacyCourierCode from './PharmacyCourierCode';
 
 interface Props {
   packages:                PackageType[];
@@ -18,6 +19,7 @@ interface Props {
   onOptimize?:             (ids: string[]) => Promise<void>;
   isOptimizing?:           boolean;
   canManageInstitutions?:  boolean;
+  onPharmacyCodeChange?:   (pharmacyId: string, code: string) => void;
 }
 
 const COURIER_NAMES: Record<string, string> = {
@@ -120,6 +122,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   onOptimize,
   isOptimizing = false,
   canManageInstitutions = true,
+  onPharmacyCodeChange,
 }) => {
   const [activeTab, setActiveTab]       = useState<'packages' | 'institutions' | 'chats' | 'archive'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
@@ -220,6 +223,13 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   return (
     <>
       <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-24 lg:pb-8">
+
+        {/* Koppelcode voor koeriers */}
+        <PharmacyCourierCode
+          pharmacy={pharmacy}
+          canManage={canManageInstitutions}
+          onCodeChange={onPharmacyCodeChange}
+        />
 
         {/* Periode filter */}
         <div className="flex gap-2">

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, Pharmacy } from '../types';
 import {
   Building2, Search, ChevronRight, Package,
-  CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2, Pencil,
+  CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2, Pencil, Link,
 } from 'lucide-react';
 
 const PAGE_SIZE = 20;
@@ -217,7 +217,9 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {pageItems.map(s => (
+            {pageItems.map(s => {
+              const courierCode = pharmacies.find(p => p.id === s.id)?.courierCode;
+              return (
               <div
                 key={s.id}
                 className="bg-white rounded-4xl p-6 transition-all"
@@ -236,6 +238,12 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                       <p className="text-[9px] font-display font-black text-[#3d4945]/60 uppercase tracking-widest mt-0.5">
                         {s.total} pakket{s.total !== 1 ? 'ten' : ''}
                       </p>
+                      {courierCode && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-[#3d4945] bg-[#f2f4f6] px-2 py-0.5 rounded-full font-mono tracking-wider">
+                          <Link size={9} className="text-[#006b5a]" />
+                          {courierCode}
+                        </span>
+                      )}
                     </div>
                   </button>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
@@ -285,7 +293,8 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

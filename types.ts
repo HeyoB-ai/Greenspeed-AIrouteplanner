@@ -96,11 +96,12 @@ export interface User {
 }
 
 export interface Pharmacy {
-  id:       string;
-  name:     string;
-  address?: string;
-  groupId?: string;  // vrije groepering, bijv. 'regio-noord'
-  code?:    string;  // optionele interne code / shortcode
+  id:           string;
+  name:         string;
+  address?:     string;
+  groupId?:     string;  // vrije groepering, bijv. 'regio-noord'
+  code?:        string;  // optionele interne code / shortcode (vrije tekst)
+  courierCode?: string;  // permanente koppelcode voor koeriers, bijv. 'KR-4821'
 }
 
 // ── Vaste instellingen (zorginstellingen die regelmatig bevoorraad worden) ──

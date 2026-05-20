@@ -218,17 +218,28 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
 
   const normalized = code.trim().toUpperCase();
 
-  // Zoek geldige code
-  const { data: codeRow, error } = await supabase
-    .from('pharmacy_codes')
-    .select('*')
-    .eq('code', normalized)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  let pharmacyId: string | null = null;
 
-  if (error || !codeRow) return null;
+  // 1. Permanente koppelcode op de apotheek zelf (huidige model)
+  const { data: phRow } = await supabase
+    .from('pharmacies')
+    .select('id')
+    .eq('courierCode', normalized)
+    .maybeSingle();
+  if (phRow) {
+    pharmacyId = phRow.id as string;
+  } else {
+    // 2. Fallback: tijdelijke code in pharmacy_codes (legacy, verloopt)
+    const { data: codeRow } = await supabase
+      .from('pharmacy_codes')
+      .select('pharmacy_id')
+      .eq('code', normalized)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+    if (codeRow) pharmacyId = codeRow.pharmacy_id as string;
+  }
 
-  const pharmacyId: string = codeRow.pharmacy_id;
+  if (!pharmacyId) return null;
 
   // Voeg koppeling toe
   await supabase.from('courier_pharmacy_access').upsert({
@@ -266,7 +277,36 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
   return { pharmacyId };
 }
 
-// ── Apotheekcode genereren (apotheker/supervisor) ─────────────────────
+// ── Permanente koppelcode op de apotheek zetten (apotheker/admin/...) ──
+
+function randomCourierCode(): string {
+  // 2 letters + koppelteken + 4 cijfers, bijv. "KR-4821"
+  const letters = String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
+                  String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const digits  = String(Math.floor(1000 + Math.random() * 9000));
+  return `${letters}-${digits}`;
+}
+
+/**
+ * Genereert (of vervangt) de permanente koppelcode van een apotheek en
+ * slaat hem op de pharmacies-tabel op. Retourneert de nieuwe code, of null
+ * als er geen cloud is of het opslaan mislukt. Probeert enkele keren i.v.m.
+ * de unieke index op courierCode.
+ */
+export async function setPharmacyCourierCode(pharmacyId: string): Promise<string | null> {
+  if (!supabase) return null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = randomCourierCode();
+    const { error } = await supabase
+      .from('pharmacies')
+      .update({ courierCode: code })
+      .eq('id', pharmacyId);
+    if (!error) return code;
+  }
+  return null;
+}
+
+// ── Tijdelijke apotheekcode genereren (legacy, 24u) ───────────────────
 
 export async function generatePharmacyCode(pharmacyId: string): Promise<string | null> {
   if (!supabase) return null;

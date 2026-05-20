@@ -708,6 +708,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePharmacyCodeChange = useCallback((pharmacyId: string, code: string) => {
+    setPharmacies(prev => prev.map(p => p.id === pharmacyId ? { ...p, courierCode: code } : p));
+  }, []);
+
   const canAddPharmacy = role === UserRole.SUPERUSER || role === UserRole.SUPERVISOR;
 
   const copySQL = () => {
@@ -753,8 +757,10 @@ CREATE TABLE IF NOT EXISTS pharmacies (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   address TEXT,
-  "groupId" TEXT
+  "groupId" TEXT,
+  "courierCode" TEXT
 );
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS "courierCode" TEXT;
 ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public access" ON pharmacies;
 CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);
@@ -940,6 +946,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onEditPharmacy={setEditingPharmacy}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
+            onPharmacyCodeChange={handlePharmacyCodeChange}
           />
         )}
 
@@ -953,6 +960,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onMarkCallbackHandled={handleMarkCallbackHandled}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
+            onPharmacyCodeChange={handlePharmacyCodeChange}
           />
         )}
 
@@ -962,6 +970,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             packages={visiblePackages}
             pharmacyName={currentPharmacy.name}
             pharmacyId={currentPharmacy.id}
+            pharmacyCourierCode={currentPharmacy.courierCode}
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}
             onMarkCallbackHandled={handleMarkCallbackHandled}
@@ -1008,6 +1017,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onEditPharmacy={setEditingPharmacy}
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
+            onPharmacyCodeChange={handlePharmacyCodeChange}
           />
         )}
 

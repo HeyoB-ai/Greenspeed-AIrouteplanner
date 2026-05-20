@@ -13,6 +13,7 @@ interface Props {
   onMarkCallbackHandled?:  (id: string) => void;
   onOptimize?:             (ids: string[]) => Promise<void>;
   isOptimizing?:           boolean;
+  onPharmacyCodeChange?:   (pharmacyId: string, code: string) => void;
 }
 
 const AdminView: React.FC<Props> = ({
@@ -23,6 +24,7 @@ const AdminView: React.FC<Props> = ({
   onMarkCallbackHandled,
   onOptimize,
   isOptimizing,
+  onPharmacyCodeChange,
 }) => {
   const isMulti = pharmacies.length > 1;
   const [selected, setSelected] = useState<string | null>(null);
@@ -80,6 +82,7 @@ const AdminView: React.FC<Props> = ({
         onMarkCallbackHandled={onMarkCallbackHandled}
         onOptimize={onOptimize}
         isOptimizing={isOptimizing}
+        onPharmacyCodeChange={onPharmacyCodeChange}
       />
 
       {/* Gebruikersbeheer — altijd zichtbaar voor admin */}

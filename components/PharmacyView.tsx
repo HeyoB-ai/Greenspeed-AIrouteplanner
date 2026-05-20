@@ -4,16 +4,18 @@ import {
   RefreshCw, Truck, ShieldCheck, Clock,
   MessageCircle, Phone, AlertTriangle, ArrowLeft, ChevronRight, X
 } from 'lucide-react';
-import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
+import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import ChatBot from './ChatBot';
 import ExportModal from './ExportModal';
 import InstitutionManager from './InstitutionManager';
+import PharmacyCourierCode from './PharmacyCourierCode';
 import { Building2 } from 'lucide-react';
 
 interface Props {
   packages: PackageType[];
   pharmacyName: string;
   pharmacyId?: string;
+  pharmacyCourierCode?: string;
   conversations?: ChatConversation[];
   onMarkConversationRead?: (id: string) => void;
   onMarkCallbackHandled?: (id: string) => void;
@@ -68,6 +70,7 @@ const PharmacyView: React.FC<Props> = ({
   packages,
   pharmacyName,
   pharmacyId,
+  pharmacyCourierCode,
   conversations = [],
   onMarkConversationRead,
   onMarkCallbackHandled,
@@ -124,8 +127,17 @@ const PharmacyView: React.FC<Props> = ({
     { label: 'Wachten',    val: pendingPackages.length,                                                                                       icon: Clock,       color: 'text-amber-600',    bg: 'bg-amber-50' },
   ];
 
+  const pharmacyObj: Pharmacy = {
+    id: resolvedPharmacyId ?? '',
+    name: pharmacyName,
+    courierCode: pharmacyCourierCode,
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+
+      {/* ── Koppelcode voor koeriers ── */}
+      <PharmacyCourierCode pharmacy={pharmacyObj} canManage={true} />
 
       {/* ── Stats rij ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
