@@ -571,7 +571,11 @@ const App: React.FC = () => {
     }
   }, [packages]);
 
-  const handleInstitutionRoute = useCallback(async (selected: Institution[]) => {
+  const handleInstitutionRoute = useCallback(async (
+    selected: Institution[],
+    startFrom: 'pharmacy' | 'current' = 'pharmacy',
+    returnTo: 'pharmacy' | 'none' = 'pharmacy'
+  ) => {
     if (selected.length === 0) return;
     setIsOptimizing(true);
     setShowInstitutionSelector(false);
@@ -590,13 +594,32 @@ const App: React.FC = () => {
           lng:         i.addressLng,
         }));
 
-      // Start/eind = adres van de actieve apotheek
+      // Adres van de actieve apotheek (koerier: actieve rit-apotheek)
       const activePharmacy = pharmacies.find(p => p.id === courierPharmacyIds[0]) ?? currentPharmacy;
-      const pharmacyAddress = activePharmacy.address ? `${activePharmacy.address}, Netherlands` : null;
+
+      // Bepaal startadres
+      let startAddress: string | null = null;
+      if (startFrom === 'pharmacy' && activePharmacy.address) {
+        startAddress = `${activePharmacy.address}, Netherlands`;
+      } else if (startFrom === 'current') {
+        startAddress = await new Promise<string | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve(`${pos.coords.latitude},${pos.coords.longitude}`),
+            ()  => resolve(null),
+            { enableHighAccuracy: true, timeout: 5000 }
+          );
+        });
+      }
+
+      // Bepaal eindadres
+      let endAddress: string | null = null;
+      if (returnTo === 'pharmacy' && activePharmacy.address) {
+        endAddress = `${activePharmacy.address}, Netherlands`;
+      }
 
       let orderedInstitutions: Institution[] = selected;
       if (addresses.length > 1) {
-        const orderedIds = await optimizeRoute(addresses, pharmacyAddress, pharmacyAddress);
+        const orderedIds = await optimizeRoute(addresses, startAddress, endAddress);
         const ordered = orderedIds
           .map(id => selected.find(i => i.id === id))
           .filter(Boolean) as Institution[];

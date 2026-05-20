@@ -23,7 +23,11 @@ interface Props {
   activePharmacyNames?: string[];
   onInstitutionRoute?: () => void;
   activeInstitutionRoute?: Institution[];
-  onOptimizeInstitutions?: (institutions: Institution[]) => void;
+  onOptimizeInstitutions?: (
+    institutions: Institution[],
+    startFrom?: 'pharmacy' | 'current',
+    returnTo?: 'pharmacy' | 'none'
+  ) => void;
 }
 
 interface Stop {
@@ -137,6 +141,10 @@ const CourierView: React.FC<Props> = ({
   const doneCount       = sortedPackages.filter(p => !isActionable(p)).length;
   const totalCount      = actionableCount + doneCount;
   const percentage      = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  // Route knop is ook actief als er alleen een instellingen-route is (geen pakketten)
+  const hasActiveInstitutions = !!(activeInstitutionRoute && activeInstitutionRoute.length > 0);
+  const hasRoutableItems      = actionableCount > 0 || hasActiveInstitutions;
 
   const handleDeliverPkg = (pkg: PackageType) => {
     setIsCapturingGPS(pkg.id);
@@ -253,10 +261,11 @@ const CourierView: React.FC<Props> = ({
           {onOptimize && (
             <button
               onClick={() => {
+                // Lege array = geen pakketten, alleen de instellingen-route optimaliseren
                 const ids = sortedPackages.filter(p => isActionable(p)).map(p => p.id);
                 handleRouteClick(ids);
               }}
-              disabled={isOptimizing || sortedPackages.filter(p => isActionable(p)).length === 0}
+              disabled={isOptimizing || !hasRoutableItems}
               className="flex items-center gap-1.5 px-4 h-10 rounded-full font-display font-bold text-xs disabled:opacity-40 transition-all active:scale-95"
               style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', color: '#fff' }}
             >
@@ -659,6 +668,9 @@ const CourierView: React.FC<Props> = ({
               onClick={() => {
                 setShowRouteOptions(false);
                 onOptimize?.(pendingRouteIds, 'pharmacy', returnTo);
+                if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
+                  onOptimizeInstitutions(activeInstitutionRoute, 'pharmacy', returnTo);
+                }
               }}
               className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
             >
@@ -679,6 +691,9 @@ const CourierView: React.FC<Props> = ({
               onClick={() => {
                 setShowRouteOptions(false);
                 onOptimize?.(pendingRouteIds, 'current', returnTo);
+                if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
+                  onOptimizeInstitutions(activeInstitutionRoute, 'current', returnTo);
+                }
               }}
               className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
             >
