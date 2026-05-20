@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation, Address, StatusEvent } from './types';
+import { UserRole, Package, PackageStatus, CourierStatus, DeliveryEvidence, Pharmacy, AuthSession, AuthUser, ChatConversation, Address, StatusEvent, Institution } from './types';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
@@ -8,6 +8,7 @@ import CourierView from './components/CourierView';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
+import InstitutionSelector from './components/InstitutionSelector';
 import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
@@ -159,6 +160,11 @@ const App: React.FC = () => {
   const [showAddPharmacy, setShowAddPharmacy] = useState(false);
   const [showPharmacySwitcher, setShowPharmacySwitcher] = useState(false);
 
+  // Vaste instellingen
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [showInstitutionSelector, setShowInstitutionSelector] = useState(false);
+  const [activeInstitutionRoute, setActiveInstitutionRoute] = useState<Institution[]>([]);
+
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
 
@@ -211,6 +217,16 @@ const App: React.FC = () => {
     }
     return pharmacies[0] || { id: 'ph-1', name: 'Apotheek de Kroon' };
   }, [session, role, pharmacies, superuserPharmacyId]);
+
+  // Laad vaste instellingen voor de actieve apotheek (koerier: actieve rit-apotheek)
+  useEffect(() => {
+    if (!session) return;
+    const pid = role === UserRole.COURIER ? courierPharmacyIds[0] : currentPharmacy.id;
+    if (!pid) { setInstitutions([]); return; }
+    db.fetchInstitutions(pid)
+      .then(setInstitutions)
+      .catch(() => setInstitutions([]));
+  }, [session, role, courierPharmacyIds, currentPharmacy.id]);
 
   // Load conversations + realtime subscription voor pharmacy staff
   useEffect(() => {
@@ -367,18 +383,43 @@ const App: React.FC = () => {
 
   const nextScanNumberRef  = useRef<number>(1);
   async function geocodeAddress(address: Address): Promise<{ lat: number; lng: number } | null> {
+    console.log('[Geocode] Aanroep gestart voor:', address.street, address.houseNumber);
     try {
-      const res = await fetch('/.netlify/functions/maps', {
+      const response = await fetch('/.netlify/functions/maps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'geocode',
-          addresses: [`${address.street} ${address.houseNumber}, ${address.postalCode} ${address.city}, Netherlands`],
+          addresses: [
+            `${address.street} ${address.houseNumber}, ` +
+            `${address.postalCode} ${address.city}, Netherlands`,
+          ],
         }),
       });
-      const { results } = await res.json();
-      return results?.[0] ?? null;
-    } catch {
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[Geocode] Server fout:', response.status, errText);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (!data.results) {
+        console.error('[Geocode] Geen results in response:', data);
+        return null;
+      }
+
+      const coords = data.results[0];
+      if (!coords) {
+        console.warn('[Geocode] Geen coords voor:', address.street, address.houseNumber);
+        return null;
+      }
+
+      console.log('[Geocode] ✓', address.street, address.houseNumber, '→', coords.lat, coords.lng);
+      return coords;
+    } catch (err) {
+      console.error('[Geocode] Netwerk fout:', err);
       return null;
     }
   }
@@ -447,8 +488,8 @@ const App: React.FC = () => {
       if (!coords) return;
       const updatedPkg = { ...pkg, address: { ...pkg.address, lat: coords.lat, lng: coords.lng } };
       setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
-      db.syncPackage(updatedPkg).catch(() => {});
-    }).catch(() => {});
+      db.syncPackage(updatedPkg).catch(err => console.error('[Geocode] Sync naar DB mislukt:', err));
+    }).catch(err => console.error('[Geocode] Onverwachte fout:', err));
   }, [currentPharmacy]); // packages weggelaten — wordt gelezen via packagesRef
 
   const handleOptimizeRoute = useCallback(async (
@@ -530,6 +571,49 @@ const App: React.FC = () => {
     }
   }, [packages]);
 
+  const handleInstitutionRoute = useCallback(async (selected: Institution[]) => {
+    if (selected.length === 0) return;
+    setIsOptimizing(true);
+    setShowInstitutionSelector(false);
+
+    try {
+      // Converteer instellingen met een bruikbaar adres naar het optimizeRoute-formaat
+      const addresses = selected
+        .filter(i => i.street && i.postalCode)
+        .map(i => ({
+          id:          i.id,
+          street:      i.street!,
+          houseNumber: i.houseNumber ?? '',
+          postalCode:  i.postalCode!,
+          city:        i.city ?? '',
+          lat:         i.addressLat,
+          lng:         i.addressLng,
+        }));
+
+      // Start/eind = adres van de actieve apotheek
+      const activePharmacy = pharmacies.find(p => p.id === courierPharmacyIds[0]) ?? currentPharmacy;
+      const pharmacyAddress = activePharmacy.address ? `${activePharmacy.address}, Netherlands` : null;
+
+      let orderedInstitutions: Institution[] = selected;
+      if (addresses.length > 1) {
+        const orderedIds = await optimizeRoute(addresses, pharmacyAddress, pharmacyAddress);
+        const ordered = orderedIds
+          .map(id => selected.find(i => i.id === id))
+          .filter(Boolean) as Institution[];
+        // instellingen zonder adres (niet geoptimaliseerd) achteraan toevoegen
+        const rest = selected.filter(i => !ordered.some(o => o.id === i.id));
+        orderedInstitutions = [...ordered, ...rest];
+      }
+
+      setActiveInstitutionRoute(orderedInstitutions);
+    } catch (err) {
+      console.error('Instelling route mislukt:', err);
+      alert('Routeplanning mislukt. Probeer opnieuw.');
+    } finally {
+      setIsOptimizing(false);
+    }
+  }, [pharmacies, courierPharmacyIds, currentPharmacy]);
+
   const BESCHERMDE_STATUSSEN = [
     PackageStatus.DELIVERED,
     PackageStatus.MAILBOX,
@@ -596,6 +680,7 @@ const App: React.FC = () => {
     }
     setCourierPharmacyIds([]);
     setScanPharmacyId(null);
+    setActiveInstitutionRoute([]);
   }, [packages, session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
@@ -672,7 +757,30 @@ CREATE TABLE IF NOT EXISTS pharmacies (
 );
 ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public access" ON pharmacies;
-CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
+CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);
+
+CREATE TABLE IF NOT EXISTS institutions (
+  id TEXT PRIMARY KEY,
+  "pharmacyId" TEXT NOT NULL REFERENCES pharmacies(id),
+  name TEXT NOT NULL,
+  address TEXT NOT NULL,
+  street TEXT,
+  "houseNumber" TEXT,
+  "postalCode" TEXT,
+  city TEXT,
+  "addressLat" DOUBLE PRECISION,
+  "addressLng" DOUBLE PRECISION,
+  frequency TEXT DEFAULT 'weekly',
+  "deliveryDays" TEXT[] DEFAULT '{}',
+  instructions TEXT,
+  "contactPerson" TEXT,
+  "contactPhone" TEXT,
+  "isActive" BOOLEAN DEFAULT true,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public access" ON institutions;
+CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
     navigator.clipboard.writeText(sql);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -853,6 +961,7 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
           <PharmacyView
             packages={visiblePackages}
             pharmacyName={currentPharmacy.name}
+            pharmacyId={currentPharmacy.id}
             conversations={conversations}
             onMarkConversationRead={handleMarkConversationRead}
             onMarkCallbackHandled={handleMarkCallbackHandled}
@@ -882,6 +991,8 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             isOptimizing={isOptimizing}
             onNewRit={handleNewRit}
             onAddPharmacy={() => setShowAddPharmacy(true)}
+            onInstitutionRoute={() => setShowInstitutionSelector(true)}
+            activeInstitutionRoute={activeInstitutionRoute}
           />
         )}
 
@@ -969,6 +1080,16 @@ CREATE POLICY "Allow public access" ON pharmacies FOR ALL USING (true);`;
             </button>
           </div>
         </div>
+      )}
+
+      {/* Vaste instellingen selecteren (koerier) */}
+      {showInstitutionSelector && role === UserRole.COURIER && (
+        <InstitutionSelector
+          institutions={institutions}
+          onStartRoute={handleInstitutionRoute}
+          isOptimizing={isOptimizing}
+          onClose={() => setShowInstitutionSelector(false)}
+        />
       )}
 
       {showManualForm && (

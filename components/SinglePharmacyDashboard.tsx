@@ -2,11 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
-  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, ChevronDown, Archive, X, Map as MapIcon,
+  MapPin, RefreshCw, MessageCircle, Phone, ArrowLeft, ChevronRight, ChevronDown, Archive, X, Map as MapIcon, Building2,
 } from 'lucide-react';
 import ChatBot from './ChatBot';
 import ArchiveView from './ArchiveView';
 import ExportModal from './ExportModal';
+import InstitutionManager from './InstitutionManager';
 
 interface Props {
   packages:                PackageType[];
@@ -16,6 +17,7 @@ interface Props {
   onMarkCallbackHandled?:  (id: string) => void;
   onOptimize?:             (ids: string[]) => Promise<void>;
   isOptimizing?:           boolean;
+  canManageInstitutions?:  boolean;
 }
 
 const COURIER_NAMES: Record<string, string> = {
@@ -117,8 +119,9 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
   onMarkCallbackHandled,
   onOptimize,
   isOptimizing = false,
+  canManageInstitutions = true,
 }) => {
-  const [activeTab, setActiveTab]       = useState<'packages' | 'chats' | 'archive'>('packages');
+  const [activeTab, setActiveTab]       = useState<'packages' | 'institutions' | 'chats' | 'archive'>('packages');
   const [selectedConv, setSelectedConv] = useState<ChatConversation | null>(null);
   const [activeCourier, setActiveCourier] = useState<string>('all');
   const [timelinePkg, setTimelinePkg]   = useState<PackageType | null>(null);
@@ -271,10 +274,10 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
             {/* Tab headers */}
             <div className="px-6 pt-5 pb-0 bg-white border-b border-[#bccac4]/20">
               <div className="flex items-end space-x-1">
-                {(['packages', 'chats', 'archive'] as const).map(tab => {
+                {(['packages', 'institutions', 'chats', 'archive'] as const).map(tab => {
                   const isActive = activeTab === tab;
-                  const label = tab === 'packages' ? 'Zendingen' : tab === 'chats' ? 'Chats' : 'Archief';
-                  const icon  = tab === 'chats' ? <MessageCircle size={12} /> : tab === 'archive' ? <Archive size={12} /> : null;
+                  const label = tab === 'packages' ? 'Zendingen' : tab === 'institutions' ? 'Instellingen' : tab === 'chats' ? 'Chats' : 'Archief';
+                  const icon  = tab === 'institutions' ? <Building2 size={12} /> : tab === 'chats' ? <MessageCircle size={12} /> : tab === 'archive' ? <Archive size={12} /> : null;
                   const badge = tab === 'chats' && (unreadCount + pendingCallbacks) > 0
                     ? <span className="text-white text-[9px] font-display font-black px-1.5 py-0.5 rounded-full leading-none" style={{ background: '#006b5a' }}>{unreadCount + pendingCallbacks}</span>
                     : null;
@@ -446,6 +449,17 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                   ))}
                 </div>
               )
+            )}
+
+            {/* Institutions tab */}
+            {activeTab === 'institutions' && (
+              <div className="p-4 lg:p-6">
+                <InstitutionManager
+                  pharmacyId={pharmacy.id}
+                  pharmacyName={pharmacy.name}
+                  canEdit={canManageInstitutions}
+                />
+              </div>
             )}
 
             {/* Archive tab */}

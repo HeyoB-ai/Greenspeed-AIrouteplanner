@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Package as PackageType, PackageStatus, DeliveryEvidence } from '../types';
+import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution } from '../types';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
@@ -21,6 +21,8 @@ interface Props {
   onNewRit?: () => void;
   onAddPharmacy?: () => void;
   activePharmacyNames?: string[];
+  onInstitutionRoute?: () => void;
+  activeInstitutionRoute?: Institution[];
 }
 
 interface Stop {
@@ -71,6 +73,8 @@ const CourierView: React.FC<Props> = ({
   onNewRit,
   onAddPharmacy,
   activePharmacyNames,
+  onInstitutionRoute,
+  activeInstitutionRoute,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -167,6 +171,16 @@ const CourierView: React.FC<Props> = ({
     );
   };
 
+  const handleNavigateToInstitution = (inst: Institution) => {
+    const destination = encodeURIComponent(
+      `${inst.street ?? ''} ${inst.houseNumber ?? ''}, ${inst.postalCode ?? ''} ${inst.city ?? ''}, Netherlands`
+    );
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=bicycling`,
+      '_blank'
+    );
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedPendingIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -256,6 +270,15 @@ const CourierView: React.FC<Props> = ({
               Invoeren
             </button>
           )}
+          {onInstitutionRoute && (
+            <button
+              onClick={onInstitutionRoute}
+              className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+            >
+              <Building2 size={14} />
+              Instellingen
+            </button>
+          )}
           {onAddPharmacy && (
             <button
               onClick={onAddPharmacy}
@@ -275,6 +298,46 @@ const CourierView: React.FC<Props> = ({
             <span key={name} className="text-xs font-bold px-3 py-1 bg-[#48c2a9]/15 text-[#006b5a] rounded-full">
               ✓ {name}
             </span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Instellingen route ── */}
+      {activeInstitutionRoute && activeInstitutionRoute.length > 0 && (
+        <div className="mb-4 bg-white rounded-2xl shadow-[0_4px_24px_rgba(25,28,30,0.04)] overflow-hidden">
+          <div className="px-4 pt-4 pb-2 border-b border-[#f2f4f6]">
+            <p className="font-display font-black text-[#191c1e] text-sm">
+              🏥 Instellingen route
+            </p>
+            <p className="text-xs text-[#3d4945] mt-0.5">
+              {activeInstitutionRoute.length} stop{activeInstitutionRoute.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          {activeInstitutionRoute.map((inst, i) => (
+            <div key={inst.id} className="px-4 py-3 border-b border-[#f2f4f6] last:border-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#48c2a9]/15 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-black text-[#006b5a]">{i + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[#191c1e] text-sm truncate">{inst.name}</p>
+                  <p className="text-xs text-[#3d4945]">
+                    {inst.street} {inst.houseNumber} · {inst.postalCode}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleNavigateToInstitution(inst)}
+                  className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                >
+                  <Navigation size={16} className="text-[#3d4945]" />
+                </button>
+              </div>
+              {inst.instructions && (
+                <div className="mt-2 ml-11 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-800">
+                  📋 {inst.instructions}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

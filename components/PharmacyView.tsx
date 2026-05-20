@@ -7,10 +7,13 @@ import {
 import { Package as PackageType, PackageStatus, ChatConversation } from '../types';
 import ChatBot from './ChatBot';
 import ExportModal from './ExportModal';
+import InstitutionManager from './InstitutionManager';
+import { Building2 } from 'lucide-react';
 
 interface Props {
   packages: PackageType[];
   pharmacyName: string;
+  pharmacyId?: string;
   conversations?: ChatConversation[];
   onMarkConversationRead?: (id: string) => void;
   onMarkCallbackHandled?: (id: string) => void;
@@ -64,17 +67,18 @@ const StatusBadge: React.FC<{ status: PackageStatus }> = ({ status }) => {
 const PharmacyView: React.FC<Props> = ({
   packages,
   pharmacyName,
+  pharmacyId,
   conversations = [],
   onMarkConversationRead,
   onMarkCallbackHandled,
 }) => {
-  const [activeTab, setActiveTab]         = useState<'packages' | 'chats'>('packages');
+  const [activeTab, setActiveTab]         = useState<'packages' | 'institutions' | 'chats'>('packages');
   const [selectedConv, setSelectedConv]   = useState<ChatConversation | null>(null);
   const [activeCourier, setActiveCourier] = useState<string>('all');
   const [timelinePkg, setTimelinePkg]     = useState<PackageType | null>(null);
   const [showExport, setShowExport]       = useState(false);
 
-  const pharmacyId = packages[0]?.pharmacyId;
+  const resolvedPharmacyId = pharmacyId ?? packages[0]?.pharmacyId;
 
   const unreadCount      = conversations.filter(c => !c.isRead).length;
   const pendingCallbacks = conversations.filter(c => c.callbackRequest && !c.callbackRequest.isHandled).length;
@@ -206,6 +210,17 @@ const PharmacyView: React.FC<Props> = ({
                   }`}
                 >
                   Zendingen
+                </button>
+                <button
+                  onClick={() => setActiveTab('institutions')}
+                  className={`pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center space-x-1.5 ${
+                    activeTab === 'institutions'
+                      ? 'border-[#006b5a] text-[#006b5a]'
+                      : 'border-transparent text-[#3d4945]/40 hover:text-[#3d4945]/70'
+                  }`}
+                >
+                  <Building2 size={12} />
+                  <span>Instellingen</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('chats')}
@@ -376,6 +391,17 @@ const PharmacyView: React.FC<Props> = ({
                 </div>
               )
             )}
+
+            {/* ── Institutions tab content ── */}
+            {activeTab === 'institutions' && (
+              <div className="p-4 lg:p-6">
+                <InstitutionManager
+                  pharmacyId={resolvedPharmacyId ?? ''}
+                  pharmacyName={pharmacyName}
+                  canEdit={true}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -518,8 +544,8 @@ const PharmacyView: React.FC<Props> = ({
       {showExport && (
         <ExportModal
           packages={packages}
-          pharmacies={[{ id: pharmacyId ?? '', name: pharmacyName }]}
-          pharmacyId={pharmacyId}
+          pharmacies={[{ id: resolvedPharmacyId ?? '', name: pharmacyName }]}
+          pharmacyId={resolvedPharmacyId}
           onClose={() => setShowExport(false)}
         />
       )}

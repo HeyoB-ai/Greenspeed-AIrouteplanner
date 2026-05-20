@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Package, ChatConversation } from '../types';
+import { Package, ChatConversation, Institution } from '../types';
 
 /**
  * Veilige helper om omgevingsvariabelen op te halen.
@@ -273,6 +273,37 @@ export const db = {
     }
   },
 
+
+  // ── Vaste instellingen ─────────────────────────────────────────────
+  async fetchInstitutions(pharmacyId?: string): Promise<Institution[]> {
+    if (!supabase) return [];
+    let query = supabase
+      .from('institutions')
+      .select('*')
+      .order('name');
+    if (pharmacyId) {
+      query = query.eq('pharmacyId', pharmacyId);
+    }
+    const { data } = await query;
+    return (data ?? []) as Institution[];
+  },
+
+  async saveInstitution(inst: Institution): Promise<void> {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('institutions')
+      .upsert(inst, { onConflict: 'id' });
+    if (error) throw error;
+  },
+
+  async deleteInstitution(id: string): Promise<void> {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('institutions')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
 
   async deleteData() {
     localStorage.removeItem(LOCAL_STORAGE_KEY);

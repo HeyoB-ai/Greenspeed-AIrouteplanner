@@ -103,6 +103,29 @@ export interface Pharmacy {
   code?:    string;  // optionele interne code / shortcode
 }
 
+// ── Vaste instellingen (zorginstellingen die regelmatig bevoorraad worden) ──
+export type DeliveryFrequency = 'daily' | 'weekly' | 'both';
+
+export interface Institution {
+  id:              string;
+  pharmacyId:      string;
+  name:            string;
+  address:         string;   // samengesteld adres, voor weergave + geocoding
+  street?:         string;
+  houseNumber?:    string;
+  postalCode?:     string;
+  city?:           string;
+  addressLat?:     number;
+  addressLng?:     number;
+  frequency:       DeliveryFrequency;
+  deliveryDays:    string[]; // 2-letter codes: 'ma','di','wo','do','vr','za','zo'
+  instructions?:   string;
+  contactPerson?:  string;
+  contactPhone?:   string;
+  isActive:        boolean;
+  createdAt:       string;
+}
+
 export interface ChatMessage {
   id:        string;
   role:      'user' | 'assistant';
