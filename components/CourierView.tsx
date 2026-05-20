@@ -23,6 +23,7 @@ interface Props {
   activePharmacyNames?: string[];
   onInstitutionRoute?: () => void;
   activeInstitutionRoute?: Institution[];
+  onOptimizeInstitutions?: (institutions: Institution[]) => void;
 }
 
 interface Stop {
@@ -75,6 +76,7 @@ const CourierView: React.FC<Props> = ({
   activePharmacyNames,
   onInstitutionRoute,
   activeInstitutionRoute,
+  onOptimizeInstitutions,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -83,6 +85,7 @@ const CourierView: React.FC<Props> = ({
   const [showRouteOptions, setShowRouteOptions]     = useState(false);
   const [pendingRouteIds, setPendingRouteIds]       = useState<string[]>([]);
   const [returnTo, setReturnTo]                     = useState<'pharmacy' | 'none'>('pharmacy');
+  const [deliveredInstitutions, setDeliveredInstitutions] = useState<Set<string>>(new Set());
 
   const handleRouteClick = (ids: string[]) => {
     setPendingRouteIds(ids);
@@ -306,15 +309,32 @@ const CourierView: React.FC<Props> = ({
       {activeInstitutionRoute && activeInstitutionRoute.length > 0 && (
         <div className="mb-4 bg-white rounded-2xl shadow-[0_4px_24px_rgba(25,28,30,0.04)] overflow-hidden">
           <div className="px-4 pt-4 pb-2 border-b border-[#f2f4f6]">
-            <p className="font-display font-black text-[#191c1e] text-sm">
-              🏥 Instellingen route
-            </p>
-            <p className="text-xs text-[#3d4945] mt-0.5">
-              {activeInstitutionRoute.length} stop{activeInstitutionRoute.length !== 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-display font-black text-[#191c1e] text-sm">
+                  🏥 Instellingen route
+                </p>
+                <p className="text-xs text-[#3d4945] mt-0.5">
+                  {deliveredInstitutions.size}/{activeInstitutionRoute.length} bezocht
+                </p>
+              </div>
+              {activeInstitutionRoute.length > 1 && onOptimizeInstitutions && (
+                <button
+                  onClick={() => onOptimizeInstitutions(activeInstitutionRoute)}
+                  disabled={isOptimizing}
+                  className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-display font-bold text-white active:scale-95 transition-all disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+                >
+                  {isOptimizing ? <RefreshCw size={12} className="animate-spin" /> : <MapIcon size={12} />}
+                  Optimaliseer
+                </button>
+              )}
+            </div>
           </div>
-          {activeInstitutionRoute.map((inst, i) => (
-            <div key={inst.id} className="px-4 py-3 border-b border-[#f2f4f6] last:border-0">
+          {activeInstitutionRoute.map((inst, i) => {
+            const isDelivered = deliveredInstitutions.has(inst.id);
+            return (
+            <div key={inst.id} className={`px-4 py-3 border-b border-[#f2f4f6] last:border-0 transition-opacity ${isDelivered ? 'opacity-60' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#48c2a9]/15 flex items-center justify-center shrink-0">
                   <span className="text-xs font-black text-[#006b5a]">{i + 1}</span>
@@ -327,7 +347,7 @@ const CourierView: React.FC<Props> = ({
                 </div>
                 <button
                   onClick={() => handleNavigateToInstitution(inst)}
-                  className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                  className="w-9 h-9 bg-[#f2f4f6] rounded-xl flex items-center justify-center active:scale-95 transition-all hover:bg-[#48c2a9]/20"
                 >
                   <Navigation size={16} className="text-[#3d4945]" />
                 </button>
@@ -337,8 +357,32 @@ const CourierView: React.FC<Props> = ({
                   📋 {inst.instructions}
                 </div>
               )}
+              <div className="flex gap-2 mt-2 ml-11">
+                {!isDelivered ? (
+                  <button
+                    onClick={() => setDeliveredInstitutions(prev => new Set([...prev, inst.id]))}
+                    className="flex-1 h-10 bg-[#48c2a9] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Check size={15} strokeWidth={3} />
+                    Afgeleverd
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setDeliveredInstitutions(prev => {
+                      const next = new Set(prev);
+                      next.delete(inst.id);
+                      return next;
+                    })}
+                    className="flex-1 h-10 bg-[#f2f4f6] rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <CheckCircle2 size={15} className="text-[#006b5a]" />
+                    <span className="text-sm font-bold text-[#006b5a]">Bezocht</span>
+                  </button>
+                )}
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -412,7 +456,7 @@ const CourierView: React.FC<Props> = ({
       )}
 
       {/* ── Pakketkaartjes ── */}
-      {sortedPackages.length === 0 ? (
+      {sortedPackages.length === 0 && (!activeInstitutionRoute || activeInstitutionRoute.length === 0) ? (
         <div className="bg-white p-12 rounded-3xl text-center" style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}>
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, rgba(0,107,90,0.1), rgba(72,194,169,0.1))' }}>
             <CheckCircle className="text-[#006b5a]" size={32} />
@@ -420,7 +464,7 @@ const CourierView: React.FC<Props> = ({
           <p className="text-[#191c1e] font-display font-black text-xl">Lekker bezig!</p>
           <p className="text-[#3d4945]/60 text-sm font-body mt-1">Geen openstaande bezorgingen.</p>
         </div>
-      ) : (
+      ) : sortedPackages.length === 0 ? null : (
         <div className="space-y-2">
           {sortedPackages.map(pkg => (
             <div

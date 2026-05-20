@@ -1002,6 +1002,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onAddPharmacy={() => setShowAddPharmacy(true)}
             onInstitutionRoute={() => setShowInstitutionSelector(true)}
             activeInstitutionRoute={activeInstitutionRoute}
+            onOptimizeInstitutions={handleInstitutionRoute}
           />
         )}
 
