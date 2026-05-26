@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Link, X, Loader2, Copy, Check, Mail } from 'lucide-react';
+import { Users, UserPlus, Link, X, Loader2, Copy, Check, Mail, RefreshCw } from 'lucide-react';
 import { Pharmacy, UserRole } from '../types';
 import { inviteUser, generatePharmacyCode } from '../services/authService';
+import { supabase } from '../services/supabaseService';
 
 interface Props {
   pharmacies:        Pharmacy[];
@@ -21,6 +22,7 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
   const [modal, setModal]             = useState<Modal>(null);
   const [email, setEmail]             = useState('');
   const [pharmacyId, setPharmacyId]   = useState(defaultPharmacyId ?? pharmacies[0]?.id ?? '');
+  const [selectedPharmacyIds, setSelectedPharmacyIds] = useState<string[]>([]);
   const [isLoading, setIsLoading]     = useState(false);
   const [error, setError]             = useState('');
   const [success, setSuccess]         = useState('');
@@ -29,6 +31,7 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
 
   const cfg = INVITE_CONFIG[userRole];
   const canGenerateCode = userRole === UserRole.SUPERVISOR || userRole === UserRole.ADMIN;
+  const isSuperuserInvite = userRole === UserRole.SUPERUSER;
 
   const reset = () => {
     setEmail('');
@@ -36,13 +39,20 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
     setSuccess('');
     setGeneratedCode('');
     setCodeCopied(false);
+    setSelectedPharmacyIds([]);
     if (!defaultPharmacyId) setPharmacyId(pharmacies[0]?.id ?? '');
   };
 
   const openModal = (m: Modal) => { reset(); setModal(m); };
   const closeModal = () => { setModal(null); reset(); };
 
-  // ── Uitnodiging versturen ─────────────────────────────────────────
+  const togglePharmacy = (id: string) => {
+    setSelectedPharmacyIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // ── Uitnodiging versturen (SUPERVISOR / ADMIN — single pharmacy) ──
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !pharmacyId || !cfg) return;
@@ -54,6 +64,61 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
       setEmail('');
     } catch {
       setError('Versturen mislukt. Controleer of Supabase geconfigureerd is.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── Uitnodiging versturen (SUPERUSER — multi-pharmacy via Supabase Auth) ──
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || selectedPharmacyIds.length === 0) return;
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const pharmacyNames = selectedPharmacyIds
+        .map(id => pharmacies.find(p => p.id === id)?.name)
+        .filter(Boolean);
+
+      const res = await fetch('/.netlify/functions/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:         email.trim(),
+          pharmacyIds:   selectedPharmacyIds,
+          pharmacyNames,
+          role:          'SUPERVISOR',
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data.error ?? 'Versturen mislukt');
+        return;
+      }
+
+      // Tracking-row in invitations (best-effort, blokkeert niet)
+      try {
+        await supabase?.from('invitations').insert({
+          id:          crypto.randomUUID(),
+          email:       email.trim(),
+          role:        'SUPERVISOR',
+          pharmacyIds: selectedPharmacyIds,
+          status:      'sent',
+          createdAt:   new Date().toISOString(),
+        });
+      } catch (trackErr) {
+        console.warn('[Invite] tracking-insert mislukt:', trackErr);
+      }
+
+      setSuccess(`Uitnodiging verstuurd naar ${email.trim()}`);
+      setEmail('');
+      setSelectedPharmacyIds([]);
+    } catch {
+      setError('Verbindingsfout. Probeer opnieuw.');
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +193,7 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
 
             {/* ── INVITE MODAL ── */}
             {modal === 'invite' && (
-              <form onSubmit={handleInvite}>
+              <form onSubmit={isSuperuserInvite ? handleSendInvite : handleInvite}>
                 <div className="flex items-center justify-between p-6 pb-4">
                   <h2 className="text-lg font-black text-[#191c1e]">{cfg?.label}</h2>
                   <button type="button" onClick={closeModal}
@@ -153,8 +218,51 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
                     />
                   </div>
 
-                  {/* Apotheek kiezen — alleen als niet vast */}
-                  {!defaultPharmacyId && pharmacies.length > 1 && (
+                  {/* SUPERUSER: meerdere apotheken kiezen via checkboxes */}
+                  {isSuperuserInvite && pharmacies.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#3d4945]/50 ml-1">
+                        Apotheken
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border border-[#48c2a9]/20 rounded-xl p-3">
+                        {pharmacies.map(pharmacy => (
+                          <label
+                            key={pharmacy.id}
+                            className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all ${
+                              selectedPharmacyIds.includes(pharmacy.id)
+                                ? 'bg-[#48c2a9]/10'
+                                : 'hover:bg-[#f2f4f6]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPharmacyIds.includes(pharmacy.id)}
+                              onChange={e => {
+                                setSelectedPharmacyIds(prev =>
+                                  e.target.checked
+                                    ? [...prev, pharmacy.id]
+                                    : prev.filter(id => id !== pharmacy.id)
+                                );
+                              }}
+                              style={{ accentColor: '#006b5a', width: 16, height: 16 }}
+                            />
+                            <span className="text-sm font-bold text-[#191c1e]">
+                              {pharmacy.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedPharmacyIds.length > 0 && (
+                        <p className="text-xs text-[#006b5a] font-bold mt-1">
+                          {selectedPharmacyIds.length} apotheek
+                          {selectedPharmacyIds.length !== 1 ? 'en' : ''} geselecteerd
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUPERVISOR / ADMIN: enkele apotheek via select */}
+                  {!isSuperuserInvite && !defaultPharmacyId && pharmacies.length > 1 && (
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase tracking-widest text-[#3d4945]/50 ml-1">Apotheek</label>
                       <select
@@ -182,11 +290,19 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
 
                   <button
                     type="submit"
-                    disabled={isLoading || !email}
+                    disabled={
+                      isLoading ||
+                      !email ||
+                      (isSuperuserInvite
+                        ? selectedPharmacyIds.length === 0
+                        : !pharmacyId)
+                    }
                     className="w-full h-11 text-white rounded-full font-black text-sm disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2"
                     style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
                   >
-                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                    {isLoading
+                      ? <RefreshCw size={16} className="animate-spin" />
+                      : <Mail size={16} />}
                     {isLoading ? 'Versturen...' : 'Uitnodiging versturen'}
                   </button>
                 </div>
