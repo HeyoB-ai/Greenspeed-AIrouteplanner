@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
         pharmacyIds: pharmacyIds ?? [],
         invited:     true,
       },
-      redirectTo: `${process.env.URL ?? 'https://greenspeed.netlify.app'}/login`,
+      redirectTo: `${process.env.URL ?? 'https://greenspeed.netlify.app'}/`,
     });
 
     if (error) {
