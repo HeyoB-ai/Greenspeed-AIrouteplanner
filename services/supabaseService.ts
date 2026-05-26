@@ -125,19 +125,55 @@ export const db = {
     let updated;
     if (exists !== -1) {
       updated = [...localPharmacies];
-      updated[exists] = pharmacy;
+      updated[exists] = { ...localPharmacies[exists], ...pharmacy };
     } else {
       updated = [...localPharmacies, pharmacy];
     }
     localStorage.setItem(PHARMACIES_KEY, JSON.stringify(updated));
 
-    // 2. Supabase upsert (asynchroon)
+    // 2. Supabase: probeer eerst update, val terug op insert als record niet bestaat
     if (supabase) {
       try {
-        await supabase.from('pharmacies').upsert(pharmacy);
+        const payload = {
+          name:        pharmacy.name,
+          address:     pharmacy.address ?? null,
+          groupId:     pharmacy.groupId ?? null,
+          courierCode: pharmacy.courierCode ?? pharmacy.code ?? null,
+        };
+
+        const { data: updateData, error: updateError } = await supabase
+          .from('pharmacies')
+          .update(payload)
+          .eq('id', pharmacy.id)
+          .select();
+
+        if (updateError || !updateData || updateData.length === 0) {
+          // Geen bestaande row gevonden of update faalde — doe insert
+          const { error: insertError } = await supabase
+            .from('pharmacies')
+            .insert({ id: pharmacy.id, ...payload });
+          if (insertError) throw insertError;
+        }
       } catch (err) {
         console.warn('Pharmacy cloud sync mislukt:', err);
       }
+    }
+  },
+
+  async deletePharmacy(id: string): Promise<void> {
+    // 1. localStorage (synchroon)
+    const localData = localStorage.getItem(PHARMACIES_KEY);
+    const localPharmacies = localData ? JSON.parse(localData) : [];
+    const filtered = localPharmacies.filter((p: any) => p.id !== id);
+    localStorage.setItem(PHARMACIES_KEY, JSON.stringify(filtered));
+
+    // 2. Supabase delete
+    if (supabase) {
+      const { error } = await supabase
+        .from('pharmacies')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
     }
   },
 

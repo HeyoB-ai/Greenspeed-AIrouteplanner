@@ -16,7 +16,7 @@ import { optimizeRoute } from './services/geminiService';
 import { getSession, logout, saveSession } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2 } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
@@ -38,15 +38,17 @@ const enrichWithHistory = (pkg: Package): Package => {
 
 // ── Apotheek bewerken modal ────────────────────────────────────────────
 const EditPharmacyModal: React.FC<{
-  pharmacy: Pharmacy;
-  onSave:   (updated: Pharmacy) => Promise<void>;
-  onClose:  () => void;
-}> = ({ pharmacy, onSave, onClose }) => {
+  pharmacy:  Pharmacy;
+  onSave:    (updated: Pharmacy) => Promise<void>;
+  onClose:   () => void;
+  onDelete?: (pharmacy: Pharmacy) => Promise<void>;
+}> = ({ pharmacy, onSave, onClose, onDelete }) => {
   const [name,    setName]    = useState(pharmacy.name);
   const [address, setAddress] = useState(pharmacy.address ?? '');
   const [groupId, setGroupId] = useState(pharmacy.groupId ?? '');
   const [code,    setCode]    = useState(pharmacy.code ?? '');
   const [saving,  setSaving]  = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +64,16 @@ const EditPharmacyModal: React.FC<{
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(pharmacy);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -112,21 +124,34 @@ const EditPharmacyModal: React.FC<{
             </div>
           ))}
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2 items-center">
+            {onDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || saving}
+                className="flex items-center gap-2 px-4 h-12 rounded-full text-red-500 bg-red-50 border border-red-100 font-display font-bold text-sm hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Apotheek verwijderen"
+              >
+                <Trash2 size={16} />
+                {deleting ? 'Bezig…' : 'Verwijderen'}
+              </button>
+            )}
+            <div className="flex-1" />
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-12 rounded-full font-display font-semibold text-sm text-[#101c30] bg-[#d7e2fe] transition-all active:scale-95"
+              className="h-12 px-5 rounded-full font-display font-semibold text-sm text-[#101c30] bg-[#d7e2fe] transition-all active:scale-95"
             >
               Annuleren
             </button>
             <button
               type="submit"
-              disabled={saving || !name.trim()}
-              className="flex-1 h-12 rounded-full text-white font-display font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 active:scale-95"
+              disabled={saving || deleting || !name.trim()}
+              className="h-12 px-5 rounded-full text-white font-display font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 active:scale-95"
               style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
             >
-              {saving ? <>{/* Loader2 imported via lucide */}<span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" /></> : null}
+              {saving ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" /> : null}
               {saving ? 'Opslaan...' : 'Opslaan'}
             </button>
           </div>
@@ -723,11 +748,42 @@ const App: React.FC = () => {
   const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
 
   const handleUpdatePharmacy = async (updated: Pharmacy) => {
-    setPharmacies(prev => prev.map(p => p.id === updated.id ? updated : p));
-    await db.savePharmacy(updated);
+    // Normaliseer code ↔ courierCode (UI gebruikt 'code', DB-kolom is 'courierCode')
+    const normalized: Pharmacy = {
+      ...updated,
+      code:        updated.code ?? updated.courierCode,
+      courierCode: updated.courierCode ?? updated.code,
+    };
+    setPharmacies(prev => prev.map(p => p.id === normalized.id ? normalized : p));
+    try {
+      await db.savePharmacy(normalized);
+    } catch (err) {
+      console.error('Opslaan apotheek mislukt:', err);
+      alert('Opslaan mislukt. Probeer opnieuw.');
+      return;
+    }
     if (supabase) {
       const { data } = await supabase.from('pharmacies').select('*').order('name');
       if (data && data.length > 0) setPharmacies(data);
+    }
+  };
+
+  const handleDeletePharmacy = async (pharmacy: Pharmacy) => {
+    const hasPackages = packages.some(p => p.pharmacyId === pharmacy.id);
+
+    const message = hasPackages
+      ? `Weet je zeker dat je "${pharmacy.name}" wilt verwijderen?\n\nLet op: deze apotheek heeft nog pakketten in de database. Die blijven bewaard maar zijn niet meer gekoppeld aan een apotheek.`
+      : `Weet je zeker dat je "${pharmacy.name}" wilt verwijderen?`;
+
+    if (!confirm(message)) return;
+
+    try {
+      await db.deletePharmacy(pharmacy.id);
+      setPharmacies(prev => prev.filter(p => p.id !== pharmacy.id));
+      setEditingPharmacy(null);
+    } catch (err) {
+      console.error('Verwijderen mislukt:', err);
+      alert('Verwijderen mislukt. Probeer opnieuw.');
     }
   };
 
@@ -1139,6 +1195,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           pharmacy={editingPharmacy}
           onSave={async (updated) => { await handleUpdatePharmacy(updated); setEditingPharmacy(null); }}
           onClose={() => setEditingPharmacy(null)}
+          onDelete={role === UserRole.SUPERUSER ? handleDeletePharmacy : undefined}
         />
       )}
     </Layout>
