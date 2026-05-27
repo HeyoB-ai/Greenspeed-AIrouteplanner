@@ -180,7 +180,22 @@ const App: React.FC = () => {
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
 
   // Courier: welke apotheken zitten in de huidige rit
-  const [courierPharmacyIds, setCourierPharmacyIds] = useState<string[]>([]);
+  const [courierPharmacyIds, setCourierPharmacyIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('courierPharmacyIds');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (courierPharmacyIds.length > 0) {
+      localStorage.setItem('courierPharmacyIds', JSON.stringify(courierPharmacyIds));
+    } else {
+      localStorage.removeItem('courierPharmacyIds');
+    }
+  }, [courierPharmacyIds]);
   const [scanPharmacyId, setScanPharmacyId] = useState<string | null>(null);
   const [showAddPharmacy, setShowAddPharmacy] = useState(false);
   const [showPharmacySwitcher, setShowPharmacySwitcher] = useState(false);
@@ -403,6 +418,7 @@ const App: React.FC = () => {
       setPackages([]);
       setCourierPharmacyIds([]);
       setScanPharmacyId(null);
+      localStorage.removeItem('courierPharmacyIds');
     }
   };
 
@@ -755,6 +771,7 @@ const App: React.FC = () => {
     setCourierPharmacyIds([]);
     setScanPharmacyId(null);
     setActiveInstitutionRoute([]);
+    localStorage.removeItem('courierPharmacyIds');
   }, [packages, session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
