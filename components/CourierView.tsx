@@ -187,10 +187,32 @@ const CourierView: React.FC<Props> = ({
     const destination = encodeURIComponent(
       `${street} ${houseNumber}, ${postalCode} ${city}, Netherlands`
     );
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=bicycling`,
-      '_blank'
-    );
+
+    // Vertrekpunt bepalen op basis van positie in de route
+    const actionable = sortedPackages.filter(isActionable);
+    const currentIndex = actionable.findIndex(p => p.id === pkg.id);
+
+    let originParam = '';
+    if (currentIndex === 0 && pharmacyAddress) {
+      // Eerste stop → vertrek vanuit apotheek
+      originParam = `&origin=${encodeURIComponent(pharmacyAddress + ', Netherlands')}`;
+    } else if (currentIndex > 0) {
+      // Volgende stops → vertrek vanuit vorige stop
+      const prev = actionable[currentIndex - 1];
+      originParam = `&origin=${encodeURIComponent(
+        `${prev.address.street} ${prev.address.houseNumber}, ` +
+        `${prev.address.postalCode} ${prev.address.city}, Netherlands`
+      )}`;
+    }
+    // Geen origin → Google Maps valt terug op GPS
+
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      originParam +
+      `&destination=${destination}` +
+      `&travelmode=bicycling`;
+
+    window.open(url, '_blank');
   };
 
   const handleNavigateToInstitution = (inst: Institution) => {
