@@ -95,6 +95,8 @@ const CourierView: React.FC<Props> = ({
   // returnTo: 'none' = geen terugreis, 'pharmacy' = legacy fallback,
   // andere string = pharmacyId.
   const [returnTo, setReturnTo]                     = useState<string>('pharmacy');
+  // startFrom: 'current' = GPS, 'pharmacy' = legacy fallback, andere string = pharmacyId.
+  const [startFrom, setStartFrom]                   = useState<string>('current');
   const [deliveredInstitutions, setDeliveredInstitutions] = useState<Set<string>>(new Set());
   const [showMoreMenu, setShowMoreMenu]             = useState(false);
 
@@ -104,7 +106,17 @@ const CourierView: React.FC<Props> = ({
     setPendingRouteIds(ids);
     // Default eindpunt: eerste gekoppelde apotheek, anders legacy 'pharmacy'
     setReturnTo(linkedPharmacies[0]?.id ?? 'pharmacy');
+    // Default startpunt: eerste gekoppelde apotheek, anders 'current'
+    setStartFrom(linkedPharmacies[0]?.id ?? 'current');
     setShowRouteOptions(true);
+  };
+
+  const handleConfirmRoute = () => {
+    setShowRouteOptions(false);
+    onOptimize?.(pendingRouteIds, startFrom, returnTo);
+    if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
+      onOptimizeInstitutions(activeInstitutionRoute, startFrom, returnTo);
+    }
   };
 
   const pendingPackages = useMemo(
@@ -759,51 +771,61 @@ const CourierView: React.FC<Props> = ({
               Route starten
             </h3>
             <p className="text-sm text-[#3d4945] mb-6">
-              Waar begin je jouw rit?
+              Kies startpunt en eindpunt
+            </p>
+
+            <p className="text-sm font-display font-bold text-[#191c1e] mb-3">
+              Startpunt
             </p>
 
             {/* Startpunt — per gekoppelde apotheek, of legacy fallback */}
             {linkedPharmacies.length > 0 ? (
-              linkedPharmacies.map(ph => (
-                <button
-                  key={`start-${ph.id}`}
-                  onClick={() => {
-                    setShowRouteOptions(false);
-                    onOptimize?.(pendingRouteIds, ph.id, returnTo);
-                    if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
-                      onOptimizeInstitutions(activeInstitutionRoute, ph.id, returnTo);
-                    }
-                  }}
-                  className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
-                    <Building2 size={20} className="text-[#006b5a]" />
-                  </div>
-                  <div className="text-left min-w-0">
-                    <p className="font-display font-black text-[#191c1e] text-sm truncate">
-                      Vanuit {ph.name}
-                    </p>
-                    {ph.address && (
-                      <p className="text-xs text-[#3d4945] truncate">{ph.address}</p>
+              linkedPharmacies.map(ph => {
+                const selected = startFrom === ph.id;
+                return (
+                  <button
+                    key={`start-${ph.id}`}
+                    onClick={() => setStartFrom(ph.id)}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                                border-2 active:scale-[0.98] transition-all ${
+                      selected
+                        ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                        : 'bg-[#f2f4f6] border-transparent'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                      <Building2 size={20} className="text-[#006b5a]" />
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <p className="font-display font-black text-[#191c1e] text-sm truncate">
+                        Vanuit {ph.name}
+                      </p>
+                      {ph.address && (
+                        <p className="text-xs text-[#3d4945] truncate">{ph.address}</p>
+                      )}
+                    </div>
+                    {selected && (
+                      <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                        <Check size={12} className="text-white" />
+                      </div>
                     )}
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             ) : (
               <button
-                onClick={() => {
-                  setShowRouteOptions(false);
-                  onOptimize?.(pendingRouteIds, 'pharmacy', returnTo);
-                  if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
-                    onOptimizeInstitutions(activeInstitutionRoute, 'pharmacy', returnTo);
-                  }
-                }}
-                className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
+                onClick={() => setStartFrom('pharmacy')}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                            border-2 active:scale-[0.98] transition-all ${
+                  startFrom === 'pharmacy'
+                    ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                    : 'bg-[#f2f4f6] border-transparent'
+                }`}
               >
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
                   <Building2 size={20} className="text-[#006b5a]" />
                 </div>
-                <div className="text-left">
+                <div className="text-left flex-1">
                   <p className="font-display font-black text-[#191c1e] text-sm">
                     Vanuit de apotheek
                   </p>
@@ -811,23 +833,27 @@ const CourierView: React.FC<Props> = ({
                     {pharmacyAddress ?? pharmacyName}
                   </p>
                 </div>
+                {startFrom === 'pharmacy' && (
+                  <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                )}
               </button>
             )}
 
             <button
-              onClick={() => {
-                setShowRouteOptions(false);
-                onOptimize?.(pendingRouteIds, 'current', returnTo);
-                if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
-                  onOptimizeInstitutions(activeInstitutionRoute, 'current', returnTo);
-                }
-              }}
-              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
+              onClick={() => setStartFrom('current')}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                          border-2 active:scale-[0.98] transition-all ${
+                startFrom === 'current'
+                  ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                  : 'bg-[#f2f4f6] border-transparent'
+              }`}
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
                 <Navigation size={20} className="text-[#006b5a]" />
               </div>
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <p className="font-display font-black text-[#191c1e] text-sm">
                   Vanuit mijn huidige locatie
                 </p>
@@ -835,6 +861,11 @@ const CourierView: React.FC<Props> = ({
                   GPS bepaalt het startpunt
                 </p>
               </div>
+              {startFrom === 'current' && (
+                <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                  <Check size={12} className="text-white" />
+                </div>
+              )}
             </button>
 
             {/* Scheidingslijn */}
@@ -933,6 +964,14 @@ const CourierView: React.FC<Props> = ({
                   <Check size={12} className="text-white" />
                 </div>
               )}
+            </button>
+
+            <button
+              onClick={handleConfirmRoute}
+              className="w-full h-12 rounded-full text-white font-display font-bold text-sm active:scale-[0.98] transition-all mb-3"
+              style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+            >
+              Route starten
             </button>
 
             <button
