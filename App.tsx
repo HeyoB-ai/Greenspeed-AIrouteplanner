@@ -517,10 +517,10 @@ const App: React.FC = () => {
         }
       } else {
         // Apotheek op label staat NIET in de gekoppelde apotheken (of label te kort om te matchen)
-        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName);
+        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— gebruik actieve apotheek');
         setToast(
-          `⚠️ Label van "${scannedPharmacyName}" — niet gekoppeld aan uw rit. ` +
-          `Voeg ${scannedPharmacyName} toe via ••• → Apotheek toevoegen.`
+          `⚠️ Label van "${scannedPharmacyName}" — niet in uw rit. ` +
+          `Voeg toe via ••• → Apotheek toevoegen.`
         );
         setTimeout(() => setToast(null), 8000);
         mismatchToastShown = true;
