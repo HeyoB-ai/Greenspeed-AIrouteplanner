@@ -476,13 +476,40 @@ const App: React.FC = () => {
   const scanPharmacyRef  = useRef<string | null>(null);
   useEffect(() => { scanPharmacyRef.current = scanPharmacyId ?? courierPharmacyIds[0] ?? null; }, [scanPharmacyId, courierPharmacyIds]);
 
-  const handleNewScan = useCallback(async (address: Address) => {
+  const handleNewScan = useCallback(async (address: Address, scannedPharmacyName?: string) => {
     const currentSession = getSession();
     const isKoerier  = currentSession?.user?.role === UserRole.COURIER;
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
-    const pharmacyId = isKoerier
+    let pharmacyId = isKoerier
       ? (scanPharmacyRef.current ?? currentSession?.user?.pharmacyId ?? currentPharmacy.id)
       : (currentSession?.user?.pharmacyId ?? currentPharmacy.id);
+
+    // Automatische apotheek-herkenning: alleen zinvol bij ≥2 gekoppelde apotheken
+    if (isKoerier && scannedPharmacyName && courierPharmacyIds.length > 1) {
+      const normalize = (s: string) =>
+        s.toLowerCase().replace(/apotheek|pharmacy|apotheker/gi, '').trim();
+      const normalizedLabel = normalize(scannedPharmacyName);
+
+      if (normalizedLabel.length > 0) {
+        const match = pharmaciesRef.current
+          .filter(p => courierPharmacyIds.includes(p.id))
+          .find(p => {
+            const normalizedPharmacy = normalize(p.name);
+            return normalizedPharmacy.length > 0 && (
+              normalizedPharmacy.includes(normalizedLabel) ||
+              normalizedLabel.includes(normalizedPharmacy)
+            );
+          });
+
+        if (match) {
+          pharmacyId = match.id;
+          console.log('[Scan] Apotheek herkend:', match.name, '← label:', scannedPharmacyName);
+        } else {
+          console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— gebruik actieve apotheek');
+        }
+      }
+    }
+
     const pharmacyName = isKoerier
       ? (pharmaciesRef.current.find(p => p.id === pharmacyId)?.name ?? currentPharmacy.name)
       : currentPharmacy.name;
@@ -531,7 +558,7 @@ const App: React.FC = () => {
       setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
       db.syncPackage(updatedPkg).catch(err => console.error('[Geocode] Sync naar DB mislukt:', err));
     }).catch(err => console.error('[Geocode] Onverwachte fout:', err));
-  }, [currentPharmacy]); // packages weggelaten — wordt gelezen via packagesRef
+  }, [currentPharmacy, courierPharmacyIds]); // packages + pharmacies via refs
 
   const handleOptimizeRoute = useCallback(async (
     selectedIds: string[],
@@ -1154,7 +1181,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
 
       {showScanner && (
         <Scanner
-          onScanComplete={({ address }) => handleNewScan(address)}
+          onScanComplete={({ address, pharmacyName }) => handleNewScan(address, pharmacyName)}
           onCancel={() => setShowScanner(false)}
         />
       )}
@@ -1229,7 +1256,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
 
       {showManualForm && (
         <ManualAddressForm
-          onComplete={result => { handleNewScan(result.address); setShowManualForm(false); }}
+          onComplete={result => { handleNewScan(result.address, result.pharmacyName); setShowManualForm(false); }}
           onCancel={() => setShowManualForm(false)}
         />
       )}

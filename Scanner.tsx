@@ -4,7 +4,7 @@ import { extractAddressFromImage } from './services/geminiService';
 import { Address } from './types';
 
 interface ScannerProps {
-  onScanComplete: (result: { scanId: string; address: Address }) => void;
+  onScanComplete: (result: { scanId: string; address: Address; pharmacyName?: string }) => void;
   onCancel: () => void;
 }
 
@@ -96,7 +96,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           : s
       ));
 
-      onScanCompleteRef.current({ scanId, address: result.address });
+      onScanCompleteRef.current({ scanId, address: result.address, pharmacyName: result.pharmacyName });
     } catch {
       if (activeScansRef.current.has(scanId)) {
         setScans(prev => prev.map(s =>
