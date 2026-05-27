@@ -503,7 +503,6 @@ const App: React.FC = () => {
 
         if (match) {
           pharmacyId = match.id;
-          console.log('[Scan] Apotheek herkend:', match.name, '← label:', scannedPharmacyName);
 
           // Wissel actieve scan-apotheek als het label van een andere komt
           const activeId = scanPharmacyRef.current ?? courierPharmacyIds[0];
@@ -511,10 +510,13 @@ const App: React.FC = () => {
             setScanPharmacyId(match.id);
             setToast(`📦 Label van ${match.name} — apotheek gewisseld`);
             setTimeout(() => setToast(null), 4000);
-            console.log('[Scan] Apotheek gewisseld naar:', match.name);
           }
         } else {
-          console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— gebruik actieve apotheek');
+          // Apotheek op label staat NIET in de gekoppelde apotheken — waarschuw zichtbaar
+          setToast(
+            `⚠️ Label van "${scannedPharmacyName}" — deze apotheek is niet gekoppeld aan uw rit. Voeg ${scannedPharmacyName} toe via "+ Apotheek".`
+          );
+          setTimeout(() => setToast(null), 8000);
         }
       }
     }
