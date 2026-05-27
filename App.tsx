@@ -759,20 +759,18 @@ const App: React.FC = () => {
 
   const handleNewRit = useCallback(() => {
     if (!confirm('Nieuwe rit starten? De huidige rit wordt gearchiveerd.')) return;
-    const toArchive = packages.filter(p =>
-      p.courierId === session?.user.courierId &&
-      !isActionable(p) &&
-      p.status !== PackageStatus.REMOVED &&
-      !BESCHERMDE_STATUSSEN.includes(p.status)
-    );
-    if (toArchive.length > 0) {
-      updateMultipleStatus(toArchive.map(p => p.id), PackageStatus.REMOVED);
-    }
+    // Verwijder alle pakketten van deze koerier uit lokale state
+    setPackages(prev => prev.filter(p => p.courierId !== session?.user.courierId));
+    // Reset apotheek selectie, scan-context en localStorage
     setCourierPharmacyIds([]);
     setScanPharmacyId(null);
     setActiveInstitutionRoute([]);
     localStorage.removeItem('courierPharmacyIds');
-  }, [packages, session]);
+  }, [session]);
+
+  const handleRemovePharmacy = useCallback((pharmacyId: string) => {
+    setCourierPharmacyIds(prev => prev.filter(id => id !== pharmacyId));
+  }, []);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
     // 1. Direct toevoegen aan lokale state (optimistic)
@@ -1128,6 +1126,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onInstitutionRoute={() => setShowInstitutionSelector(true)}
             activeInstitutionRoute={activeInstitutionRoute}
             onOptimizeInstitutions={handleInstitutionRoute}
+            onRemovePharmacy={handleRemovePharmacy}
           />
         )}
 

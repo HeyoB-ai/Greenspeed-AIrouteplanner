@@ -31,6 +31,7 @@ interface Props {
     startFrom?: string,
     returnTo?: string
   ) => void;
+  onRemovePharmacy?: (pharmacyId: string) => void;
 }
 
 interface Stop {
@@ -85,6 +86,7 @@ const CourierView: React.FC<Props> = ({
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
+  onRemovePharmacy,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -414,12 +416,24 @@ const CourierView: React.FC<Props> = ({
       </div>
 
       {/* Actieve apotheken */}
-      {activePharmacyNames && activePharmacyNames.length > 1 && (
+      {linkedPharmacies.length > 1 && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {activePharmacyNames.map(name => (
-            <span key={name} className="text-xs font-bold px-3 py-1 bg-[#48c2a9]/15 text-[#006b5a] rounded-full">
-              ✓ {name}
-            </span>
+          {linkedPharmacies.map(ph => (
+            <div
+              key={ph.id}
+              className="flex items-center gap-1 text-xs font-bold px-3 py-1 bg-[#48c2a9]/15 text-[#006b5a] rounded-full"
+            >
+              ✓ {ph.name}
+              {onRemovePharmacy && (
+                <button
+                  onClick={() => onRemovePharmacy(ph.id)}
+                  className="ml-1 w-4 h-4 rounded-full bg-[#006b5a]/20 flex items-center justify-center hover:bg-[#006b5a]/40 transition-colors"
+                  aria-label={`${ph.name} uit rit verwijderen`}
+                >
+                  <X size={10} className="text-[#006b5a]" />
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -766,7 +780,8 @@ const CourierView: React.FC<Props> = ({
       )}
       {showRouteOptions && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-end">
-          <div className="bg-white w-full rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom">
+          <div className="bg-white w-full rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom max-h-[90vh] overflow-y-auto">
+            <div className="w-10 h-1 bg-[#f2f4f6] rounded-full mx-auto mb-6" />
             <h3 className="font-display font-black text-[#191c1e] text-lg mb-1">
               Route starten
             </h3>
