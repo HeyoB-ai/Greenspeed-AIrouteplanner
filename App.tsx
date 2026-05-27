@@ -519,8 +519,8 @@ const App: React.FC = () => {
 
   const handleOptimizeRoute = useCallback(async (
     selectedIds: string[],
-    startFrom: 'pharmacy' | 'current' = 'pharmacy',
-    returnTo: 'pharmacy' | 'none' = 'pharmacy'
+    startFrom: string = 'pharmacy',
+    returnTo: string = 'pharmacy'
   ) => {
     if (selectedIds.length === 0) return;
     setIsOptimizing(true);
@@ -536,10 +536,10 @@ const App: React.FC = () => {
         city:        p.address.city,
       }));
 
+      // Bepaal startadres: 'current' = GPS, 'pharmacy' = legacy currentPharmacy,
+      // elke andere string wordt als pharmacyId behandeld.
       let startAddress: string | null = null;
-      if (startFrom === 'pharmacy' && currentPharmacy.address) {
-        startAddress = `${currentPharmacy.address}, Netherlands`;
-      } else if (startFrom === 'current') {
+      if (startFrom === 'current') {
         startAddress = await new Promise<string | null>((resolve) => {
           navigator.geolocation.getCurrentPosition(
             pos => resolve(`${pos.coords.latitude},${pos.coords.longitude}`),
@@ -547,11 +547,25 @@ const App: React.FC = () => {
             { enableHighAccuracy: true, timeout: 5000 }
           );
         });
+      } else {
+        const startPharmacy = startFrom === 'pharmacy'
+          ? currentPharmacy
+          : (pharmacies.find(p => p.id === startFrom) ?? currentPharmacy);
+        if (startPharmacy?.address) {
+          startAddress = `${startPharmacy.address}, Netherlands`;
+        }
       }
 
+      // Bepaal eindadres: 'none' = geen terugreis, 'pharmacy' = legacy currentPharmacy,
+      // elke andere string wordt als pharmacyId behandeld.
       let endAddress: string | null = null;
-      if (returnTo === 'pharmacy' && currentPharmacy.address) {
-        endAddress = `${currentPharmacy.address}, Netherlands`;
+      if (returnTo !== 'none') {
+        const endPharmacy = returnTo === 'pharmacy'
+          ? currentPharmacy
+          : (pharmacies.find(p => p.id === returnTo) ?? currentPharmacy);
+        if (endPharmacy?.address) {
+          endAddress = `${endPharmacy.address}, Netherlands`;
+        }
       }
 
       const orderedIds = await optimizeRoute(stops, startAddress, endAddress);
@@ -594,12 +608,12 @@ const App: React.FC = () => {
     } finally {
       setIsOptimizing(false);
     }
-  }, [packages]);
+  }, [packages, pharmacies, currentPharmacy]);
 
   const handleInstitutionRoute = useCallback(async (
     selected: Institution[],
-    startFrom: 'pharmacy' | 'current' = 'pharmacy',
-    returnTo: 'pharmacy' | 'none' = 'pharmacy'
+    startFrom: string = 'pharmacy',
+    returnTo: string = 'pharmacy'
   ) => {
     if (selected.length === 0) return;
     setIsOptimizing(true);
@@ -622,11 +636,10 @@ const App: React.FC = () => {
       // Adres van de actieve apotheek (koerier: actieve rit-apotheek)
       const activePharmacy = pharmacies.find(p => p.id === courierPharmacyIds[0]) ?? currentPharmacy;
 
-      // Bepaal startadres
+      // Bepaal startadres — 'current' = GPS, 'pharmacy' = legacy fallback,
+      // andere string = pharmacyId
       let startAddress: string | null = null;
-      if (startFrom === 'pharmacy' && activePharmacy.address) {
-        startAddress = `${activePharmacy.address}, Netherlands`;
-      } else if (startFrom === 'current') {
+      if (startFrom === 'current') {
         startAddress = await new Promise<string | null>((resolve) => {
           navigator.geolocation.getCurrentPosition(
             pos => resolve(`${pos.coords.latitude},${pos.coords.longitude}`),
@@ -634,12 +647,25 @@ const App: React.FC = () => {
             { enableHighAccuracy: true, timeout: 5000 }
           );
         });
+      } else {
+        const startPharmacy = startFrom === 'pharmacy'
+          ? activePharmacy
+          : (pharmacies.find(p => p.id === startFrom) ?? activePharmacy);
+        if (startPharmacy?.address) {
+          startAddress = `${startPharmacy.address}, Netherlands`;
+        }
       }
 
-      // Bepaal eindadres
+      // Bepaal eindadres — 'none' = geen terugreis, 'pharmacy' = legacy fallback,
+      // andere string = pharmacyId
       let endAddress: string | null = null;
-      if (returnTo === 'pharmacy' && activePharmacy.address) {
-        endAddress = `${activePharmacy.address}, Netherlands`;
+      if (returnTo !== 'none') {
+        const endPharmacy = returnTo === 'pharmacy'
+          ? activePharmacy
+          : (pharmacies.find(p => p.id === returnTo) ?? activePharmacy);
+        if (endPharmacy?.address) {
+          endAddress = `${endPharmacy.address}, Netherlands`;
+        }
       }
 
       let orderedInstitutions: Institution[] = selected;
@@ -1073,6 +1099,9 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             activePharmacyNames={courierPharmacyIds
               .map(id => pharmacies.find(p => p.id === id)?.name)
               .filter(Boolean) as string[]}
+            activePharmacies={courierPharmacyIds
+              .map(id => pharmacies.find(p => p.id === id))
+              .filter(Boolean) as Pharmacy[]}
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}

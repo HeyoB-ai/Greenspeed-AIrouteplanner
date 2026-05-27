@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution } from '../types';
+import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy } from '../types';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
@@ -16,17 +16,20 @@ interface Props {
   pharmacyAddress?: string;
   onScanStart?: () => void;
   onManualAdd?: () => void;
-  onOptimize?: (selectedIds: string[], startFrom?: 'pharmacy' | 'current', returnTo?: 'pharmacy' | 'none') => void;
+  // startFrom/returnTo: 'current', 'none', of een pharmacyId string.
+  // Voor backwards compat blijft 'pharmacy' werken als alias van currentPharmacy.
+  onOptimize?: (selectedIds: string[], startFrom?: string, returnTo?: string) => void;
   isOptimizing?: boolean;
   onNewRit?: () => void;
   onAddPharmacy?: () => void;
   activePharmacyNames?: string[];
+  activePharmacies?: Pharmacy[];
   onInstitutionRoute?: () => void;
   activeInstitutionRoute?: Institution[];
   onOptimizeInstitutions?: (
     institutions: Institution[],
-    startFrom?: 'pharmacy' | 'current',
-    returnTo?: 'pharmacy' | 'none'
+    startFrom?: string,
+    returnTo?: string
   ) => void;
 }
 
@@ -78,6 +81,7 @@ const CourierView: React.FC<Props> = ({
   onNewRit,
   onAddPharmacy,
   activePharmacyNames,
+  activePharmacies,
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
@@ -88,12 +92,18 @@ const CourierView: React.FC<Props> = ({
   const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
   const [showRouteOptions, setShowRouteOptions]     = useState(false);
   const [pendingRouteIds, setPendingRouteIds]       = useState<string[]>([]);
-  const [returnTo, setReturnTo]                     = useState<'pharmacy' | 'none'>('pharmacy');
+  // returnTo: 'none' = geen terugreis, 'pharmacy' = legacy fallback,
+  // andere string = pharmacyId.
+  const [returnTo, setReturnTo]                     = useState<string>('pharmacy');
   const [deliveredInstitutions, setDeliveredInstitutions] = useState<Set<string>>(new Set());
   const [showMoreMenu, setShowMoreMenu]             = useState(false);
 
+  const linkedPharmacies = activePharmacies ?? [];
+
   const handleRouteClick = (ids: string[]) => {
     setPendingRouteIds(ids);
+    // Default eindpunt: eerste gekoppelde apotheek, anders legacy 'pharmacy'
+    setReturnTo(linkedPharmacies[0]?.id ?? 'pharmacy');
     setShowRouteOptions(true);
   };
 
@@ -730,28 +740,57 @@ const CourierView: React.FC<Props> = ({
               Waar begin je jouw rit?
             </p>
 
-            <button
-              onClick={() => {
-                setShowRouteOptions(false);
-                onOptimize?.(pendingRouteIds, 'pharmacy', returnTo);
-                if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
-                  onOptimizeInstitutions(activeInstitutionRoute, 'pharmacy', returnTo);
-                }
-              }}
-              className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
-                <Building2 size={20} className="text-[#006b5a]" />
-              </div>
-              <div className="text-left">
-                <p className="font-display font-black text-[#191c1e] text-sm">
-                  Vanuit de apotheek
-                </p>
-                <p className="text-xs text-[#3d4945]">
-                  {pharmacyAddress ?? pharmacyName}
-                </p>
-              </div>
-            </button>
+            {/* Startpunt — per gekoppelde apotheek, of legacy fallback */}
+            {linkedPharmacies.length > 0 ? (
+              linkedPharmacies.map(ph => (
+                <button
+                  key={`start-${ph.id}`}
+                  onClick={() => {
+                    setShowRouteOptions(false);
+                    onOptimize?.(pendingRouteIds, ph.id, returnTo);
+                    if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
+                      onOptimizeInstitutions(activeInstitutionRoute, ph.id, returnTo);
+                    }
+                  }}
+                  className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                    <Building2 size={20} className="text-[#006b5a]" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="font-display font-black text-[#191c1e] text-sm truncate">
+                      Vanuit {ph.name}
+                    </p>
+                    {ph.address && (
+                      <p className="text-xs text-[#3d4945] truncate">{ph.address}</p>
+                    )}
+                  </div>
+                </button>
+              ))
+            ) : (
+              <button
+                onClick={() => {
+                  setShowRouteOptions(false);
+                  onOptimize?.(pendingRouteIds, 'pharmacy', returnTo);
+                  if (activeInstitutionRoute && activeInstitutionRoute.length > 0 && onOptimizeInstitutions) {
+                    onOptimizeInstitutions(activeInstitutionRoute, 'pharmacy', returnTo);
+                  }
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl mb-3 active:scale-[0.98] transition-all"
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                  <Building2 size={20} className="text-[#006b5a]" />
+                </div>
+                <div className="text-left">
+                  <p className="font-display font-black text-[#191c1e] text-sm">
+                    Vanuit de apotheek
+                  </p>
+                  <p className="text-xs text-[#3d4945]">
+                    {pharmacyAddress ?? pharmacyName}
+                  </p>
+                </div>
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -783,33 +822,68 @@ const CourierView: React.FC<Props> = ({
               Eindpunt
             </p>
 
-            {/* Optie: terug naar apotheek */}
-            <button
-              onClick={() => setReturnTo('pharmacy')}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
-                          active:scale-[0.98] transition-all border-2 ${
-                returnTo === 'pharmacy'
-                  ? 'bg-[#48c2a9]/10 border-[#006b5a]'
-                  : 'bg-[#f2f4f6] border-transparent'
-              }`}
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
-                <Building2 size={20} className="text-[#006b5a]" />
-              </div>
-              <div className="text-left flex-1">
-                <p className="font-display font-black text-[#191c1e] text-sm">
-                  Terug naar de apotheek
-                </p>
-                <p className="text-xs text-[#3d4945]">
-                  {pharmacyAddress ?? pharmacyName}
-                </p>
-              </div>
-              {returnTo === 'pharmacy' && (
-                <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
-                  <Check size={12} className="text-white" />
+            {/* Eindpunt — per gekoppelde apotheek, of legacy fallback */}
+            {linkedPharmacies.length > 0 ? (
+              linkedPharmacies.map(ph => {
+                const selected = returnTo === ph.id;
+                return (
+                  <button
+                    key={`end-${ph.id}`}
+                    onClick={() => setReturnTo(ph.id)}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                                active:scale-[0.98] transition-all border-2 ${
+                      selected
+                        ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                        : 'bg-[#f2f4f6] border-transparent'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                      <Building2 size={20} className="text-[#006b5a]" />
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <p className="font-display font-black text-[#191c1e] text-sm truncate">
+                        Terug naar {ph.name}
+                      </p>
+                      {ph.address && (
+                        <p className="text-xs text-[#3d4945] truncate">{ph.address}</p>
+                      )}
+                    </div>
+                    {selected && (
+                      <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                        <Check size={12} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <button
+                onClick={() => setReturnTo('pharmacy')}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl mb-3
+                            active:scale-[0.98] transition-all border-2 ${
+                  returnTo === 'pharmacy'
+                    ? 'bg-[#48c2a9]/10 border-[#006b5a]'
+                    : 'bg-[#f2f4f6] border-transparent'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#48c2a9]/20">
+                  <Building2 size={20} className="text-[#006b5a]" />
                 </div>
-              )}
-            </button>
+                <div className="text-left flex-1">
+                  <p className="font-display font-black text-[#191c1e] text-sm">
+                    Terug naar de apotheek
+                  </p>
+                  <p className="text-xs text-[#3d4945]">
+                    {pharmacyAddress ?? pharmacyName}
+                  </p>
+                </div>
+                {returnTo === 'pharmacy' && (
+                  <div className="w-5 h-5 rounded-full bg-[#006b5a] flex items-center justify-center shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                )}
+              </button>
+            )}
 
             {/* Optie: geen terugreis */}
             <button
