@@ -175,6 +175,8 @@ const App: React.FC = () => {
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pharmacyMismatch, setPharmacyMismatch] = useState<string | null>(null);
+  const [unknownPharmacyWarning, setUnknownPharmacyWarning] =
+    useState<{ pharmacyName: string; address: Address } | null>(null);
 
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
@@ -485,14 +487,12 @@ const App: React.FC = () => {
       : (currentSession?.user?.pharmacyId ?? currentPharmacy.id);
 
     // Automatische apotheek-herkenning op basis van labelnaam
-    let mismatchToastShown = false;
     if (isKoerier && scannedPharmacyName && courierPharmacyIds.length > 0) {
       const normalize = (s: string) =>
         s.toLowerCase().replace(/apotheek|pharmacy/gi, '').trim();
       const normalizedLabel = normalize(scannedPharmacyName);
 
       // Match alleen zoeken als er na normaliseren iets bruikbaars overblijft.
-      // Bij leeg-na-normaliseren blijft `match` undefined → valt door in de else-tak (toast).
       const match = normalizedLabel.length > 0
         ? pharmaciesRef.current
             .filter(p => courierPharmacyIds.includes(p.id))
@@ -516,14 +516,10 @@ const App: React.FC = () => {
           setTimeout(() => setToast(null), 4000);
         }
       } else {
-        // Apotheek op label staat NIET in de gekoppelde apotheken (of label te kort om te matchen)
-        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— gebruik actieve apotheek');
-        setToast(
-          `⚠️ Label van "${scannedPharmacyName}" — niet in uw rit. ` +
-          `Voeg toe via ••• → Apotheek toevoegen.`
-        );
-        setTimeout(() => setToast(null), 8000);
-        mismatchToastShown = true;
+        // Apotheek op label staat NIET in de gekoppelde apotheken — onderbreek de scan
+        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— wacht op gebruikerskeuze');
+        setUnknownPharmacyWarning({ pharmacyName: scannedPharmacyName, address });
+        return; // Pakket nog NIET opslaan
       }
     }
 
@@ -561,7 +557,7 @@ const App: React.FC = () => {
 
     setPackages(prev => [pkg, ...prev]);
 
-    if (hasRoute && routeIndex !== undefined && !mismatchToastShown) {
+    if (hasRoute && routeIndex !== undefined) {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
       setTimeout(() => setToast(null), 4000);
     }
@@ -1286,6 +1282,66 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           onClose={() => setEditingPharmacy(null)}
           onDelete={role === UserRole.SUPERUSER ? handleDeletePharmacy : undefined}
         />
+      )}
+
+      {/* Onbekende apotheek — bevestigingsdialoog na scan */}
+      {unknownPharmacyWarning && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
+              <AlertTriangle size={24} className="text-amber-600" />
+            </div>
+
+            <h3 className="font-display font-black text-[#191c1e] text-lg mb-2">
+              Onbekende apotheek
+            </h3>
+
+            <p className="text-sm text-[#3d4945] mb-1">
+              Dit label is van:
+            </p>
+            <p className="font-display font-black text-[#191c1e] text-base mb-2">
+              {unknownPharmacyWarning.pharmacyName}
+            </p>
+            <p className="text-sm text-[#3d4945] mb-6">
+              Deze apotheek is niet gekoppeld aan uw rit. Wat wilt u doen?
+            </p>
+
+            <div className="space-y-3">
+              {/* Toch toevoegen aan actieve apotheek */}
+              <button
+                onClick={() => {
+                  const { address } = unknownPharmacyWarning;
+                  setUnknownPharmacyWarning(null);
+                  // Negeer pharmacyName → mismatch-check wordt overgeslagen, valt op actieve apotheek
+                  handleNewScan(address, undefined);
+                }}
+                className="w-full h-12 bg-[#f2f4f6] rounded-full font-display font-bold text-sm text-[#191c1e] active:scale-95 transition-all"
+              >
+                Toch toevoegen aan actieve apotheek
+              </button>
+
+              {/* Apotheek toevoegen en dan opslaan */}
+              <button
+                onClick={() => {
+                  setUnknownPharmacyWarning(null);
+                  setShowAddPharmacy(true);
+                }}
+                className="w-full h-12 rounded-full text-white font-display font-bold text-sm active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+              >
+                {unknownPharmacyWarning.pharmacyName} toevoegen aan rit
+              </button>
+
+              {/* Annuleer — scan weggooien */}
+              <button
+                onClick={() => setUnknownPharmacyWarning(null)}
+                className="w-full h-10 text-sm font-bold text-[#3d4945] active:opacity-70"
+              >
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );
