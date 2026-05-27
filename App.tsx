@@ -485,39 +485,45 @@ const App: React.FC = () => {
       : (currentSession?.user?.pharmacyId ?? currentPharmacy.id);
 
     // Automatische apotheek-herkenning op basis van labelnaam
+    let mismatchToastShown = false;
     if (isKoerier && scannedPharmacyName && courierPharmacyIds.length > 0) {
       const normalize = (s: string) =>
         s.toLowerCase().replace(/apotheek|pharmacy/gi, '').trim();
       const normalizedLabel = normalize(scannedPharmacyName);
 
-      if (normalizedLabel.length > 0) {
-        const match = pharmaciesRef.current
-          .filter(p => courierPharmacyIds.includes(p.id))
-          .find(p => {
-            const normalizedPharmacy = normalize(p.name);
-            return normalizedPharmacy.length > 0 && (
-              normalizedPharmacy.includes(normalizedLabel) ||
-              normalizedLabel.includes(normalizedPharmacy)
-            );
-          });
+      // Match alleen zoeken als er na normaliseren iets bruikbaars overblijft.
+      // Bij leeg-na-normaliseren blijft `match` undefined → valt door in de else-tak (toast).
+      const match = normalizedLabel.length > 0
+        ? pharmaciesRef.current
+            .filter(p => courierPharmacyIds.includes(p.id))
+            .find(p => {
+              const normalizedPharmacy = normalize(p.name);
+              return normalizedPharmacy.length > 0 && (
+                normalizedPharmacy.includes(normalizedLabel) ||
+                normalizedLabel.includes(normalizedPharmacy)
+              );
+            })
+        : undefined;
 
-        if (match) {
-          pharmacyId = match.id;
+      if (match) {
+        pharmacyId = match.id;
 
-          // Wissel actieve scan-apotheek als het label van een andere komt
-          const activeId = scanPharmacyRef.current ?? courierPharmacyIds[0];
-          if (match.id !== activeId) {
-            setScanPharmacyId(match.id);
-            setToast(`📦 Label van ${match.name} — apotheek gewisseld`);
-            setTimeout(() => setToast(null), 4000);
-          }
-        } else {
-          // Apotheek op label staat NIET in de gekoppelde apotheken — waarschuw zichtbaar
-          setToast(
-            `⚠️ Label van "${scannedPharmacyName}" — deze apotheek is niet gekoppeld aan uw rit. Voeg ${scannedPharmacyName} toe via "+ Apotheek".`
-          );
-          setTimeout(() => setToast(null), 8000);
+        // Wissel actieve scan-apotheek als het label van een andere komt
+        const activeId = scanPharmacyRef.current ?? courierPharmacyIds[0];
+        if (match.id !== activeId) {
+          setScanPharmacyId(match.id);
+          setToast(`📦 Label van ${match.name} — apotheek gewisseld`);
+          setTimeout(() => setToast(null), 4000);
         }
+      } else {
+        // Apotheek op label staat NIET in de gekoppelde apotheken (of label te kort om te matchen)
+        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName);
+        setToast(
+          `⚠️ Label van "${scannedPharmacyName}" — niet gekoppeld aan uw rit. ` +
+          `Voeg ${scannedPharmacyName} toe via ••• → Apotheek toevoegen.`
+        );
+        setTimeout(() => setToast(null), 8000);
+        mismatchToastShown = true;
       }
     }
 
@@ -555,7 +561,7 @@ const App: React.FC = () => {
 
     setPackages(prev => [pkg, ...prev]);
 
-    if (hasRoute && routeIndex !== undefined) {
+    if (hasRoute && routeIndex !== undefined && !mismatchToastShown) {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
       setTimeout(() => setToast(null), 4000);
     }
