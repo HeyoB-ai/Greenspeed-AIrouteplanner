@@ -21,7 +21,6 @@ interface Props {
   onOptimize?: (selectedIds: string[], startFrom?: string, returnTo?: string) => void;
   isOptimizing?: boolean;
   onNewRit?: () => void;
-  onAddPharmacy?: () => void;
   activePharmacyNames?: string[];
   activePharmacies?: Pharmacy[];
   onInstitutionRoute?: () => void;
@@ -31,7 +30,6 @@ interface Props {
     startFrom?: string,
     returnTo?: string
   ) => void;
-  onRemovePharmacy?: (pharmacyId: string) => void;
 }
 
 interface Stop {
@@ -80,13 +78,11 @@ const CourierView: React.FC<Props> = ({
   onOptimize,
   isOptimizing = false,
   onNewRit,
-  onAddPharmacy,
   activePharmacyNames,
   activePharmacies,
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
-  onRemovePharmacy,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -342,19 +338,10 @@ const CourierView: React.FC<Props> = ({
                 Instellingen
               </button>
             )}
-            {onAddPharmacy && (
-              <button
-                onClick={onAddPharmacy}
-                className="flex items-center gap-1.5 px-3 h-10 bg-[#f2f4f6] text-[#3d4945] rounded-full font-display font-bold text-xs active:scale-95 transition-all"
-              >
-                <Plus size={14} />
-                Apotheek
-              </button>
-            )}
           </div>
 
           {/* Mobiel — "Meer" menu met de secundaire acties */}
-          {(onManualAdd || onInstitutionRoute || onAddPharmacy || onNewRit) && (
+          {(onManualAdd || onInstitutionRoute || onNewRit) && (
             <div className="relative md:hidden">
               <button
                 onClick={() => setShowMoreMenu(prev => !prev)}
@@ -389,15 +376,6 @@ const CourierView: React.FC<Props> = ({
                         Instellingen
                       </button>
                     )}
-                    {onAddPharmacy && (
-                      <button
-                        onClick={() => { onAddPharmacy(); setShowMoreMenu(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#191c1e] hover:bg-[#f2f4f6] transition-colors text-left border-t border-[#f2f4f6]"
-                      >
-                        <Plus size={16} className="text-[#3d4945]" />
-                        Apotheek toevoegen
-                      </button>
-                    )}
                     {onNewRit && (
                       <button
                         onClick={() => { onNewRit(); setShowMoreMenu(false); }}
@@ -415,28 +393,6 @@ const CourierView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Actieve apotheken */}
-      {linkedPharmacies.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {linkedPharmacies.map(ph => (
-            <div
-              key={ph.id}
-              className="flex items-center gap-1 text-xs font-bold px-3 py-1 bg-[#48c2a9]/15 text-[#006b5a] rounded-full"
-            >
-              ✓ {ph.name}
-              {onRemovePharmacy && (
-                <button
-                  onClick={() => onRemovePharmacy(ph.id)}
-                  className="ml-1 w-4 h-4 rounded-full bg-[#006b5a]/20 flex items-center justify-center hover:bg-[#006b5a]/40 transition-colors"
-                  aria-label={`${ph.name} uit rit verwijderen`}
-                >
-                  <X size={10} className="text-[#006b5a]" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ── Instellingen route ── */}
       {activeInstitutionRoute && activeInstitutionRoute.length > 0 && (
@@ -629,6 +585,11 @@ const CourierView: React.FC<Props> = ({
                   <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
                   </p>
+                  {pkg.pharmacyName && (
+                    <span className="inline-block mt-1 text-[10px] font-bold text-[#3d4945] bg-[#f2f4f6] px-2 py-0.5 rounded-full truncate max-w-full">
+                      {pkg.pharmacyName}
+                    </span>
+                  )}
                 </div>
 
                 {/* Navigeer */}

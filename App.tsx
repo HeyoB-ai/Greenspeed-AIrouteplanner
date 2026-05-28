@@ -13,7 +13,7 @@ import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute } from './services/geminiService';
-import { getSession, logout, saveSession } from './services/authService';
+import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
@@ -175,9 +175,6 @@ const App: React.FC = () => {
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pharmacyMismatch, setPharmacyMismatch] = useState<string | null>(null);
-  const [unknownPharmacyWarning, setUnknownPharmacyWarning] =
-    useState<{ pharmacyName: string; address: Address } | null>(null);
-
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
 
@@ -198,9 +195,6 @@ const App: React.FC = () => {
       localStorage.removeItem('courierPharmacyIds');
     }
   }, [courierPharmacyIds]);
-  const [scanPharmacyId, setScanPharmacyId] = useState<string | null>(null);
-  const [showAddPharmacy, setShowAddPharmacy] = useState(false);
-  const [showPharmacySwitcher, setShowPharmacySwitcher] = useState(false);
 
   // Vaste instellingen
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -260,15 +254,21 @@ const App: React.FC = () => {
     return pharmacies[0] || { id: 'ph-1', name: 'Apotheek de Kroon' };
   }, [session, role, pharmacies, superuserPharmacyId]);
 
-  // Laad vaste instellingen voor de actieve apotheek (koerier: actieve rit-apotheek)
+  // Laad vaste instellingen — koerier ziet alle instellingen, andere rollen gefilterd op apotheek
   useEffect(() => {
     if (!session) return;
-    const pid = role === UserRole.COURIER ? courierPharmacyIds[0] : currentPharmacy.id;
+    if (role === UserRole.COURIER) {
+      db.fetchInstitutions()
+        .then(setInstitutions)
+        .catch(() => setInstitutions([]));
+      return;
+    }
+    const pid = currentPharmacy.id;
     if (!pid) { setInstitutions([]); return; }
     db.fetchInstitutions(pid)
       .then(setInstitutions)
       .catch(() => setInstitutions([]));
-  }, [session, role, courierPharmacyIds, currentPharmacy.id]);
+  }, [session, role, currentPharmacy.id]);
 
   // Load conversations + realtime subscription voor pharmacy staff
   useEffect(() => {
@@ -381,8 +381,7 @@ const App: React.FC = () => {
         return session.user.courierId
           ? packages.filter(p =>
               p.courierId === session.user.courierId &&
-              new Date(p.createdAt).toDateString() === today &&
-              (courierPharmacyIds.length === 0 || courierPharmacyIds.includes(p.pharmacyId))
+              new Date(p.createdAt).toDateString() === today
             )
           : packages.filter(p =>
               new Date(p.createdAt).toDateString() === today
@@ -404,14 +403,30 @@ const App: React.FC = () => {
     [session, packages],
   );
 
-  const handleLogin = (user: AuthUser, activePharmacyId?: string) => {
+  const handleLogin = (user: AuthUser, _activePharmacyId?: string) => {
     const sess = { user, loggedInAt: new Date().toISOString() };
     setSession(sess);
-    if (activePharmacyId) {
-      setCourierPharmacyIds([activePharmacyId]);
-      setScanPharmacyId(activePharmacyId);
-    }
+    // Apotheek-keuze gebeurt niet meer bij login; de useEffect hieronder
+    // laadt automatisch alle gekoppelde apotheken voor een courier.
   };
+
+  // Laad voor een ingelogde koerier alle gekoppelde apotheken (server + demo-data)
+  useEffect(() => {
+    if (!session || session.user.role !== UserRole.COURIER) return;
+    let cancelled = false;
+    (async () => {
+      const ids = await getCourierPharmacies().catch(() => [] as string[]);
+      const allIds = Array.from(new Set([
+        ...ids,
+        ...(session.user.pharmacyIds ?? []),
+        ...(session.user.pharmacyId ? [session.user.pharmacyId] : []),
+      ]));
+      if (!cancelled && allIds.length > 0) {
+        setCourierPharmacyIds(allIds);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
 
   const handleLogout = async () => {
     if (confirm('Uitloggen?')) {
@@ -419,7 +434,6 @@ const App: React.FC = () => {
       setSession(null);
       setPackages([]);
       setCourierPharmacyIds([]);
-      setScanPharmacyId(null);
       localStorage.removeItem('courierPharmacyIds');
     }
   };
@@ -475,57 +489,44 @@ const App: React.FC = () => {
   const pharmaciesRef    = useRef<Pharmacy[]>(pharmacies);
   useEffect(() => { pharmaciesRef.current = pharmacies; }, [pharmacies]);
 
-  const scanPharmacyRef  = useRef<string | null>(null);
-  useEffect(() => { scanPharmacyRef.current = scanPharmacyId ?? courierPharmacyIds[0] ?? null; }, [scanPharmacyId, courierPharmacyIds]);
-
   const handleNewScan = useCallback(async (address: Address, scannedPharmacyName?: string) => {
     const currentSession = getSession();
     const isKoerier  = currentSession?.user?.role === UserRole.COURIER;
     const courierId  = isKoerier ? currentSession?.user?.courierId : undefined;
-    let pharmacyId = isKoerier
-      ? (scanPharmacyRef.current ?? currentSession?.user?.pharmacyId ?? currentPharmacy.id)
-      : (currentSession?.user?.pharmacyId ?? currentPharmacy.id);
 
-    // Automatische apotheek-herkenning op basis van labelnaam
-    if (isKoerier && scannedPharmacyName && courierPharmacyIds.length > 0) {
+    // Standaard fallback: session-pharmacy of currentPharmacy
+    let pharmacyId: string =
+      currentSession?.user?.pharmacyId ?? currentPharmacy.id;
+    let pharmacyName: string =
+      pharmaciesRef.current.find(p => p.id === pharmacyId)?.name ?? currentPharmacy.name;
+
+    // Automatische apotheek-herkenning op basis van labelnaam — zoek in ALLE pharmacies
+    if (scannedPharmacyName) {
       const normalize = (s: string) =>
         s.toLowerCase().replace(/apotheek|pharmacy/gi, '').trim();
       const normalizedLabel = normalize(scannedPharmacyName);
 
-      // Match alleen zoeken als er na normaliseren iets bruikbaars overblijft.
       const match = normalizedLabel.length > 0
-        ? pharmaciesRef.current
-            .filter(p => courierPharmacyIds.includes(p.id))
-            .find(p => {
-              const normalizedPharmacy = normalize(p.name);
-              return normalizedPharmacy.length > 0 && (
-                normalizedPharmacy.includes(normalizedLabel) ||
-                normalizedLabel.includes(normalizedPharmacy)
-              );
-            })
+        ? pharmaciesRef.current.find(p => {
+            const normalizedPharmacy = normalize(p.name);
+            return normalizedPharmacy.length > 0 && (
+              normalizedPharmacy.includes(normalizedLabel) ||
+              normalizedLabel.includes(normalizedPharmacy)
+            );
+          })
         : undefined;
 
       if (match) {
         pharmacyId = match.id;
-
-        // Wissel actieve scan-apotheek als het label van een andere komt
-        const activeId = scanPharmacyRef.current ?? courierPharmacyIds[0];
-        if (match.id !== activeId) {
-          setScanPharmacyId(match.id);
-          setToast(`📦 Label van ${match.name} — apotheek gewisseld`);
-          setTimeout(() => setToast(null), 4000);
-        }
+        pharmacyName = match.name;
+        console.log('[Scan] Apotheek automatisch herkend:', match.name);
       } else {
-        // Apotheek op label staat NIET in de gekoppelde apotheken — onderbreek de scan
-        console.warn('[Scan] Apotheek niet gevonden voor:', scannedPharmacyName, '— wacht op gebruikerskeuze');
-        setUnknownPharmacyWarning({ pharmacyName: scannedPharmacyName, address });
-        return; // Pakket nog NIET opslaan
+        // Onbekende apotheek — sla pakket op met label-naam maar zonder pharmacyId koppeling
+        console.warn('[Scan] Apotheek niet herkend:', scannedPharmacyName, '— pakket krijgt label-naam, geen ID');
+        pharmacyId = '';
+        pharmacyName = scannedPharmacyName;
       }
     }
-
-    const pharmacyName = isKoerier
-      ? (pharmaciesRef.current.find(p => p.id === pharmacyId)?.name ?? currentPharmacy.name)
-      : currentPharmacy.name;
 
     // Atomisch scanNumber — ref verhoogt direct zodat parallelle aanroepen altijd unieke nummers krijgen
     const scanNumber = nextScanNumberRef.current++;
@@ -571,7 +572,7 @@ const App: React.FC = () => {
       setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
       db.syncPackage(updatedPkg).catch(err => console.error('[Geocode] Sync naar DB mislukt:', err));
     }).catch(err => console.error('[Geocode] Onverwachte fout:', err));
-  }, [currentPharmacy, courierPharmacyIds]); // packages + pharmacies via refs
+  }, [currentPharmacy]); // packages + pharmacies via refs; courierPharmacyIds niet meer gebruikt in scan
 
   const handleOptimizeRoute = useCallback(async (
     selectedIds: string[],
@@ -801,16 +802,9 @@ const App: React.FC = () => {
     if (!confirm('Nieuwe rit starten? De huidige rit wordt gearchiveerd.')) return;
     // Verwijder alle pakketten van deze koerier uit lokale state
     setPackages(prev => prev.filter(p => p.courierId !== session?.user.courierId));
-    // Reset apotheek selectie, scan-context en localStorage
-    setCourierPharmacyIds([]);
-    setScanPharmacyId(null);
+    // courierPharmacyIds NIET legen — die blijven voor de volgende rit beschikbaar
     setActiveInstitutionRoute([]);
-    localStorage.removeItem('courierPharmacyIds');
   }, [session]);
-
-  const handleRemovePharmacy = useCallback((pharmacyId: string) => {
-    setCourierPharmacyIds(prev => prev.filter(id => id !== pharmacyId));
-  }, []);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
     // 1. Direct toevoegen aan lokale state (optimistic)
@@ -1162,11 +1156,9 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onOptimize={handleOptimizeRoute}
             isOptimizing={isOptimizing}
             onNewRit={handleNewRit}
-            onAddPharmacy={() => setShowAddPharmacy(true)}
             onInstitutionRoute={() => setShowInstitutionSelector(true)}
             activeInstitutionRoute={activeInstitutionRoute}
             onOptimizeInstitutions={handleInstitutionRoute}
-            onRemovePharmacy={handleRemovePharmacy}
           />
         )}
 
@@ -1199,64 +1191,6 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
         />
       )}
 
-      {/* Apotheek-switcher tijdens scannen */}
-      {showPharmacySwitcher && (
-        <div className="fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-6">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm">
-            <h3 className="font-display font-black text-[#191c1e] mb-4">Voor welke apotheek scan je?</h3>
-            {courierPharmacyIds.map(id => {
-              const pharm = pharmacies.find(p => p.id === id);
-              if (!pharm) return null;
-              return (
-                <button key={id} onClick={() => { setScanPharmacyId(id); setShowPharmacySwitcher(false); }}
-                  className={`w-full p-4 rounded-2xl mb-3 text-left font-display font-bold text-sm transition-all active:scale-[0.98] ${scanPharmacyId === id ? 'bg-[#006b5a] text-white' : 'bg-[#f2f4f6] text-[#191c1e]'}`}>
-                  {pharm.name}{scanPharmacyId === id ? ' ✓' : ''}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Apotheek toevoegen aan rit */}
-      {showAddPharmacy && role === UserRole.COURIER && (
-        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-end">
-          <div className="bg-white w-full rounded-t-3xl p-6 pb-10">
-            <h3 className="font-display font-black text-[#191c1e] text-lg mb-1">Apotheek toevoegen aan rit</h3>
-            <p className="text-sm text-[#3d4945] mb-6">Kies een apotheek waar je pakketten ophaalt</p>
-            <div className="space-y-3 mb-6">
-              {pharmacies.filter(p => !courierPharmacyIds.includes(p.id)).map(pharmacy => (
-                <button key={pharmacy.id}
-                  onClick={() => {
-                    setCourierPharmacyIds(prev => {
-                      const updated = [...prev, pharmacy.id];
-                      if (prev.length === 0) setScanPharmacyId(pharmacy.id);
-                      return updated;
-                    });
-                    setShowAddPharmacy(false);
-                  }}
-                  className="w-full flex items-center gap-4 p-4 bg-[#f2f4f6] rounded-2xl active:scale-[0.98] transition-all">
-                  <div className="w-10 h-10 rounded-xl bg-[#48c2a9]/20 flex items-center justify-center">
-                    <Building2 size={20} className="text-[#006b5a]" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-display font-black text-[#191c1e] text-sm">{pharmacy.name}</p>
-                    {pharmacy.address && <p className="text-xs text-[#3d4945]">{pharmacy.address}</p>}
-                  </div>
-                </button>
-              ))}
-              {pharmacies.filter(p => !courierPharmacyIds.includes(p.id)).length === 0 && (
-                <p className="text-sm text-[#3d4945] text-center py-4">Alle apotheken zijn al toegevoegd aan je rit</p>
-              )}
-            </div>
-            <button onClick={() => setShowAddPharmacy(false)}
-              className="w-full h-12 rounded-full border border-[#48c2a9]/30 text-[#3d4945] font-display font-bold text-sm">
-              Annuleren
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Vaste instellingen selecteren (koerier) */}
       {showInstitutionSelector && role === UserRole.COURIER && (
         <InstitutionSelector
@@ -1284,65 +1218,6 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
         />
       )}
 
-      {/* Onbekende apotheek — bevestigingsdialoog na scan */}
-      {unknownPharmacyWarning && (
-        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
-              <AlertTriangle size={24} className="text-amber-600" />
-            </div>
-
-            <h3 className="font-display font-black text-[#191c1e] text-lg mb-2">
-              Onbekende apotheek
-            </h3>
-
-            <p className="text-sm text-[#3d4945] mb-1">
-              Dit label is van:
-            </p>
-            <p className="font-display font-black text-[#191c1e] text-base mb-2">
-              {unknownPharmacyWarning.pharmacyName}
-            </p>
-            <p className="text-sm text-[#3d4945] mb-6">
-              Deze apotheek is niet gekoppeld aan uw rit. Wat wilt u doen?
-            </p>
-
-            <div className="space-y-3">
-              {/* Toch toevoegen aan actieve apotheek */}
-              <button
-                onClick={() => {
-                  const { address } = unknownPharmacyWarning;
-                  setUnknownPharmacyWarning(null);
-                  // Negeer pharmacyName → mismatch-check wordt overgeslagen, valt op actieve apotheek
-                  handleNewScan(address, undefined);
-                }}
-                className="w-full h-12 bg-[#f2f4f6] rounded-full font-display font-bold text-sm text-[#191c1e] active:scale-95 transition-all"
-              >
-                Toch toevoegen aan actieve apotheek
-              </button>
-
-              {/* Apotheek toevoegen en dan opslaan */}
-              <button
-                onClick={() => {
-                  setUnknownPharmacyWarning(null);
-                  setShowAddPharmacy(true);
-                }}
-                className="w-full h-12 rounded-full text-white font-display font-bold text-sm active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
-              >
-                {unknownPharmacyWarning.pharmacyName} toevoegen aan rit
-              </button>
-
-              {/* Annuleer — scan weggooien */}
-              <button
-                onClick={() => setUnknownPharmacyWarning(null)}
-                className="w-full h-10 text-sm font-bold text-[#3d4945] active:opacity-70"
-              >
-                Annuleren
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 };

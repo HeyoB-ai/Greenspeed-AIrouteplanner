@@ -62,19 +62,10 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
     return ids.map(id => ({ id, name: DEMO_PHARMACY_NAMES[id] ?? id }));
   }
 
+  // Couriers slaan de apotheek-keuze over — apotheek wordt automatisch herkend bij scannen.
+  // App.tsx laadt de gekoppelde apotheken zelf via getCourierPharmacies().
   async function enterCourierPharmacyStep(user: AuthUser) {
-    setLoggedInUser(user);
-    const ids = await getCourierPharmacies().catch(() => [] as string[]);
-    const allIds = Array.from(new Set([
-      ...ids,
-      ...(user.pharmacyIds ?? []),
-      ...(user.pharmacyId ? [user.pharmacyId] : []),
-    ]));
-    const options = await fetchPharmacyNames(allIds);
-    setCourierPharmacies(options);
-    if (options.length > 0) setSelectedId(options[0].id);
-    if (options.length === 0) setShowCodeInput(true);
-    setFase('choose-pharmacy');
+    onLogin(user);
   }
 
   const handleLogin = async (e: React.FormEvent) => {
