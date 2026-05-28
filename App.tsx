@@ -23,6 +23,11 @@ const COURIER_NAMES: Record<string, string> = {
   'k2': 'Sanne Bezorgd',
 };
 
+// Normaliseer NL-postcode: "1217nl" / "1217 nl" / "1217NL" → "1217 NL".
+// Geeft de invoer ongewijzigd terug als hij niet matcht (bv. buitenlands of incompleet).
+const normalizePostcode = (pc: string): string =>
+  pc.replace(/^(\d{4})\s*([A-Z]{2})$/i, '$1 $2').toUpperCase();
+
 const enrichWithHistory = (pkg: Package): Package => {
   if (pkg.statusHistory && pkg.statusHistory.length > 0) return pkg;
   const history: StatusEvent[] = [{ status: PackageStatus.PENDING, timestamp: pkg.createdAt }];
@@ -447,6 +452,10 @@ const App: React.FC = () => {
   const nextScanNumberRef  = useRef<number>(1);
   async function geocodeAddress(address: Address): Promise<{ lat: number; lng: number } | null> {
     console.log('[Geocode] Aanroep gestart voor:', address.street, address.houseNumber);
+    const normalizedAddress: Address = {
+      ...address,
+      postalCode: normalizePostcode(address.postalCode ?? ''),
+    };
     try {
       const response = await fetch('/.netlify/functions/maps', {
         method: 'POST',
@@ -454,8 +463,8 @@ const App: React.FC = () => {
         body: JSON.stringify({
           action: 'geocode',
           addresses: [
-            `${address.street} ${address.houseNumber}, ` +
-            `${address.postalCode} ${address.city}, Netherlands`,
+            `${normalizedAddress.street} ${normalizedAddress.houseNumber}, ` +
+            `${normalizedAddress.postalCode} ${normalizedAddress.city}, Netherlands`,
           ],
         }),
       });
@@ -547,11 +556,16 @@ const App: React.FC = () => {
       ? Math.max(0, ...currentPackages.filter(p => p.routeIndex !== undefined).map(p => p.routeIndex!)) + 1
       : undefined;
 
+    const normalizedAddress: Address = {
+      ...address,
+      postalCode: normalizePostcode(address.postalCode ?? ''),
+    };
+
     const pkg: Package = {
       id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       pharmacyId,
       pharmacyName,
-      address,
+      address: normalizedAddress,
       status: isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
       courierId,
       courierName: courierId ? (COURIER_NAMES[courierId] ?? currentSession?.user?.name ?? courierId) : undefined,
