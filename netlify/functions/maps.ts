@@ -6,6 +6,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
+  console.log('[Maps] Key beschikbaar:', !!GOOGLE_MAPS_API_KEY, 'Lengte:', GOOGLE_MAPS_API_KEY?.length ?? 0);
   if (!GOOGLE_MAPS_API_KEY) {
     console.error('[Maps] GOOGLE_MAPS_API_KEY niet geconfigureerd');
     return {
@@ -27,10 +28,17 @@ export const handler: Handler = async (event) => {
         addresses.map(async (addr: string) => {
           const url = `https://maps.googleapis.com/maps/api/geocode/json` +
             `?address=${encodeURIComponent(addr)}&key=${GOOGLE_MAPS_API_KEY}`;
+          console.log('[Maps/Geocode] Adres:', addr);
+          console.log('[Maps/Geocode] URL (key redacted):', url.replace(GOOGLE_MAPS_API_KEY ?? '', 'REDACTED'));
           const r = await fetch(url);
           const d = await r.json();
+          console.log('[Maps/Geocode] Google response status:', d.status);
+          console.log('[Maps/Geocode] Google response (200 chars):', JSON.stringify(d).substring(0, 200));
+          if (d.error_message) {
+            console.error('[Maps/Geocode] Google error_message:', d.error_message);
+          }
           if (d.status === 'OK') return d.results[0].geometry.location as { lat: number; lng: number };
-          console.warn('[Maps] Geocode mislukt voor:', addr, d.status);
+          console.warn('[Maps/Geocode] Geocode mislukt voor:', addr, d.status);
           return null;
         })
       );
