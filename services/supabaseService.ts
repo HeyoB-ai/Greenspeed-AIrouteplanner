@@ -109,7 +109,12 @@ export const db = {
 
       return [
         { id: 'ph-1', name: 'Apotheek de Kroon' },
-        { id: 'ph-2', name: 'Lamberts Apotheek' },
+        {
+          id: 'ph-1779784742417',
+          name: 'Lamberts Apotheek',
+          address: 'Rembrandtlaan 31a 1213 BE Hilversum',
+          courierCode: 'SE-9578',
+        },
       ];
     } catch (err) {
       const localData = localStorage.getItem(PHARMACIES_KEY);

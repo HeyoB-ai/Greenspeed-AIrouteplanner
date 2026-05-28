@@ -34,7 +34,7 @@ export const DEMO_USERS: (AuthUser & { email: string; passwordHash: string })[] 
   },
   {
     id: 'u6', name: 'Regio Beheerder', role: UserRole.ADMIN,
-    pharmacyIds: ['ph-1', 'ph-2'],
+    pharmacyIds: ['ph-1', 'ph-1779784742417'],
     email: 'regio@demo.greenspeed.nl', passwordHash: 'regio123',
   },
   {

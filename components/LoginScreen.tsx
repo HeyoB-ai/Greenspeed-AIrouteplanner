@@ -18,7 +18,7 @@ interface PharmacyOption { id: string; name: string; }
 
 const DEMO_PHARMACY_NAMES: Record<string, string> = {
   'ph-1': 'Apotheek de Kroon',
-  'ph-2': 'Lamberts Apotheek',
+  'ph-1779784742417': 'Lamberts Apotheek',
 };
 
 const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
