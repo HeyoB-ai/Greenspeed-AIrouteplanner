@@ -482,9 +482,37 @@ const App: React.FC = () => {
         return null;
       }
 
-      const coords = data.results[0];
+      let coords = data.results[0] ?? null;
+
       if (!coords) {
-        console.warn('[Geocode] Geen coords voor:', address.street, address.houseNumber);
+        // Fallback: probeer geocoding op enkel postcode + huisnummer (zonder straat/stad).
+        // Lost adressen op waar de straatnaam van het label net iets afwijkt van Google.
+        console.warn('[Geocode] Geen coords voor volledig adres, probeer postcode-fallback:', address.street, address.houseNumber);
+        try {
+          const fallbackResponse = await fetch('/.netlify/functions/maps', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'geocode',
+              addresses: [
+                `${normalizedAddress.postalCode} ${address.houseNumber}, Netherlands`,
+              ],
+            }),
+          });
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            coords = fallbackData.results?.[0] ?? null;
+            if (coords) {
+              console.log('[Geocode] Fallback postcode werkte voor:', address.postalCode, address.houseNumber);
+            }
+          }
+        } catch (fbErr) {
+          console.error('[Geocode] Fallback netwerk fout:', fbErr);
+        }
+      }
+
+      if (!coords) {
+        console.warn('[Geocode] Geen coords (ook niet via fallback) voor:', address.street, address.houseNumber);
         return null;
       }
 
