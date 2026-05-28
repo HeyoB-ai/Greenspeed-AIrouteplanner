@@ -196,6 +196,11 @@ const App: React.FC = () => {
     }
   }, [courierPharmacyIds]);
 
+  // Apotheek-IDs die de koerier vandaag heeft gescand (niet persistent).
+  // Wordt gebruikt als startpunt-bron voor de route-modal, zodat de route
+  // niet meer vanuit een oude (irrelevante) apotheek vertrekt.
+  const [scannedPharmacyIds, setScannedPharmacyIds] = useState<string[]>([]);
+
   // Vaste instellingen
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [showInstitutionSelector, setShowInstitutionSelector] = useState(false);
@@ -434,6 +439,7 @@ const App: React.FC = () => {
       setSession(null);
       setPackages([]);
       setCourierPharmacyIds([]);
+      setScannedPharmacyIds([]);
       localStorage.removeItem('courierPharmacyIds');
     }
   };
@@ -520,6 +526,9 @@ const App: React.FC = () => {
         pharmacyId = match.id;
         pharmacyName = match.name;
         console.log('[Scan] Apotheek automatisch herkend:', match.name);
+        // Houd bij welke apotheken vandaag daadwerkelijk zijn gescand —
+        // dit is de bron voor de route-modal startpunten.
+        setScannedPharmacyIds(prev => prev.includes(match.id) ? prev : [...prev, match.id]);
       } else {
         // Onbekende apotheek — sla pakket op met label-naam maar zonder pharmacyId koppeling
         console.warn('[Scan] Apotheek niet herkend:', scannedPharmacyName, '— pakket krijgt label-naam, geen ID');
@@ -804,6 +813,7 @@ const App: React.FC = () => {
     setPackages(prev => prev.filter(p => p.courierId !== session?.user.courierId));
     // courierPharmacyIds NIET legen — die blijven voor de volgende rit beschikbaar
     setActiveInstitutionRoute([]);
+    setScannedPharmacyIds([]);
   }, [session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
@@ -1145,10 +1155,10 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             pharmacyAddress={courierPharmacyIds.length === 1
               ? pharmacies.find(p => p.id === courierPharmacyIds[0])?.address
               : undefined}
-            activePharmacyNames={courierPharmacyIds
+            activePharmacyNames={(scannedPharmacyIds.length > 0 ? scannedPharmacyIds : courierPharmacyIds)
               .map(id => pharmacies.find(p => p.id === id)?.name)
               .filter(Boolean) as string[]}
-            activePharmacies={courierPharmacyIds
+            activePharmacies={(scannedPharmacyIds.length > 0 ? scannedPharmacyIds : courierPharmacyIds)
               .map(id => pharmacies.find(p => p.id === id))
               .filter(Boolean) as Pharmacy[]}
             onScanStart={() => setShowScanner(true)}

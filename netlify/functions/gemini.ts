@@ -34,6 +34,15 @@ export const handler: Handler = async (event) => {
     const responseText = await response.text();
     console.log('[gemini] Google response preview:', responseText.substring(0, 200));
 
+    // Geef rate-limit en quota-fouten transparant door zodat de client kan retryen
+    if (response.status === 429 || response.status === 503) {
+      return {
+        statusCode: response.status,
+        headers: { 'Content-Type': 'application/json' },
+        body: responseText,
+      };
+    }
+
     if (!response.ok) {
       throw new Error(`Google API error ${response.status}: ${responseText.substring(0, 500)}`);
     }

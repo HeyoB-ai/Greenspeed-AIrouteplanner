@@ -25,9 +25,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   // Tracks which scans are still active (scanner not yet closed)
   const activeScansRef = useRef<Set<string>>(new Set());
 
-  // Semaphore: maximaal 4 gelijktijdige Gemini-aanroepen
+  // Semaphore: maximaal 2 gelijktijdige Gemini-aanroepen om de gratis-tier
+  // rate limit niet te overschrijden (gecombineerd met retry-with-backoff in callGemini)
   const semaphore = useRef(0);
-  const MAX_CONCURRENT = 4;
+  const MAX_CONCURRENT = 2;
 
   // Stabiele ref voor onScanComplete — voorkomt stale closure in processScan
   const onScanCompleteRef = useRef(onScanComplete);

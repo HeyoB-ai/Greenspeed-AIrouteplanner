@@ -11,21 +11,39 @@ const MODEL = 'gemini-2.5-flash';
  * Stuurt een verzoek naar de Netlify proxy-functie die de Gemini API aanroept.
  * De API key blijft op de server — nooit zichtbaar in de browser.
  */
-async function callGemini(requestBody: object): Promise<string | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+const MAX_RETRIES = 3;
+const RETRYABLE_STATUSES = new Set([429, 503]);
 
-  try {
-    const response = await fetch('/.netlify/functions/gemini', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store',
-        'Pragma': 'no-cache',
-      },
-      body: JSON.stringify({ model: MODEL, ...requestBody }),
-      signal: controller.signal,
-    });
+async function callGemini(requestBody: object): Promise<string | null> {
+  const body = JSON.stringify({ model: MODEL, ...requestBody });
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+    let response: Response;
+    try {
+      response = await fetch('/.netlify/functions/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache',
+        },
+        body,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    // Rate-limit of overload → exponential backoff en opnieuw proberen
+    if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES - 1) {
+      const waitMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+      console.warn(`[Gemini] ${response.status} ontvangen — wacht ${waitMs}ms vóór retry (poging ${attempt + 2}/${MAX_RETRIES})`);
+      await new Promise(r => setTimeout(r, waitMs));
+      continue;
+    }
 
     if (!response.ok) {
       let errMsg = `Gemini proxy error ${response.status}`;
@@ -37,11 +55,10 @@ async function callGemini(requestBody: object): Promise<string | null> {
     }
 
     const data = await response.json();
-    // Gemini REST-response: candidates[0].content.parts[0].text
     return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw new Error('Gemini rate limit bereikt na meerdere pogingen');
 }
 
 export async function extractAddressFromImage(
