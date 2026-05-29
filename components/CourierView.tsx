@@ -279,12 +279,6 @@ const CourierView: React.FC<Props> = ({
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="min-w-0 overflow-hidden flex-shrink">
-          {pharmacyName && (
-            <div className="flex items-center gap-1.5 text-xs font-display font-bold text-[#006b5a] bg-[#48c2a9]/15 px-2.5 py-1 rounded-full w-fit max-w-full mb-1">
-              <Building2 size={12} className="shrink-0" />
-              <span className="truncate max-w-[140px]">{pharmacyName}</span>
-            </div>
-          )}
           <h1 className="text-xl font-display font-black text-[#191c1e] truncate">Jouw Rit</h1>
           <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
             {actionableCount} te bezorgen · {doneCount} klaar
@@ -393,6 +387,22 @@ const CourierView: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* ── Actieve apotheken (vandaag gescand) ── */}
+      {linkedPharmacies.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {linkedPharmacies.map(pharmacy => (
+            <div
+              key={pharmacy.id}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#48c2a9]/15 rounded-full"
+            >
+              <Building2 size={12} className="text-[#006b5a] shrink-0" />
+              <span className="text-xs font-bold text-[#006b5a] truncate max-w-[120px]">
+                {pharmacy.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Instellingen route ── */}
       {activeInstitutionRoute && activeInstitutionRoute.length > 0 && (

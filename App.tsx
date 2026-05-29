@@ -13,7 +13,7 @@ import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute } from './services/geminiService';
-import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
+import { getSession, logout, saveSession } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
@@ -201,10 +201,6 @@ const App: React.FC = () => {
     }
   }, [courierPharmacyIds]);
 
-  // Apotheek-IDs die de koerier vandaag heeft gescand (niet persistent).
-  // Wordt gebruikt als startpunt-bron voor de route-modal, zodat de route
-  // niet meer vanuit een oude (irrelevante) apotheek vertrekt.
-  const [scannedPharmacyIds, setScannedPharmacyIds] = useState<string[]>([]);
 
 
   // Vaste instellingen
@@ -421,23 +417,9 @@ const App: React.FC = () => {
     // laadt automatisch alle gekoppelde apotheken voor een courier.
   };
 
-  // Laad voor een ingelogde koerier alle gekoppelde apotheken (server + demo-data)
-  useEffect(() => {
-    if (!session || session.user.role !== UserRole.COURIER) return;
-    let cancelled = false;
-    (async () => {
-      const ids = await getCourierPharmacies().catch(() => [] as string[]);
-      const allIds = Array.from(new Set([
-        ...ids,
-        ...(session.user.pharmacyIds ?? []),
-        ...(session.user.pharmacyId ? [session.user.pharmacyId] : []),
-      ]));
-      if (!cancelled && allIds.length > 0) {
-        setCourierPharmacyIds(allIds);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [session]);
+  // courierPharmacyIds wordt NIET vooraf gevuld vanuit het user-profiel —
+  // de lijst groeit automatisch mee zodra de koerier labels scant. Reset bij
+  // 'nieuwe rit' en bij uitloggen.
 
   const handleLogout = async () => {
     if (confirm('Uitloggen?')) {
@@ -445,7 +427,6 @@ const App: React.FC = () => {
       setSession(null);
       setPackages([]);
       setCourierPharmacyIds([]);
-      setScannedPharmacyIds([]);
       localStorage.removeItem('courierPharmacyIds');
     }
   };
@@ -564,9 +545,12 @@ const App: React.FC = () => {
         pharmacyId = match.id;
         pharmacyName = match.name;
         console.log('[Scan] Apotheek automatisch herkend:', match.name);
-        // Houd bij welke apotheken vandaag daadwerkelijk zijn gescand —
-        // dit is de bron voor de route-modal startpunten.
-        setScannedPharmacyIds(prev => prev.includes(match.id) ? prev : [...prev, match.id]);
+        // Voeg toe aan de rit-apotheken — vult de pills bovenaan en de route-modal.
+        setCourierPharmacyIds(prev => {
+          if (prev.includes(match.id)) return prev;
+          console.log('[Scan] Apotheek toegevoegd aan rit:', match.name);
+          return [...prev, match.id];
+        });
       } else {
         // Onbekende apotheek — sla pakket op met label-naam maar zonder pharmacyId koppeling
         console.warn('[Scan] Apotheek niet herkend:', scannedPharmacyName, '— pakket krijgt label-naam, geen ID');
@@ -854,9 +838,10 @@ const App: React.FC = () => {
     if (!confirm('Nieuwe rit starten? De huidige rit wordt gearchiveerd.')) return;
     // Verwijder alle pakketten van deze koerier uit lokale state
     setPackages(prev => prev.filter(p => p.courierId !== session?.user.courierId));
-    // courierPharmacyIds NIET legen — die blijven voor de volgende rit beschikbaar
+    // Reset apotheek-lijst — wordt automatisch opnieuw gevuld zodra de koerier scant
+    setCourierPharmacyIds([]);
+    localStorage.removeItem('courierPharmacyIds');
     setActiveInstitutionRoute([]);
-    setScannedPharmacyIds([]);
   }, [session]);
 
   const handleAddPharmacy = async (newPharmacy: Pharmacy) => {
@@ -1198,10 +1183,10 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             pharmacyAddress={courierPharmacyIds.length === 1
               ? pharmacies.find(p => p.id === courierPharmacyIds[0])?.address
               : undefined}
-            activePharmacyNames={(scannedPharmacyIds.length > 0 ? scannedPharmacyIds : courierPharmacyIds)
+            activePharmacyNames={courierPharmacyIds
               .map(id => pharmacies.find(p => p.id === id)?.name)
               .filter(Boolean) as string[]}
-            activePharmacies={(scannedPharmacyIds.length > 0 ? scannedPharmacyIds : courierPharmacyIds)
+            activePharmacies={courierPharmacyIds
               .map(id => pharmacies.find(p => p.id === id))
               .filter(Boolean) as Pharmacy[]}
             onScanStart={() => setShowScanner(true)}
