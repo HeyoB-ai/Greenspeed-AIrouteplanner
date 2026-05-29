@@ -213,6 +213,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const visibleScans = scans.slice(-7);
   const hasSuccess = scans.some(s => s.status === 'success');
   const successCount = scans.filter(s => s.status === 'success').length;
+  // Aantal scans dat nog op Gemini wacht — derived uit dezelfde scans-array,
+  // dus altijd consistent met de tile-status zonder kans op race-conditions.
+  const pendingScans = scans.filter(s => s.status === 'processing').length;
+  const canFinish = hasSuccess && pendingScans === 0;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
@@ -326,19 +330,30 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         </button>
 
-        {/* Klaar */}
-        <button
-          onClick={handleClose}
-          disabled={!hasSuccess}
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
-            hasSuccess
-              ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/40'
-              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-          }`}
-          aria-label="Klaar"
-        >
-          <Check size={20} />
-        </button>
+        {/* Klaar — geblokkeerd zolang er nog scans in de wachtrij zitten */}
+        <div className="relative">
+          {pendingScans > 0 && (
+            <p className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-amber-400 uppercase tracking-widest whitespace-nowrap">
+              {pendingScans} bezig…
+            </p>
+          )}
+          <button
+            onClick={canFinish ? handleClose : undefined}
+            disabled={!canFinish}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
+              canFinish
+                ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/40'
+                : pendingScans > 0
+                  ? 'bg-slate-800 text-amber-300 cursor-not-allowed'
+                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+            }`}
+            aria-label={pendingScans > 0 ? `Wachten op ${pendingScans} scan(s)` : 'Klaar'}
+          >
+            {pendingScans > 0
+              ? <Loader2 size={20} className="animate-spin" />
+              : <Check size={20} />}
+          </button>
+        </div>
       </div>
 
     </div>
