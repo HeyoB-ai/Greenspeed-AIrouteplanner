@@ -277,20 +277,20 @@ const CourierView: React.FC<Props> = ({
       )}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="min-w-0 overflow-hidden flex-shrink">
           {pharmacyName && (
-            <div className="flex items-center gap-1.5 text-xs font-display font-bold text-[#006b5a] bg-[#48c2a9]/15 px-2.5 py-1 rounded-full w-fit mb-1">
-              <Building2 size={12} />
-              {pharmacyName}
+            <div className="flex items-center gap-1.5 text-xs font-display font-bold text-[#006b5a] bg-[#48c2a9]/15 px-2.5 py-1 rounded-full w-fit max-w-full mb-1">
+              <Building2 size={12} className="shrink-0" />
+              <span className="truncate max-w-[140px]">{pharmacyName}</span>
             </div>
           )}
-          <h1 className="text-xl font-display font-black text-[#191c1e]">Jouw Rit</h1>
+          <h1 className="text-xl font-display font-black text-[#191c1e] truncate">Jouw Rit</h1>
           <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
             {actionableCount} te bezorgen · {doneCount} klaar
           </p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center shrink-0">
 
           {/* Primair — altijd zichtbaar */}
           {onScanStart && (

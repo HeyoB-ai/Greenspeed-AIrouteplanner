@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
     <div className="flex min-h-dvh bg-[#f7f9fb]">
 
       {/* ── Sidebar (desktop only) ── */}
-      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen bg-white overflow-y-auto z-30"
+      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-[100svh] bg-white overflow-y-auto z-30"
         style={{ boxShadow: '4px 0 24px rgba(25,28,30,0.04)' }}>
 
         {/* Branding */}

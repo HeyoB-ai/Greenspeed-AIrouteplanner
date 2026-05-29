@@ -40,16 +40,25 @@
 
   html {
     overflow-x: clip; /* knipt af zonder scroll-context te breken */
+    overflow-y: auto;
+    overscroll-behavior-x: none;
+    height: 100%;
   }
 
   body {
     overflow-x: clip;
+    overflow-y: auto;
     overscroll-behavior-x: none;
     -webkit-overflow-scrolling: touch; /* iOS momentum scroll */
+    min-height: 100%;
+    min-height: -webkit-fill-available; /* iOS Safari adresbalk-fix */
+    position: relative; /* voorkomt layout shift bij iOS toetsenbord */
   }
 
   #root {
     overflow-x: clip;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
   }
 
   * {
@@ -104,6 +113,9 @@
   /* iOS safe-area onderaan */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .fixed-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Scrollbar verbergen */
