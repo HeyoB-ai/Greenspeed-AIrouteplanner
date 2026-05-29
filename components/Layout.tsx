@@ -48,8 +48,9 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="flex min-h-dvh bg-[#f7f9fb]">
 
-      {/* ── Sidebar (desktop only) ── */}
-      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-[100svh] bg-white overflow-y-auto z-30"
+      {/* ── Sidebar (desktop only) — alle breedte/positie-modifiers met lg: zodat
+            de aside op mobiel geen layout kan verstoren, ook bij specificiteit-bugs ── */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:shrink-0 lg:sticky lg:top-0 lg:h-[100svh] bg-white overflow-y-auto z-30"
         style={{ boxShadow: '4px 0 24px rgba(25,28,30,0.04)' }}>
 
         {/* Branding */}
@@ -89,8 +90,8 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      {/* ── Main content ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ── Main content — w-full + min-w-0 zodat op mobiel altijd 100vw breed ── */}
+      <div className="flex-1 flex flex-col min-w-0 w-full">
 
         {/* Header */}
         <header className="sticky top-0 z-40 h-14 flex items-center px-4 lg:px-6 gap-3"
