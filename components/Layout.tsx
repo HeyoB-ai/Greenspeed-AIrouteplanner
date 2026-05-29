@@ -46,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({
   }
 
   return (
-    <div className="flex min-h-dvh bg-[#f7f9fb]">
+    <div className="flex h-dvh bg-[#f7f9fb]">
 
       {/* ── Sidebar (desktop only) — alle breedte/positie-modifiers met lg: zodat
             de aside op mobiel geen layout kan verstoren, ook bij specificiteit-bugs ── */}
@@ -123,8 +123,8 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto w-full touch-pan-y">
+        {/* Page content — overflow-y-auto vangt scroll af i.p.v. body/window */}
+        <main className="flex-1 overflow-y-auto px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto w-full touch-pan-y">
           {children}
         </main>
 
