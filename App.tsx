@@ -13,7 +13,7 @@ import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute } from './services/geminiService';
-import { getSession, logout, saveSession } from './services/authService';
+import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
@@ -417,9 +417,30 @@ const App: React.FC = () => {
     // laadt automatisch alle gekoppelde apotheken voor een courier.
   };
 
-  // courierPharmacyIds wordt NIET vooraf gevuld vanuit het user-profiel —
-  // de lijst groeit automatisch mee zodra de koerier labels scant. Reset bij
-  // 'nieuwe rit' en bij uitloggen.
+  // Bij iedere COURIER-login: vraag Supabase wat de gekoppelde apotheken
+  // van deze koerier zijn en overschrijf localStorage/state daarmee. Voorkomt
+  // dat een stale cache (oude apotheken van eerdere ritten) blijft hangen.
+  // Bij lege Supabase-respons valt de bestaande localStorage-waarde terug.
+  useEffect(() => {
+    if (!session || session.user.role !== UserRole.COURIER) return;
+    let cancelled = false;
+    (async () => {
+      const ids = await getCourierPharmacies().catch(() => [] as string[]);
+      const allIds = Array.from(new Set([
+        ...ids,
+        ...(session.user.pharmacyIds ?? []),
+        ...(session.user.pharmacyId ? [session.user.pharmacyId] : []),
+      ]));
+      if (cancelled) return;
+      if (allIds.length > 0) {
+        // Supabase heeft data → altijd overschrijven (negeer cache)
+        setCourierPharmacyIds(allIds);
+        localStorage.setItem('courierPharmacyIds', JSON.stringify(allIds));
+      }
+      // Geen data uit Supabase → laat bestaande localStorage-state intact
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
 
   const handleLogout = async () => {
     if (confirm('Uitloggen?')) {
