@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy } from '../types';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
@@ -30,7 +30,6 @@ interface Props {
     startFrom?: string,
     returnTo?: string
   ) => void;
-  scanCooldown?: boolean;
 }
 
 interface Stop {
@@ -84,7 +83,6 @@ const CourierView: React.FC<Props> = ({
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
-  scanCooldown,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
@@ -101,25 +99,6 @@ const CourierView: React.FC<Props> = ({
   const [showMoreMenu, setShowMoreMenu]             = useState(false);
 
   const linkedPharmacies = activePharmacies ?? [];
-
-  // FAB cooldown: gespiegeld van parent + progressie voor de ring
-  const cooldown = !!scanCooldown;
-  const [cooldownProgress, setCooldownProgress] = useState(0);
-
-  useEffect(() => {
-    if (!cooldown) {
-      setCooldownProgress(0);
-      return;
-    }
-    const start = Date.now();
-    const duration = 2000;
-    const tick = setInterval(() => {
-      const elapsed = Date.now() - start;
-      setCooldownProgress(Math.min(elapsed / duration, 1));
-      if (elapsed >= duration) clearInterval(tick);
-    }, 16);
-    return () => clearInterval(tick);
-  }, [cooldown]);
 
   const handleRouteClick = (ids: string[]) => {
     setPendingRouteIds(ids);
@@ -987,43 +966,16 @@ const CourierView: React.FC<Props> = ({
           {/* Spacer zodat content niet achter FAB+bottom-nav verdwijnt */}
           <div className="h-32 lg:hidden" aria-hidden />
 
-          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 lg:hidden flex flex-col items-center gap-2 pointer-events-none">
-            {cooldown && (
-              <div className="text-xs font-bold text-white/90 bg-black/50 px-3 py-1 rounded-full pointer-events-none">
-                Even wachten...
-              </div>
-            )}
-
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 lg:hidden pointer-events-none">
             <button
-              onClick={!cooldown ? onScanStart : undefined}
-              disabled={cooldown}
+              onClick={onScanStart}
               aria-label="Scan label"
-              className={`relative w-20 h-20 rounded-full shadow-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 active:scale-95 select-none pointer-events-auto ${
-                cooldown
-                  ? 'bg-[#3d4945] cursor-not-allowed'
-                  : 'bg-gradient-to-br from-[#006b5a] to-[#48c2a9] cursor-pointer'
-              }`}
-              style={{
-                boxShadow: cooldown
-                  ? '0 4px 20px rgba(0,0,0,0.2)'
-                  : '0 8px 32px rgba(0,107,90,0.45)',
-              }}
+              className="relative w-20 h-20 rounded-full shadow-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 active:scale-95 select-none pointer-events-auto bg-gradient-to-br from-[#006b5a] to-[#48c2a9] cursor-pointer"
+              style={{ boxShadow: '0 8px 32px rgba(0,107,90,0.45)' }}
             >
-              {cooldown && (
-                <svg className="absolute inset-0 w-20 h-20 -rotate-90 pointer-events-none" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="36" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
-                  <circle
-                    cx="40" cy="40" r="36" fill="none" stroke="white" strokeWidth="3"
-                    strokeDasharray={`${2 * Math.PI * 36}`}
-                    strokeDashoffset={`${2 * Math.PI * 36 * (1 - cooldownProgress)}`}
-                    strokeLinecap="round"
-                    className="transition-[stroke-dashoffset] duration-75"
-                  />
-                </svg>
-              )}
-              <ScanLine size={28} className="text-white relative z-10" strokeWidth={2} />
-              <span className="text-white text-[10px] font-display font-black tracking-wider relative z-10">
-                {cooldown ? 'WACHT' : 'SCAN'}
+              <ScanLine size={28} className="text-white" strokeWidth={2} />
+              <span className="text-white text-[10px] font-display font-black tracking-wider">
+                SCAN
               </span>
             </button>
           </div>

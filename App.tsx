@@ -206,9 +206,6 @@ const App: React.FC = () => {
   // niet meer vanuit een oude (irrelevante) apotheek vertrekt.
   const [scannedPharmacyIds, setScannedPharmacyIds] = useState<string[]>([]);
 
-  // Cooldown na een succesvolle scan — geeft de koerier een korte pauze
-  // en voorkomt dat snel-achter-elkaar scans de Gemini rate-limit raken.
-  const [scanCooldown, setScanCooldown] = useState(false);
 
   // Vaste instellingen
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -617,10 +614,6 @@ const App: React.FC = () => {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
       setTimeout(() => setToast(null), 4000);
     }
-
-    // Korte cooldown na elke succesvolle scan (zichtbaar als ring rond de FAB)
-    setScanCooldown(true);
-    setTimeout(() => setScanCooldown(false), 2000);
 
     await db.syncPackage(pkg);
 
@@ -1219,7 +1212,6 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onInstitutionRoute={() => setShowInstitutionSelector(true)}
             activeInstitutionRoute={activeInstitutionRoute}
             onOptimizeInstitutions={handleInstitutionRoute}
-            scanCooldown={scanCooldown}
           />
         )}
 

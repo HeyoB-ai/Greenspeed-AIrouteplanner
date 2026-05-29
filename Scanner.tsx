@@ -21,6 +21,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const [cameraError, setCameraError] = useState('');
   const [showFlash, setShowFlash] = useState(false);
   const [scans, setScans] = useState<ScanEntry[]>([]);
+  // Cooldown van 2s na elke fysieke capture, voorkomt rate-limit bursts
+  const [cooldown, setCooldown] = useState(false);
 
   // Tracks which scans are still active (scanner not yet closed)
   const activeScansRef = useRef<Set<string>>(new Set());
@@ -152,7 +154,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   }
 
   const handleCapture = useCallback(() => {
-    if (!cameraReady) return;
+    if (!cameraReady || cooldown) return;
 
     let base64: string;
     try {
@@ -166,6 +168,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       setCameraError('Camera niet gereed, probeer opnieuw');
       return;
     }
+
+    // Cooldown start vanaf het moment dat de fysieke capture geslaagd is.
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 2000);
 
     // Unieke ID koppelt deze capture atomisch aan het Gemini-resultaat
     const scanId = crypto.randomUUID();
@@ -196,7 +202,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
     // Verwerk asynchroon — camera is nu al vrij voor de volgende scan
     processScan(scanId, base64);
-  }, [cameraReady, processScan]);
+  }, [cameraReady, cooldown, processScan]);
 
   const handleClose = useCallback(() => {
     activeScansRef.current.clear();
@@ -304,19 +310,19 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
         {/* Sluiterknop */}
         <button
-          onClick={handleCapture}
-          disabled={!cameraReady}
+          onClick={cooldown ? undefined : handleCapture}
+          disabled={!cameraReady || cooldown}
           className="relative group outline-none"
           aria-label="Scan pakket"
         >
           <div className="absolute inset-[-12px] rounded-full blur-2xl bg-blue-600/20 group-active:scale-150 transition-all duration-300" />
           <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all relative z-10 border-[10px] border-slate-950 ${
-            !cameraReady ? 'bg-slate-300 text-slate-500' : 'bg-white text-slate-900 active:scale-90'
+            !cameraReady || cooldown ? 'bg-slate-300 text-slate-500' : 'bg-white text-slate-900 active:scale-90'
           }`}>
             <Camera size={40} />
           </div>
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-black text-[#48c2a9] uppercase tracking-widest whitespace-nowrap">
-            {!cameraReady ? 'Camera starten...' : 'Klik om te scannen'}
+            {!cameraReady ? 'Camera starten...' : cooldown ? 'Even wachten…' : 'Klik om te scannen'}
           </div>
         </button>
 
