@@ -346,6 +346,44 @@ export const db = {
     if (error) throw error;
   },
 
+  // ── Monitor / dashboard statistieken ────────────────────────────────
+  async fetchMonitorStats() {
+    if (!supabase) return null;
+
+    const today   = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7  * 86400000).toISOString().split('T')[0];
+    const monAgo  = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+
+    const [todayRes, weekRes, monthRes, openRes, deliveredRes, failedRes] =
+      await Promise.all([
+        supabase.from('packages').select('*', { count: 'exact', head: true }).gte('createdAt', today),
+        supabase.from('packages').select('*', { count: 'exact', head: true }).gte('createdAt', weekAgo),
+        supabase.from('packages').select('*', { count: 'exact', head: true }).gte('createdAt', monAgo),
+        supabase.from('packages').select('*', { count: 'exact', head: true }).in('status', ['ASSIGNED', 'PICKED_UP']),
+        supabase.from('packages').select('*', { count: 'exact', head: true }).in('status', ['DELIVERED', 'MAILBOX', 'NEIGHBOUR']),
+        supabase.from('packages').select('*', { count: 'exact', head: true }).in('status', ['FAILED', 'RETURN']),
+      ]);
+
+    const delivered = deliveredRes.count ?? 0;
+    const failed    = failedRes.count ?? 0;
+    const total     = delivered + failed;
+    const pct       = total > 0 ? Math.round((delivered / total) * 100) : 0;
+    const weekCount = weekRes.count ?? 0;
+
+    return {
+      scansVandaag:     todayRes.count  ?? 0,
+      scansDezWeek:     weekCount,
+      scansDezeMaand:   monthRes.count  ?? 0,
+      openPakketten:    openRes.count   ?? 0,
+      bezorgd:          delivered,
+      mislukt:          failed,
+      bezorgPercentage: pct,
+      // Kostenschatting (Gemini: ~€0.0001 per scan, Maps: ~€0.00005 per scan)
+      kostenGeminiWeek: (weekCount * 0.0001).toFixed(2),
+      kostenMapsWeek:   (weekCount * 0.00005).toFixed(2),
+    };
+  },
+
   async deleteData() {
     localStorage.removeItem(LOCAL_STORAGE_KEY);
     if (!supabase) return;
