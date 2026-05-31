@@ -6,47 +6,34 @@ export const handler: Handler = async () => {
   const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
   const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
-  const checks = await Promise.allSettled([
+  // Géén echte API-calls voor Gemini of Maps — elke health-check zou anders
+  // quota verbruiken (dashboard polt elke 5 min). Voor beide controleren we
+  // alleen of de key aanwezig is en plausibel lang (~39 chars).
+  const geminiKeyOk = !!(GEMINI_KEY && GEMINI_KEY.length > 30);
+  const mapsKeyOk   = !!(MAPS_KEY   && MAPS_KEY.length   > 30);
+  const geminiCode  = geminiKeyOk ? 'KEY_OK' : 'NO_KEY';
+  const mapsCode    = mapsKeyOk   ? 'KEY_OK' : 'NO_KEY';
 
-    // Gemini — list models endpoint
-    fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_KEY}`)
-      .then(r => ({ service: 'gemini', ok: r.ok, code: r.status })),
-
-    // Google Maps Geocoding
-    fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=Amsterdam&key=${MAPS_KEY}`)
-      .then(r => r.json())
-      .then((d: any) => ({
-        service: 'maps_geocoding',
-        ok: d.status === 'OK' || d.status === 'ZERO_RESULTS',
-        code: d.status,
-        error: d.error_message ?? null,
-      })),
-
-    // Google Maps Directions
-    fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=Amsterdam&destination=Utrecht&key=${MAPS_KEY}`)
-      .then(r => r.json())
-      .then((d: any) => ({
-        service: 'maps_directions',
-        ok: d.status === 'OK',
-        code: d.status,
-        error: d.error_message ?? null,
-      })),
-
-    // Supabase REST
-    fetch(`${SUPABASE_URL}/rest/v1/pharmacies?limit=1`, {
+  // Alleen Supabase blijft een echte network-check — gratis quota.
+  let supabaseRes: { service: string; ok: boolean; code?: number | string; error?: string };
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/pharmacies?limit=1`, {
       headers: {
         apikey: SUPABASE_KEY!,
         Authorization: `Bearer ${SUPABASE_KEY}`,
       },
-    }).then(r => ({ service: 'supabase', ok: r.ok, code: r.status })),
+    });
+    supabaseRes = { service: 'supabase', ok: r.ok, code: r.status };
+  } catch (err) {
+    supabaseRes = { service: 'supabase', ok: false, error: String(err) };
+  }
 
-  ]);
-
-  const names = ['gemini', 'maps_geocoding', 'maps_directions', 'supabase'];
-  const services = checks.map((c, i) => {
-    if (c.status === 'fulfilled') return c.value;
-    return { service: names[i], ok: false, error: String(c.reason) };
-  });
+  const services = [
+    { service: 'gemini',          ok: geminiKeyOk, code: geminiCode },
+    { service: 'maps_geocoding',  ok: mapsKeyOk,   code: mapsCode   },
+    { service: 'maps_directions', ok: mapsKeyOk,   code: mapsCode   },
+    supabaseRes,
+  ];
 
   return {
     statusCode: 200,

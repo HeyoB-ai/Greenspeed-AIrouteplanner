@@ -3,6 +3,13 @@ import type { Handler } from '@netlify/functions';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// In-memory circuit breaker: cap per warme container per uur.
+// NB: Netlify spawned mogelijk meerdere containers parallel; dit is een zachte
+// (per-instance) limiet, niet een harde globale limiet. Houdt 1 runaway-loop in toom.
+const MAX_CALLS_PER_HOUR = 500;
+let callsThisHour = 0;
+let hourStart = Date.now();
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -13,7 +20,28 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured on server' }) };
   }
 
-  console.log('[gemini] API key present:', !!GEMINI_API_KEY);
+  // Reset teller bij begin van nieuw uur
+  if (Date.now() - hourStart > 3_600_000) {
+    callsThisHour = 0;
+    hourStart = Date.now();
+  }
+  callsThisHour++;
+
+  if (callsThisHour > MAX_CALLS_PER_HOUR) {
+    console.warn(`[gemini] Circuit breaker open: ${callsThisHour} calls in dit uur (limiet ${MAX_CALLS_PER_HOUR})`);
+    return {
+      statusCode: 429,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        error: {
+          message: `Rate limit bereikt: ${MAX_CALLS_PER_HOUR} requests/uur. Probeer over een uur opnieuw.`,
+          code: 'RATE_LIMIT_EXCEEDED',
+        },
+      }),
+    };
+  }
+
+  console.log('[gemini] API key present:', !!GEMINI_API_KEY, '— calls dit uur:', callsThisHour);
 
   try {
     const body = JSON.parse(event.body || '{}');
