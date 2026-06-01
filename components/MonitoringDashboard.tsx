@@ -42,7 +42,7 @@ const MonitoringDashboard: React.FC = () => {
 
   useEffect(() => {
     check();
-    const interval = setInterval(check, 5 * 60 * 1000);
+    const interval = setInterval(check, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, [check]);
 

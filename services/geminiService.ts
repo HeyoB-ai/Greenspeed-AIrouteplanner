@@ -12,7 +12,10 @@ const MODEL = 'gemini-2.5-flash';
  * De API key blijft op de server — nooit zichtbaar in de browser.
  */
 const MAX_RETRIES = 3;
-const RETRYABLE_STATUSES = new Set([429, 503]);
+// 429 niet meer retrybaar — de proxy doet een eigen rate limit, dus retryen
+// is zinloos én vermenigvuldigt het probleem. 503 is wel een tijdelijke
+// upstream-glitch die een retry rechtvaardigt.
+const RETRYABLE_STATUSES = new Set([503]);
 
 async function callGemini(requestBody: object): Promise<string | null> {
   const body = JSON.stringify({ model: MODEL, ...requestBody });

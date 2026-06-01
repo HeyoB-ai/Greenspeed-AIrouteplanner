@@ -3,6 +3,10 @@ import type { Handler } from '@netlify/functions';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// Allowlist: alleen deze modellen mogen door de proxy worden aangeroepen.
+// Beschermt tegen typo's of een client die een onverwacht (duur) model probeert.
+const ALLOWED_MODELS = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite']);
+
 // In-memory circuit breaker: cap per warme container per uur.
 // NB: Netlify spawned mogelijk meerdere containers parallel; dit is een zachte
 // (per-instance) limiet, niet een harde globale limiet. Houdt 1 runaway-loop in toom.
@@ -48,6 +52,21 @@ export const handler: Handler = async (event) => {
 
     // Model uit de body halen; rest doorgeven aan Google
     const { model = 'gemini-2.5-flash', ...requestBody } = body;
+
+    if (!ALLOWED_MODELS.has(model)) {
+      console.warn('[gemini] Model niet toegestaan:', model);
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: {
+            message: `Model '${model}' is niet toegestaan. Toegestaan: ${[...ALLOWED_MODELS].join(', ')}.`,
+            code: 'MODEL_NOT_ALLOWED',
+          },
+        }),
+      };
+    }
+
     const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
     console.log('[gemini] Calling Google model:', model);
