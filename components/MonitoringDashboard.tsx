@@ -242,9 +242,17 @@ const MonitoringDashboard: React.FC = () => {
               </span>
             </div>
           </div>
-          <p className="text-xs text-[#3d4945] mt-3 opacity-60">
-            Werkelijke kosten kunnen afwijken. Controleer Google Cloud Console voor exacte bedragen.
+          <p className="text-xs text-amber-600 font-bold mt-2">
+            ⚠️ Dit is een schatting. Controleer de werkelijke kosten in Google Cloud Console en Google AI Studio.
           </p>
+          <a
+            href="https://console.cloud.google.com/billing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-[#006b5a] underline mt-1 inline-block"
+          >
+            Bekijk werkelijke kosten →
+          </a>
         </div>
       </div>
 

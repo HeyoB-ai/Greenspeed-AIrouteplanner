@@ -378,9 +378,10 @@ export const db = {
       bezorgd:          delivered,
       mislukt:          failed,
       bezorgPercentage: pct,
-      // Kostenschatting (Gemini: ~€0.0001 per scan, Maps: ~€0.00005 per scan)
-      kostenGeminiWeek: (weekCount * 0.0001).toFixed(2),
-      kostenMapsWeek:   (weekCount * 0.00005).toFixed(2),
+      // Kostenschatting (Gemini image OCR: ~€0.005 per scan met afbeelding,
+      // Maps geocoding: ~€0.005 per scan). Werkelijke kosten in Google billing.
+      kostenGeminiWeek: (weekCount * 0.005).toFixed(2),
+      kostenMapsWeek:   (weekCount * 0.005).toFixed(2),
     };
   },
 
