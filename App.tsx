@@ -14,7 +14,7 @@ import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
 import { optimizeRoute } from './services/geminiService';
 import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
-import { db, supabase } from './services/supabaseService';
+import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
 
@@ -462,7 +462,7 @@ const App: React.FC = () => {
     try {
       const response = await fetch('/.netlify/functions/maps', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({
           action: 'geocode',
           addresses: [
@@ -494,7 +494,7 @@ const App: React.FC = () => {
         try {
           const fallbackResponse = await fetch('/.netlify/functions/maps', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({
               action: 'geocode',
               addresses: [

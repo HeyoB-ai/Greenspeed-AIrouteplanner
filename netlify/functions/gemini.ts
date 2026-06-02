@@ -1,4 +1,5 @@
 import type { Handler } from '@netlify/functions';
+import { verifyAuth } from '../lib/verifyAuth';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -17,6 +18,11 @@ let hourStart = Date.now();
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
+  }
+
+  const auth = await verifyAuth(event.headers as Record<string, string | undefined>);
+  if (!auth.ok) {
+    return { statusCode: auth.statusCode!, headers: { 'Content-Type': 'application/json' }, body: auth.body! };
   }
 
   if (!GEMINI_API_KEY) {

@@ -1,4 +1,5 @@
 import type { Handler } from '@netlify/functions';
+import { verifyAuth } from '../lib/verifyAuth';
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -6,6 +7,12 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
+
+  const auth = await verifyAuth(event.headers as Record<string, string | undefined>);
+  if (!auth.ok) {
+    return { statusCode: auth.statusCode!, headers: { 'Content-Type': 'application/json' }, body: auth.body! };
+  }
+
   console.log('[Maps] Key beschikbaar:', !!GOOGLE_MAPS_API_KEY, 'Lengte:', GOOGLE_MAPS_API_KEY?.length ?? 0);
   if (!GOOGLE_MAPS_API_KEY) {
     console.error('[Maps] GOOGLE_MAPS_API_KEY niet geconfigureerd');

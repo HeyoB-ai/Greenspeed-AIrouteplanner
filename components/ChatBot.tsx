@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, Loader2 } from 'lucide-react';
 import { Package as PackageType } from '../types';
+import { getAuthHeaders } from '../services/supabaseService';
 
 interface Props {
   packages: PackageType[];
@@ -25,7 +26,7 @@ async function askPharmacyAssistant(question: string, packages: PackageType[], p
   try {
     const response = await fetch('/.netlify/functions/gemini', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body: JSON.stringify({
         model: MODEL,
         systemInstruction: {

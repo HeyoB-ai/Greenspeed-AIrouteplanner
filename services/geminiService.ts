@@ -1,4 +1,5 @@
 import { Address, ChatMessage } from "../types";
+import { getAuthHeaders } from "./supabaseService";
 
 export interface ScanResult {
   address: Address;
@@ -32,6 +33,7 @@ async function callGemini(requestBody: object): Promise<string | null> {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store',
           'Pragma': 'no-cache',
+          ...(await getAuthHeaders()),
         },
         body,
         signal: controller.signal,
@@ -336,7 +338,7 @@ async function optimizeBatch(
     console.log('[Route] Geocoderen van', uncached.length, 'ontbrekende adressen...');
     const geocodeResponse = await fetch('/.netlify/functions/maps', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body: JSON.stringify({
         action: 'geocode',
         addresses: uncached.map(a =>
@@ -408,7 +410,7 @@ async function optimizeSingleBatch(
 
   const response = await fetch('/.netlify/functions/maps', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
     body: JSON.stringify({ origin, destination, waypoints }),
   });
 

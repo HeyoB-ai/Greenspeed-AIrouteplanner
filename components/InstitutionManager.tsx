@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Institution, DeliveryFrequency } from '../types';
-import { db } from '../services/supabaseService';
+import { db, getAuthHeaders } from '../services/supabaseService';
 import {
   Building2, Plus, Pencil, Trash2, Info, X, Loader2, User, Phone,
 } from 'lucide-react';
@@ -35,7 +35,7 @@ async function geocodeInstitution(addr: string): Promise<{ lat: number; lng: num
   try {
     const res = await fetch('/.netlify/functions/maps', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
       body: JSON.stringify({ action: 'geocode', addresses: [addr] }),
     });
     if (!res.ok) return null;

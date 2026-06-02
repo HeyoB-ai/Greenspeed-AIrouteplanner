@@ -32,9 +32,20 @@ const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
 const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 // Initialiseer Supabase alleen als beide variabelen aanwezig zijn
-export const supabase = (typeof supabaseUrl === 'string' && supabaseUrl.length > 0 && typeof supabaseAnonKey === 'string') 
-  ? createClient(supabaseUrl, supabaseAnonKey) 
+export const supabase = (typeof supabaseUrl === 'string' && supabaseUrl.length > 0 && typeof supabaseAnonKey === 'string')
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+/**
+ * Bouwt de Authorization-header met het Supabase access-token van de
+ * ingelogde gebruiker. Wordt meegestuurd naar de afgeschermde Netlify-
+ * endpoints (gemini, maps). Leeg object als er geen sessie is.
+ */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
 
 const LOCAL_STORAGE_KEY    = 'medroute_backup_packages';
 const PHARMACIES_KEY       = 'medroute_pharmacies';
