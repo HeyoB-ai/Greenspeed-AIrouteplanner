@@ -102,6 +102,52 @@ export interface Pharmacy {
   groupId?:     string;  // vrije groepering, bijv. 'regio-noord'
   code?:        string;  // optionele interne code / shortcode (vrije tekst)
   courierCode?: string;  // permanente koppelcode voor koeriers, bijv. 'KR-4821'
+  hourlyRate?:  number;  // uurtarief dat Greenspeed factureert (€/uur)
+}
+
+// ── Financiële module ───────────────────────────────────────────────
+export interface CourierDayStats {
+  courierId:    string;
+  courierName:  string;
+  hourlyWage:   number;
+  date:         string;  // 'YYYY-MM-DD'
+  firstScan:    string;  // timestamp
+  lastDelivery: string;  // timestamp
+  startTime:    string;  // firstScan - 30 min
+  endTime:      string;  // lastDelivery + 15 min
+  totalHours:   number;  // decimaal
+  packages:     { pharmacyId: string; count: number }[];
+}
+
+export interface PharmacyFinancials {
+  pharmacyId:        string;
+  pharmacyName:      string;
+  hourlyRate:        number;
+  period:            string;
+  packagesDelivered: number;
+  hoursWorked:       number;  // toegewezen uren
+  revenue:           number;  // hoursWorked × hourlyRate
+  laborCost:         number;  // toegewezen loonkosten
+  grossProfit:       number;
+  profitMargin:      number;  // %
+  revenuePerPackage: number;
+  costPerPackage:    number;
+  profitPerPackage:  number;
+  couriers: {
+    name:     string;
+    hours:    number;
+    wage:     number;
+    cost:     number;
+    packages: number;
+  }[];
+}
+
+// Koerier met uurloon (voor het instellen van lonen in het Gebruikers-tabblad)
+export interface CourierProfile {
+  id:             string;
+  name:           string;
+  hourlyWage:     number;
+  wageStartDate?: string;
 }
 
 // ── Vaste instellingen (zorginstellingen die regelmatig bevoorraad worden) ──

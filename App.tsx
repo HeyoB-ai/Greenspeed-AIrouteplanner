@@ -52,6 +52,7 @@ const EditPharmacyModal: React.FC<{
   const [address, setAddress] = useState(pharmacy.address ?? '');
   const [groupId, setGroupId] = useState(pharmacy.groupId ?? '');
   const [code,    setCode]    = useState(pharmacy.code ?? '');
+  const [hourlyRate, setHourlyRate] = useState(pharmacy.hourlyRate?.toString() ?? '');
   const [saving,  setSaving]  = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -66,6 +67,7 @@ const EditPharmacyModal: React.FC<{
         address: address.trim() || undefined,
         groupId: groupId.trim() || undefined,
         code:    code.trim() || undefined,
+        hourlyRate: hourlyRate.trim() ? parseFloat(hourlyRate) : 0,
       });
     } finally {
       setSaving(false);
@@ -128,6 +130,25 @@ const EditPharmacyModal: React.FC<{
               />
             </div>
           ))}
+
+          {/* Uurtarief — wat Greenspeed deze apotheek factureert */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+              Uurtarief (€/uur)
+            </label>
+            <input
+              type="number"
+              step="0.50"
+              min="0"
+              value={hourlyRate}
+              onChange={e => setHourlyRate(e.target.value)}
+              placeholder="45.00"
+              className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all"
+              style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+              onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
+              onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.2)'}
+            />
+          </div>
 
           <div className="flex gap-3 pt-2 items-center">
             {onDelete && (

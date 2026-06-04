@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Package as PackageType, PackageStatus, Pharmacy, UserRole } from '../types';
-import { ChevronLeft, Building2, Users, Activity } from 'lucide-react';
+import { ChevronLeft, Building2, Users, Activity, Euro } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import PharmacyOverview from './PharmacyOverview';
 import SinglePharmacyDashboard from './SinglePharmacyDashboard';
 import ExportModal from './ExportModal';
 import UserManagementPanel from './UserManagementPanel';
 import MonitoringDashboard from './MonitoringDashboard';
+import FinancialDashboard from './FinancialDashboard';
+import CourierWagePanel from './CourierWagePanel';
 
 interface Props {
   packages:        PackageType[];
@@ -21,7 +23,7 @@ interface Props {
   onPharmacyCodeChange?: (pharmacyId: string, code: string) => void;
 }
 
-type Tab = 'apotheken' | 'gebruikers' | 'monitor';
+type Tab = 'apotheken' | 'gebruikers' | 'financieel' | 'monitor';
 
 const SuperuserView: React.FC<Props> = ({
   packages, pharmacies, userRole, onUpdateStatus,
@@ -84,6 +86,7 @@ const SuperuserView: React.FC<Props> = ({
       <div className="flex flex-wrap gap-2">
         {tabButton('apotheken',  'Apotheken',  Building2)}
         {tabButton('gebruikers', 'Gebruikers', Users)}
+        {tabButton('financieel', 'Financieel', Euro)}
         {tabButton('monitor',    'Monitor',    Activity)}
       </div>
 
@@ -100,11 +103,16 @@ const SuperuserView: React.FC<Props> = ({
       )}
 
       {activeTab === 'gebruikers' && pharmacies.length > 0 && (
-        <UserManagementPanel
-          pharmacies={pharmacies}
-          userRole={effectiveRole}
-        />
+        <div className="space-y-6">
+          <UserManagementPanel
+            pharmacies={pharmacies}
+            userRole={effectiveRole}
+          />
+          <CourierWagePanel />
+        </div>
       )}
+
+      {activeTab === 'financieel' && <FinancialDashboard />}
 
       {activeTab === 'monitor' && <MonitoringDashboard />}
 

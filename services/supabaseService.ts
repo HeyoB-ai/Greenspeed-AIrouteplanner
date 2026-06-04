@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Package, ChatConversation, Institution } from '../types';
+import { Package, ChatConversation, Institution, PharmacyFinancials, CourierDayStats, CourierProfile } from '../types';
 
 /**
  * Veilige helper om omgevingsvariabelen op te halen.
@@ -155,6 +155,7 @@ export const db = {
           address:     pharmacy.address ?? null,
           groupId:     pharmacy.groupId ?? null,
           courierCode: pharmacy.courierCode ?? pharmacy.code ?? null,
+          hourlyRate:  pharmacy.hourlyRate ?? 0,
         };
 
         const { data: updateData, error: updateError } = await supabase
@@ -394,6 +395,213 @@ export const db = {
       kostenGeminiWeek: (weekCount * 0.005).toFixed(2),
       kostenMapsWeek:   (weekCount * 0.005).toFixed(2),
     };
+  },
+
+  // ── Financiële module ───────────────────────────────────────────────
+  async fetchFinancials(
+    dateFrom: string,
+    dateTo: string,
+    pharmacyId?: string,
+  ): Promise<PharmacyFinancials[]> {
+    if (!supabase) return [];
+
+    // Haal bezorgde pakketten op in periode
+    let query = supabase
+      .from('packages')
+      .select('*')
+      .gte('createdAt', dateFrom)
+      .lte('createdAt', dateTo + 'T23:59:59')
+      .in('status', ['DELIVERED', 'MAILBOX', 'NEIGHBOUR'])
+      .not('courierId', 'is', null);
+
+    if (pharmacyId) query = query.eq('pharmacyId', pharmacyId);
+    const { data: packages } = await query;
+    if (!packages?.length) return [];
+
+    // Haal koerier-uurlonen op
+    const courierIds = [...new Set(packages.map((p: any) => p.courierId))];
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, name, hourlyWage')
+      .in('id', courierIds);
+
+    // Haal apotheektarieven op
+    const pharmacyIds = [...new Set(packages.map((p: any) => p.pharmacyId).filter(Boolean))];
+    const { data: pharmacies } = await supabase
+      .from('pharmacies')
+      .select('id, name, hourlyRate')
+      .in('id', pharmacyIds);
+
+    // STAP A: Bereken uren per koerier per dag
+    const courierDayMap = new Map<string, CourierDayStats>();
+
+    packages.forEach((pkg: any) => {
+      const date = pkg.createdAt.split('T')[0];
+      const key  = `${pkg.courierId}_${date}`;
+      const profile = profiles?.find((p: any) => p.id === pkg.courierId);
+
+      if (!courierDayMap.has(key)) {
+        courierDayMap.set(key, {
+          courierId:    pkg.courierId,
+          courierName:  profile?.name ?? 'Onbekend',
+          hourlyWage:   profile?.hourlyWage ?? 0,
+          date,
+          firstScan:    pkg.createdAt,
+          lastDelivery: pkg.deliveredAt ?? pkg.createdAt,
+          startTime:    '',
+          endTime:      '',
+          totalHours:   0,
+          packages:     [],
+        });
+      }
+
+      const day = courierDayMap.get(key)!;
+
+      // Update eerste scan en laatste bezorging
+      if (pkg.createdAt < day.firstScan)
+        day.firstScan = pkg.createdAt;
+      if ((pkg.deliveredAt ?? pkg.createdAt) > day.lastDelivery)
+        day.lastDelivery = pkg.deliveredAt ?? pkg.createdAt;
+
+      // Tel pakketten per apotheek
+      const pharmaEntry = day.packages.find(p => p.pharmacyId === pkg.pharmacyId);
+      if (pharmaEntry) {
+        pharmaEntry.count++;
+      } else {
+        day.packages.push({ pharmacyId: pkg.pharmacyId, count: 1 });
+      }
+    });
+
+    // STAP B: Bereken start/einde/uren per koerier-dag
+    courierDayMap.forEach(day => {
+      const start = new Date(day.firstScan);
+      start.setMinutes(start.getMinutes() - 30); // 30 min vóór eerste scan
+
+      const end = new Date(day.lastDelivery);
+      end.setMinutes(end.getMinutes() + 15);     // 15 min ná laatste bezorging
+
+      day.startTime  = start.toISOString();
+      day.endTime    = end.toISOString();
+      day.totalHours = (end.getTime() - start.getTime()) / 3600000;
+    });
+
+    // STAP C: Alloceer uren proportioneel per apotheek
+    // Per koerier-dag: verdeel uren o.b.v. aantal pakketten per apotheek
+    const allocationMap = new Map<string, {
+      hours: number;
+      cost: number;
+      courierName: string;
+      packages: number;
+    }>(); // key: `${pharmacyId}_${courierId}`
+
+    courierDayMap.forEach(day => {
+      const totalPkgs = day.packages.reduce((s, p) => s + p.count, 0);
+      if (totalPkgs === 0) return;
+
+      day.packages.forEach(({ pharmacyId, count }) => {
+        const fraction   = count / totalPkgs;
+        const allocHours = day.totalHours * fraction;
+        const allocCost  = allocHours * day.hourlyWage;
+        const key        = `${pharmacyId}_${day.courierId}`;
+
+        const existing = allocationMap.get(key) ?? {
+          hours:       0,
+          cost:        0,
+          courierName: day.courierName,
+          packages:    0,
+        };
+        existing.hours    += allocHours;
+        existing.cost     += allocCost;
+        existing.packages += count;
+        allocationMap.set(key, existing);
+      });
+    });
+
+    // STAP D: Bouw PharmacyFinancials per apotheek
+    return (pharmacies ?? []).map((pharmacy: any) => {
+      const pharmaPackages = packages.filter((p: any) => p.pharmacyId === pharmacy.id);
+
+      // Verzamel koerier-allocaties voor deze apotheek
+      const courierData: PharmacyFinancials['couriers'] = [];
+      let totalHours = 0;
+      let totalCost  = 0;
+
+      const courierKeys = [...allocationMap.keys()]
+        .filter(k => k.startsWith(pharmacy.id + '_'));
+
+      courierKeys.forEach(key => {
+        const courierId = key.split('_')[1];
+        const alloc     = allocationMap.get(key)!;
+        const profile   = profiles?.find((p: any) => p.id === courierId);
+
+        courierData.push({
+          name:     alloc.courierName,
+          hours:    alloc.hours,
+          wage:     profile?.hourlyWage ?? 0,
+          cost:     alloc.cost,
+          packages: alloc.packages,
+        });
+
+        totalHours += alloc.hours;
+        totalCost  += alloc.cost;
+      });
+
+      const revenue     = totalHours * (pharmacy.hourlyRate ?? 0);
+      const grossProfit = revenue - totalCost;
+      const delivered   = pharmaPackages.length;
+
+      return {
+        pharmacyId:        pharmacy.id,
+        pharmacyName:      pharmacy.name,
+        hourlyRate:        pharmacy.hourlyRate ?? 0,
+        period:            `${dateFrom} t/m ${dateTo}`,
+        packagesDelivered: delivered,
+        hoursWorked:       Math.round(totalHours * 100) / 100,
+        revenue:           Math.round(revenue * 100) / 100,
+        laborCost:         Math.round(totalCost * 100) / 100,
+        grossProfit:       Math.round(grossProfit * 100) / 100,
+        profitMargin:      revenue > 0
+          ? Math.round((grossProfit / revenue) * 100) : 0,
+        revenuePerPackage: delivered > 0
+          ? Math.round((revenue / delivered) * 100) / 100 : 0,
+        costPerPackage:    delivered > 0
+          ? Math.round((totalCost / delivered) * 100) / 100 : 0,
+        profitPerPackage:  delivered > 0
+          ? Math.round((grossProfit / delivered) * 100) / 100 : 0,
+        couriers: courierData,
+      };
+    }).filter((p: PharmacyFinancials) => p.packagesDelivered > 0);
+  },
+
+  // Lijst van koeriers met hun uurloon (voor het instellen van lonen).
+  // Vereist de RLS-policy uit migratie 007 zodat privileged rollen alle
+  // profielen mogen lezen.
+  async fetchCouriers(): Promise<CourierProfile[]> {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, name, hourlyWage, wageStartDate')
+      .eq('role', 'courier')
+      .order('name');
+    if (error) {
+      console.warn('fetchCouriers mislukt (RLS uit migratie 007 nodig?):', error.message);
+      return [];
+    }
+    return (data ?? []).map((c: any) => ({
+      id:            c.id,
+      name:          c.name,
+      hourlyWage:    c.hourlyWage ?? 0,
+      wageStartDate: c.wageStartDate ?? undefined,
+    }));
+  },
+
+  async updateCourierWage(courierId: string, hourlyWage: number): Promise<void> {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ hourlyWage })
+      .eq('id', courierId);
+    if (error) throw error;
   },
 
   async deleteData() {
