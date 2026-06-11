@@ -299,7 +299,11 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                       <button
                         onClick={() => {
                           const ph = pharmacies.find(p => p.id === s.id);
+                          // Echte apotheek → bewerk die. Spookkaart uit een scan (geen echte rij,
+                          // maar wel een eigen id) → open de modal met de kaartgegevens; opslaan maakt
+                          // er een echte apotheek van en de bijbehorende pakketten koppelen automatisch.
                           if (ph) onEditPharmacy(ph);
+                          else if (s.id) onEditPharmacy({ id: s.id, name: s.name });
                         }}
                         title="Apotheek bewerken"
                         className="w-8 h-8 rounded-xl bg-[#f2f4f6] flex items-center justify-center text-[#3d4945] hover:bg-[#5dc0a7]/20 hover:text-[#006b5a] transition-colors"
