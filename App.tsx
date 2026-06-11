@@ -689,7 +689,11 @@ const App: React.FC = () => {
       setTimeout(() => setToast(null), 4000);
     }
 
-    await db.syncPackage(pkg);
+    const syncResult = await db.syncPackage(pkg);
+    if (syncResult && !syncResult.synced) {
+      setToast(`Let op: pakket #${scanNumber} staat lokaal maar is NIET op de server opgeslagen. Controleer je verbinding en login, en scan zo nodig opnieuw.`);
+      setTimeout(() => setToast(null), 8000);
+    }
 
     // Geocodeer op de achtergrond — blokkeert de UI niet
     geocodeAddress(address).then(coords => {

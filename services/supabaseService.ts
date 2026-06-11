@@ -214,7 +214,7 @@ export const db = {
    * Slaat een pakket op. De localStorage acties zijn synchroon (blocking)
    * om race-conditions tussen snelle opeenvolgende scans te voorkomen.
    */
-  async syncPackage(pkg: Package) {
+  async syncPackage(pkg: Package): Promise<{ synced: boolean; error?: string }> {
     // 1. Lees huidige stand (Synchroon)
     const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
     const localPackages: Package[] = localData ? JSON.parse(localData) : [];
@@ -240,11 +240,17 @@ export const db = {
           addressLat: pkg.address.lat ?? null,
           addressLng: pkg.address.lng ?? null,
         };
-        await supabase.from('packages').upsert(row);
-      } catch (err) {
-        console.warn('Cloud sync tijdelijk niet beschikbaar:', err);
+        const { error } = await supabase.from('packages').upsert(row);
+        if (error) {
+          console.error('[syncPackage] Cloud-opslag geweigerd:', error.message);
+          return { synced: false, error: error.message };
+        }
+      } catch (err: any) {
+        console.error('[syncPackage] Cloud-opslag mislukt:', err);
+        return { synced: false, error: err?.message ?? 'Onbekende fout' };
       }
     }
+    return { synced: true };
   },
 
   async syncMultiplePackages(packages: Package[]) {
@@ -259,9 +265,10 @@ export const db = {
 
     if (supabase) {
       try {
-        await supabase.from('packages').upsert(packages);
+        const { error } = await supabase.from('packages').upsert(packages);
+        if (error) console.error('[syncMultiplePackages] Cloud bulk-opslag geweigerd:', error.message);
       } catch (err) {
-        console.warn('Cloud bulk sync mislukt:', err);
+        console.error('[syncMultiplePackages] Cloud bulk-opslag mislukt:', err);
       }
     }
   },
