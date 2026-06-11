@@ -95,7 +95,7 @@ const SuperuserView: React.FC<Props> = ({
 
       {activeTab === 'apotheken' && (
         <div>
-          <UnassignedPackagesPanel pharmacies={pharmacies} />
+          {effectiveRole === UserRole.SUPERUSER && <UnassignedPackagesPanel pharmacies={pharmacies} />}
           <PharmacyOverview
             packages={packages}
             pharmacies={pharmacies}

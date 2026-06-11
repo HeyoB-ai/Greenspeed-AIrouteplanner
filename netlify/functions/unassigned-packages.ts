@@ -12,6 +12,10 @@ export const handler: Handler = async (event) => {
   if (!auth.ok) return { statusCode: auth.statusCode!, headers: { 'Content-Type': 'application/json' }, body: auth.body! };
   const admin = auth.admin!;
 
+  // Niet-toegewezen pakketten horen bij geen groep; daarom uitsluitend de superuser
+  const { data: me } = await admin.from('user_profiles').select('role').eq('id', auth.userId).single();
+  if ((me as any)?.role !== 'superuser') return json(403, { error: 'Alleen de superuser kan niet-toegewezen pakketten beheren' });
+
   if (event.httpMethod === 'GET') {
     const { data } = await admin
       .from('packages')
@@ -30,15 +34,6 @@ export const handler: Handler = async (event) => {
       const pharmacyId = String(payload.pharmacyId ?? '');
       const pharmacyName = String(payload.pharmacyName ?? '');
       if (!packageIds.length || !pharmacyId) return json(400, { error: 'packageIds en pharmacyId verplicht' });
-
-      // Supervisor mag alleen toewijzen aan een apotheek in de eigen groep
-      const { data: me } = await admin.from('user_profiles').select('role, group_id').eq('id', auth.userId).single();
-      if ((me as any)?.role === 'supervisor') {
-        const { data: ph } = await admin.from('pharmacies').select('groupId').eq('id', pharmacyId).single();
-        if (!(me as any).group_id || (ph as any)?.groupId !== (me as any).group_id) {
-          return json(403, { error: 'Je kunt alleen toewijzen aan een apotheek in je eigen groep' });
-        }
-      }
 
       const { error } = await admin
         .from('packages')
