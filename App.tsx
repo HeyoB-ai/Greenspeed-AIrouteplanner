@@ -247,6 +247,7 @@ const App: React.FC = () => {
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pharmacyMismatch, setPharmacyMismatch] = useState<string | null>(null);
+  const [unknownPharmacy, setUnknownPharmacy] = useState<string | null>(null);
   // Superuser-specific: can pick which pharmacy to act as
   const [superuserPharmacyId, setSuperuserPharmacyId] = useState<string>('');
 
@@ -644,6 +645,7 @@ const App: React.FC = () => {
         console.warn('[Scan] Apotheek niet herkend:', scannedPharmacyName, '— pakket krijgt label-naam, geen ID');
         pharmacyId = '';
         pharmacyName = scannedPharmacyName;
+        setUnknownPharmacy(scannedPharmacyName);
       }
     }
 
@@ -1213,6 +1215,27 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             </div>
             <button
               onClick={() => setPharmacyMismatch(null)}
+              className="text-amber-400 hover:text-amber-700 transition-colors shrink-0"
+              aria-label="Sluit melding"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Onbekende apotheek — label hoort bij geen bekende apotheek */}
+        {unknownPharmacy && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-3xl p-4 flex items-start space-x-3 animate-in slide-in-from-top-2 duration-300">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-black text-amber-900">Onbekende apotheek</p>
+              <p className="text-xs font-bold text-amber-700 mt-1 leading-relaxed">
+                Het label <span className="font-black">{unknownPharmacy}</span> hoort bij geen bekende apotheek.
+                Het pakket is wél vastgelegd en gemarkeerd, zodat een beheerder het later aan de juiste apotheek kan koppelen.
+              </p>
+            </div>
+            <button
+              onClick={() => setUnknownPharmacy(null)}
               className="text-amber-400 hover:text-amber-700 transition-colors shrink-0"
               aria-label="Sluit melding"
             >
