@@ -107,7 +107,7 @@ const EditPharmacyModal: React.FC<{
       style={{ background: 'rgba(25,28,30,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
     >
       <div
-        className="bg-white rounded-4xl w-full max-w-md animate-in slide-in-from-bottom-4 duration-300"
+        className="bg-white rounded-4xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300"
         style={{ boxShadow: '0 24px 64px rgba(25,28,30,0.20)' }}
       >
         <div className="flex items-center justify-between px-7 pt-7 pb-5">
