@@ -50,12 +50,25 @@ const EditPharmacyModal: React.FC<{
   onDelete?: (pharmacy: Pharmacy) => Promise<void>;
 }> = ({ pharmacy, onSave, onClose, onDelete }) => {
   const [name,    setName]    = useState(pharmacy.name);
-  const [address, setAddress] = useState(pharmacy.address ?? '');
-  const [groupId, setGroupId] = useState(pharmacy.groupId ?? '');
+  const [street,      setStreet]      = useState(pharmacy.street ?? '');
+  const [houseNumber, setHouseNumber] = useState(pharmacy.houseNumber ?? '');
+  const [postalCode,  setPostalCode]  = useState(pharmacy.postalCode ?? '');
+  const [city,        setCity]        = useState(pharmacy.city ?? '');
   const [code,    setCode]    = useState(pharmacy.code ?? '');
   const [hourlyRate, setHourlyRate] = useState(pharmacy.hourlyRate?.toString() ?? '');
   const [saving,  setSaving]  = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Groep: superuser kiest uit de lijst, supervisor zit vast op de eigen groep
+  const sess = getSession();
+  const myRole = sess?.user.role;
+  const myGroupId = sess?.user.groupId;
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [groupId, setGroupId] = useState(pharmacy.groupId ?? '');
+  useEffect(() => { db.fetchGroups().then(setGroups).catch(() => {}); }, []);
+  useEffect(() => {
+    if (myRole === UserRole.SUPERVISOR && myGroupId) setGroupId(myGroupId);
+  }, [myRole, myGroupId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,11 +77,14 @@ const EditPharmacyModal: React.FC<{
     try {
       await onSave({
         ...pharmacy,
-        name:    name.trim(),
-        address: address.trim() || undefined,
-        groupId: groupId.trim() || undefined,
-        code:    code.trim() || undefined,
-        hourlyRate: hourlyRate.trim() ? parseFloat(hourlyRate) : 0,
+        name:        name.trim(),
+        street:      street.trim() || undefined,
+        houseNumber: houseNumber.trim() || undefined,
+        postalCode:  postalCode.trim() || undefined,
+        city:        city.trim() || undefined,
+        groupId:     (myRole === UserRole.SUPERVISOR ? (myGroupId ?? '') : groupId) || undefined,
+        code:        code.trim() || undefined,
+        hourlyRate:  hourlyRate.trim() ? parseFloat(hourlyRate) : 0,
       });
     } finally {
       setSaving(false);
@@ -109,10 +125,12 @@ const EditPharmacyModal: React.FC<{
 
         <form onSubmit={handleSubmit} className="px-7 py-6 space-y-4">
           {[
-            { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: name,    set: setName,    required: true  },
-            { label: 'Adres',         placeholder: 'bijv. Hoofdstraat 1, …',   val: address, set: setAddress, required: false },
-            { label: 'Groep / regio', placeholder: 'bijv. regio-noord',        val: groupId, set: setGroupId, required: false },
-            { label: 'Interne code',  placeholder: 'bijv. KRO',                val: code,    set: setCode,    required: false },
+            { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: name,        set: setName,        required: true  },
+            { label: 'Straat',        placeholder: 'bijv. Hoofdstraat',       val: street,      set: setStreet,      required: false },
+            { label: 'Huisnummer',    placeholder: 'bijv. 12A',               val: houseNumber, set: setHouseNumber, required: false },
+            { label: 'Postcode',      placeholder: 'bijv. 1234 AB',           val: postalCode,  set: setPostalCode,  required: false },
+            { label: 'Plaats',        placeholder: 'bijv. Hilversum',         val: city,        set: setCity,        required: false },
+            { label: 'Interne code',  placeholder: 'bijv. KRO',               val: code,        set: setCode,        required: false },
           ].map(f => (
             <div key={f.label} className="space-y-1.5">
               <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
@@ -131,6 +149,32 @@ const EditPharmacyModal: React.FC<{
               />
             </div>
           ))}
+
+          {pharmacy.address && !pharmacy.street && (
+            <p className="text-[11px] text-[#3d4945]/60 -mt-2 ml-1">Oud adres: {pharmacy.address}</p>
+          )}
+
+          {/* Groep / regio */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+              Groep / regio
+            </label>
+            {myRole === UserRole.SUPERVISOR ? (
+              <div className="w-full bg-[#f2f4f6] rounded-xl px-5 h-12 flex items-center font-body font-bold text-[#191c1e] text-sm">
+                {groups.find(g => g.id === myGroupId)?.name ?? myGroupId ?? 'Geen groep toegewezen'}
+              </div>
+            ) : (
+              <select
+                value={groupId}
+                onChange={e => setGroupId(e.target.value)}
+                className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none"
+                style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+              >
+                <option value="">— Geen groep —</option>
+                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            )}
+          </div>
 
           {/* Uurtarief — wat Greenspeed deze apotheek factureert */}
           <div className="space-y-1.5">

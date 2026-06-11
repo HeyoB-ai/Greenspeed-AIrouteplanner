@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Package as PackageType, PackageStatus, Pharmacy } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Package as PackageType, PackageStatus, Pharmacy, UserRole } from '../types';
 import {
   Building2, Search, ChevronRight, Package,
   CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2, Pencil, Link,
 } from 'lucide-react';
+import { getSession } from '../services/authService';
+import { db } from '../services/supabaseService';
 
 const PAGE_SIZE = 20;
 
@@ -56,9 +58,22 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
   // ── Nieuwe apotheek modal ──────────────────────────────────────
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName]           = useState('');
-  const [newAddress, setNewAddress]     = useState('');
-  const [newGroupId, setNewGroupId]     = useState('');
+  const [newStreet, setNewStreet]             = useState('');
+  const [newHouseNumber, setNewHouseNumber]   = useState('');
+  const [newPostalCode, setNewPostalCode]     = useState('');
+  const [newCity, setNewCity]                 = useState('');
   const [adding, setAdding]             = useState(false);
+
+  // Groep: superuser kiest uit de lijst, supervisor zit vast op de eigen groep
+  const sess = getSession();
+  const myRole = sess?.user.role;
+  const myGroupId = sess?.user.groupId;
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [newGroupId, setNewGroupId] = useState('');
+  useEffect(() => { db.fetchGroups().then(setGroups).catch(() => {}); }, []);
+  useEffect(() => {
+    if (myRole === UserRole.SUPERVISOR && myGroupId) setNewGroupId(myGroupId);
+  }, [myRole, myGroupId]);
 
   // Live duplicaat-detectie op genormaliseerde naam
   const duplicateMatches = useMemo(() => {
@@ -69,17 +84,23 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
   const resetAddForm = () => {
     setNewName('');
-    setNewAddress('');
-    setNewGroupId('');
+    setNewStreet('');
+    setNewHouseNumber('');
+    setNewPostalCode('');
+    setNewCity('');
+    setNewGroupId(myRole === UserRole.SUPERVISOR && myGroupId ? myGroupId : '');
   };
 
   const doAdd = async () => {
     if (!newName.trim() || !onAddPharmacy) return;
     const newPharmacy: Pharmacy = {
-      id:      `ph-${Date.now()}`,
-      name:    newName.trim(),
-      address: newAddress.trim() || undefined,
-      groupId: newGroupId.trim() || undefined,
+      id:          `ph-${Date.now()}`,
+      name:        newName.trim(),
+      street:      newStreet.trim() || undefined,
+      houseNumber: newHouseNumber.trim() || undefined,
+      postalCode:  newPostalCode.trim() || undefined,
+      city:        newCity.trim() || undefined,
+      groupId:     (myRole === UserRole.SUPERVISOR ? (myGroupId ?? '') : newGroupId) || undefined,
     };
     setAdding(true);
     try {
@@ -383,9 +404,11 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
           <form onSubmit={handleAddSubmit} className="px-7 py-6 space-y-4">
             {[
-              { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: newName, set: setNewName, required: true },
-              { label: 'Adres', placeholder: 'bijv. Hoofdstraat 1, 1234 AB Amsterdam', val: newAddress, set: setNewAddress, required: false },
-              { label: 'Groep / regio', placeholder: 'bijv. regio-noord', val: newGroupId, set: setNewGroupId, required: false },
+              { label: 'Naam apotheek', placeholder: 'bijv. Apotheek de Kroon', val: newName,        set: setNewName,        required: true },
+              { label: 'Straat',        placeholder: 'bijv. Hoofdstraat',       val: newStreet,      set: setNewStreet,      required: false },
+              { label: 'Huisnummer',    placeholder: 'bijv. 12A',               val: newHouseNumber, set: setNewHouseNumber, required: false },
+              { label: 'Postcode',      placeholder: 'bijv. 1234 AB',           val: newPostalCode,  set: setNewPostalCode,  required: false },
+              { label: 'Plaats',        placeholder: 'bijv. Hilversum',         val: newCity,        set: setNewCity,        required: false },
             ].map(f => (
               <div key={f.label} className="space-y-1.5">
                 <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
@@ -405,6 +428,28 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                 />
               </div>
             ))}
+
+            {/* Groep / regio */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
+                Groep / regio
+              </label>
+              {myRole === UserRole.SUPERVISOR ? (
+                <div className="w-full bg-[#f2f4f6] rounded-xl px-5 h-12 flex items-center font-body font-bold text-[#191c1e] text-sm">
+                  {groups.find(g => g.id === myGroupId)?.name ?? myGroupId ?? 'Geen groep toegewezen'}
+                </div>
+              ) : (
+                <select
+                  value={newGroupId}
+                  onChange={e => setNewGroupId(e.target.value)}
+                  className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none"
+                  style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+                >
+                  <option value="">— Geen groep —</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              )}
+            </div>
 
             {duplicateMatches.length > 0 && (
               <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">

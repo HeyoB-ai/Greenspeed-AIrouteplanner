@@ -150,9 +150,18 @@ export const db = {
     // 2. Supabase: probeer eerst update, val terug op insert als record niet bestaat
     if (supabase) {
       try {
+        const composedAddress = [
+          [pharmacy.street, pharmacy.houseNumber].filter(Boolean).join(' '),
+          [pharmacy.postalCode, pharmacy.city].filter(Boolean).join(' '),
+        ].filter(Boolean).join(', ') || (pharmacy.address ?? null);
+
         const payload = {
           name:        pharmacy.name,
-          address:     pharmacy.address ?? null,
+          address:     composedAddress,
+          street:      pharmacy.street ?? null,
+          houseNumber: pharmacy.houseNumber ?? null,
+          postalCode:  pharmacy.postalCode ?? null,
+          city:        pharmacy.city ?? null,
           groupId:     pharmacy.groupId ?? null,
           courierCode: pharmacy.courierCode ?? pharmacy.code ?? null,
           hourlyRate:  pharmacy.hourlyRate ?? 0,
@@ -176,6 +185,12 @@ export const db = {
         throw new Error(err?.message || err?.error_description || err?.hint || 'Onbekende fout bij opslaan in cloud');
       }
     }
+  },
+
+  async fetchGroups(): Promise<{ id: string; name: string }[]> {
+    if (!supabase) return [];
+    const { data } = await supabase.from('groups').select('id, name').order('name');
+    return data ?? [];
   },
 
   async deletePharmacy(id: string): Promise<void> {

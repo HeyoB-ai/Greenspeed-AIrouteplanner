@@ -99,8 +99,12 @@ export interface User {
 export interface Pharmacy {
   id:           string;
   name:         string;
-  address?:     string;
-  groupId?:     string;  // vrije groepering, bijv. 'regio-noord'
+  address?:     string;  // legacy / samengesteld weergave-adres
+  street?:      string;
+  houseNumber?: string;
+  postalCode?:  string;
+  city?:        string;
+  groupId?:     string;  // groep/regio (verwijst naar groups.id)
   code?:        string;  // optionele interne code / shortcode (vrije tekst)
   courierCode?: string;  // permanente koppelcode voor koeriers, bijv. 'KR-4821'
   hourlyRate?:  number;  // uurtarief dat Greenspeed factureert (€/uur)
