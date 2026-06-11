@@ -145,10 +145,10 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
     packages.forEach(p => {
       if (p.status === PackageStatus.SCANNING) return;
-      if (!map.has(p.pharmacyId)) {
-        map.set(p.pharmacyId, { id: p.pharmacyId, name: p.pharmacyName, total: 0, delivered: 0, pending: 0, failed: 0, deliveryRate: 0 });
-      }
-      const s = map.get(p.pharmacyId)!;
+      const s = map.get(p.pharmacyId);
+      // Pakket met een apotheek-id dat bij geen echte apotheek hoort (spook) tonen we
+      // niet meer als losse kaart; die pakketten horen in het toewijs-paneel thuis.
+      if (!s) return;
       s.total++;
       if (DELIVERED_STATUSES.has(p.status)) s.delivered++;
       else if (PENDING_STATUSES.has(p.status)) s.pending++;
