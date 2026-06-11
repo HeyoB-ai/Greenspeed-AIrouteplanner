@@ -7,6 +7,8 @@ import {
   Map as MapIcon, RefreshCw, Building2, Trash2, Plus, MoreHorizontal
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
+import RouteMapModal from './RouteMapModal';
+import type { RouteGeometry } from '../services/geminiService';
 
 interface Props {
   packages: PackageType[];
@@ -30,6 +32,7 @@ interface Props {
     startFrom?: string,
     returnTo?: string
   ) => void;
+  routeGeometry?: RouteGeometry | null;
 }
 
 interface Stop {
@@ -83,8 +86,10 @@ const CourierView: React.FC<Props> = ({
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
+  routeGeometry,
 }) => {
   const [showOverview, setShowOverview]             = useState(false);
+  const [showRouteMap, setShowRouteMap]             = useState(false);
   const [isCapturingGPS, setIsCapturingGPS]         = useState<string | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [notHomePkg, setNotHomePkg]                 = useState<PackageType | null>(null);
@@ -309,6 +314,15 @@ const CourierView: React.FC<Props> = ({
             >
               {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <MapIcon size={14} />}
               {isOptimizing ? 'Bezig...' : 'Route'}
+            </button>
+          )}
+          {!!routeGeometry?.coords?.length && (
+            <button
+              onClick={() => setShowRouteMap(true)}
+              className="flex items-center gap-1.5 px-3 h-10 bg-[#006b5a] text-white rounded-full font-display font-bold text-xs active:scale-95 transition-all"
+            >
+              <MapIcon size={14} />
+              Bekijk route op kaart
             </button>
           )}
 
@@ -990,6 +1004,15 @@ const CourierView: React.FC<Props> = ({
             </button>
           </div>
         </>
+      )}
+
+      {showRouteMap && routeGeometry && (
+        <RouteMapModal
+          coords={routeGeometry.coords}
+          totalDistanceM={routeGeometry.totalDistanceM}
+          totalDurationS={routeGeometry.totalDurationS}
+          onClose={() => setShowRouteMap(false)}
+        />
       )}
     </div>
   );

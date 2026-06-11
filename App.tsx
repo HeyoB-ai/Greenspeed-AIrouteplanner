@@ -12,7 +12,8 @@ import InstitutionSelector from './components/InstitutionSelector';
 import Scanner from './Scanner';
 import ManualAddressForm from './components/ManualAddressForm';
 import ChatBot from './components/ChatBot';
-import { optimizeRoute } from './services/geminiService';
+import { optimizeRoute, optimizeRouteDetailed, type RouteGeometry } from './services/geminiService';
+import RouteMapModal from './components/RouteMapModal';
 import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
@@ -195,6 +196,7 @@ const App: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [toast, setToast]                 = useState<string | null>(null);
   const [isSyncing, setIsSyncing]         = useState(false);
@@ -703,7 +705,9 @@ const App: React.FC = () => {
         }
       }
 
-      const orderedIds = await optimizeRoute(stops, startAddress, endAddress);
+      const { orderedIds, coords, totalDistanceM, totalDurationS } =
+        await optimizeRouteDetailed(stops, startAddress, endAddress);
+      setRouteGeometry({ orderedIds, coords, totalDistanceM, totalDurationS });
 
       console.log('=== ROUTE OPTIMALISATIE ===');
       console.log('Geselecteerde IDs:', selectedIds);
@@ -1239,6 +1243,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onInstitutionRoute={() => setShowInstitutionSelector(true)}
             activeInstitutionRoute={activeInstitutionRoute}
             onOptimizeInstitutions={handleInstitutionRoute}
+            routeGeometry={routeGeometry}
           />
         )}
 

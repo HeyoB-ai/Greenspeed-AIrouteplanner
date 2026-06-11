@@ -56,29 +56,73 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Directions actie: route optimalisatie
-    const { origin, destination, waypoints } = body;
-    const params = new URLSearchParams({
-      origin,
-      destination,
-      mode: 'bicycling',
-      key: GOOGLE_MAPS_API_KEY,
+    // Route-optimalisatie via Routes API (computeRoutes), genormaliseerde respons.
+    const { origin, destination, intermediates } = body as {
+      origin: string;
+      destination: string;
+      intermediates?: string[];
+    };
+
+    const routesBody = {
+      origin:        { address: origin },
+      destination:   { address: destination },
+      intermediates: (intermediates ?? []).map((a: string) => ({ address: a })),
+      travelMode:            'BICYCLE',
+      optimizeWaypointOrder: true,
+    };
+
+    console.log('[Maps] Routes API computeRoutes (fiets),', routesBody.intermediates.length, 'waypoints');
+
+    const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      method: 'POST',
+      headers: {
+        'Content-Type':    'application/json',
+        'X-Goog-Api-Key':  GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask': [
+          'routes.optimizedIntermediateWaypointIndex',
+          'routes.distanceMeters',
+          'routes.duration',
+          'routes.legs.startLocation',
+          'routes.legs.endLocation',
+        ].join(','),
+      },
+      body: JSON.stringify(routesBody),
     });
-    if (waypoints) {
-      params.set('waypoints', `optimize:true|${waypoints}`);
-    }
-    const url = `https://maps.googleapis.com/maps/api/directions/json?${params}`;
-    console.log('[Maps] Aanroep voor route optimalisatie (fiets)');
-    const response = await fetch(url);
+
     const data = await response.json();
-    console.log('[Maps] Status:', data.status);
-    if (data.status !== 'OK') {
-      console.error('[Maps] Google fout:', data.error_message);
+
+    if (!response.ok || !data.routes?.length) {
+      console.error('[Maps] Routes API fout:', response.status, JSON.stringify(data).substring(0, 300));
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'ERROR',
+          error_message: data.error?.message ?? `Routes API status ${response.status}`,
+        }),
+      };
     }
+
+    const route = data.routes[0];
+    const legs: any[] = route.legs ?? [];
+    const coords = legs.length
+      ? [legs[0].startLocation?.latLng, ...legs.map((l: any) => l.endLocation?.latLng)]
+          .filter(Boolean)
+          .map((p: any) => ({ lat: p.latitude, lng: p.longitude }))
+      : [];
+
+    console.log('[Maps] Routes OK:', route.distanceMeters, 'm,', route.duration);
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        status:          'OK',
+        order:           route.optimizedIntermediateWaypointIndex ?? [],
+        distanceMeters:  route.distanceMeters ?? 0,
+        durationSeconds: parseInt(String(route.duration ?? '0'), 10),
+        coords,
+      }),
     };
   } catch (err) {
     console.error('[Maps] Functie fout:', err);

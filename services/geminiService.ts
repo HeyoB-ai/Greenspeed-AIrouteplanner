@@ -81,12 +81,13 @@ export async function extractAddressFromImage(
               },
             },
             {
-              text: 'Dit is een foto van één bezorgadres op een apotheeklabel of adressenlijst. Er is precies één adres zichtbaar in beeld (het adres in het midden van de foto). Lees dat ene adres en geef:\n- straatnaam (street)\n- huisnummer (houseNumber)\n- postcode (postalCode, formaat: 1234 AB)\n- stad (city)\n- apotheeknaam (pharmacyName) als zichtbaar, anders leeg\n\nGeen patiëntnamen, geen medicatienamen. Antwoord in JSON.',
+              text: 'Dit is een foto van één bezorgadres op een apotheeklabel of adressenlijst. Er is precies één adres zichtbaar in beeld (het adres in het midden van de foto). Het zijn gedrukte Nederlandse adressen in Latijnse tekens. Lees exact wat er staat — verzin niets en gebruik uitsluitend Latijnse letters (a-z), nooit niet-Latijnse tekens. Geef:\n- straatnaam (street)\n- huisnummer (houseNumber)\n- postcode (postalCode, formaat: 1234 AB)\n- stad (city)\n- apotheeknaam (pharmacyName) als zichtbaar, anders leeg\n\nGeen patiëntnamen, geen medicatienamen. Antwoord in JSON.',
             },
           ],
         },
       ],
       generationConfig: {
+        temperature: 0,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -208,28 +209,60 @@ export async function answerPatientQuestion(
   }
 }
 
-// ── Route-optimalisatie via Google Maps Directions API ───────────────
+// ── Route-optimalisatie via Google Maps Routes API ───────────────────
+
+export interface LatLng { lat: number; lng: number; }
+
+export interface RouteGeometry {
+  orderedIds:     string[];
+  coords:         LatLng[];
+  totalDistanceM: number;
+  totalDurationS: number;
+}
+
+interface BatchResult {
+  ids:       string[];
+  coords:    LatLng[];
+  distanceM: number;
+  durationS: number;
+}
+
+export async function optimizeRouteDetailed(
+  addresses: (Address & { id: string })[],
+  startAddress?: string | null,
+  endAddress?: string | null
+): Promise<RouteGeometry> {
+  if (addresses.length === 0) {
+    return { orderedIds: [], coords: [], totalDistanceM: 0, totalDurationS: 0 };
+  }
+  if (addresses.length === 1) {
+    const a = addresses[0];
+    const coords = a.lat != null && a.lng != null ? [{ lat: a.lat, lng: a.lng }] : [];
+    return { orderedIds: [a.id], coords, totalDistanceM: 0, totalDurationS: 0 };
+  }
+  try {
+    const result = await optimizeBatch(addresses, startAddress, endAddress);
+    console.log('[Route] Geoptimaliseerde volgorde (fiets):');
+    result.ids.forEach((id, i) => {
+      const addr = addresses.find(a => a.id === id);
+      console.log(`  Stop ${i + 1}: ${addr?.street} ${addr?.houseNumber}, ${addr?.postalCode}`);
+    });
+    console.log(`[Route] Totaal: ${(result.distanceM / 1000).toFixed(1)} km · ${Math.round(result.durationS / 60)} min`);
+    return { orderedIds: result.ids, coords: result.coords, totalDistanceM: result.distanceM, totalDurationS: result.durationS };
+  } catch (err) {
+    console.error('[Route] Routes API mislukt, fallback op originele volgorde:', err);
+    const coords = addresses.filter(a => a.lat != null && a.lng != null).map(a => ({ lat: a.lat!, lng: a.lng! }));
+    return { orderedIds: addresses.map(a => a.id), coords, totalDistanceM: 0, totalDurationS: 0 };
+  }
+}
 
 export async function optimizeRoute(
   addresses: (Address & { id: string })[],
   startAddress?: string | null,
   endAddress?: string | null
 ): Promise<string[]> {
-  if (addresses.length === 0) return [];
-  if (addresses.length === 1) return [addresses[0].id];
-
-  try {
-    const result = await optimizeBatch(addresses, startAddress, endAddress);
-    console.log('[Route] Geoptimaliseerde volgorde (fiets):');
-    result.forEach((id, i) => {
-      const addr = addresses.find(a => a.id === id);
-      console.log(`  Stop ${i + 1}: ${addr?.street} ${addr?.houseNumber}, ${addr?.postalCode}`);
-    });
-    return result;
-  } catch (err) {
-    console.error('[Route] Google Maps mislukt, fallback op originele volgorde:', err);
-    return addresses.map(a => a.id);
-  }
+  const { orderedIds } = await optimizeRouteDetailed(addresses, startAddress, endAddress);
+  return orderedIds;
 }
 
 type GeoStop = Address & { id: string; lat: number; lng: number };
@@ -321,7 +354,7 @@ async function optimizeBatch(
   addresses: (Address & { id: string })[],
   startAddress?: string | null,
   endAddress?: string | null
-): Promise<string[]> {
+): Promise<BatchResult> {
   if (addresses.length <= 25) {
     return await optimizeSingleBatch(addresses, startAddress, endAddress);
   }
@@ -358,7 +391,7 @@ async function optimizeBatch(
     .filter((x): x is GeoStop => x !== null && x !== undefined);
   const missingIds = addresses.filter(a => !withCoords.find(w => w.id === a.id)).map(a => a.id);
 
-  if (geoStops.length === 0) return addresses.map(a => a.id);
+  if (geoStops.length === 0) return { ids: addresses.map(a => a.id), coords: [], distanceM: 0, durationS: 0 };
 
   const startCoord      = geoStops[0];
   const rawClusters     = clusterByGeography(geoStops, 23);
@@ -367,24 +400,33 @@ async function optimizeBatch(
   console.log('[Route]', orderedClusters.length, 'geografische clusters:', orderedClusters.map(c => c.length).join(' / '), 'stops');
 
   const allIds: string[] = [];
+  const allCoords: LatLng[] = [];
+  let distanceM = 0;
+  let durationS = 0;
   for (let i = 0; i < orderedClusters.length; i++) {
-    const ids = await optimizeSingleBatch(
+    const batch = await optimizeSingleBatch(
       orderedClusters[i],
       i === 0 ? startAddress : null,
       i === orderedClusters.length - 1 ? endAddress : null,
     );
-    allIds.push(...ids);
+    allIds.push(...batch.ids);
+    allCoords.push(...batch.coords);
+    distanceM += batch.distanceM;
+    durationS += batch.durationS;
   }
-
-  return [...new Set([...allIds, ...missingIds])];
+  return { ids: [...new Set([...allIds, ...missingIds])], coords: allCoords, distanceM, durationS };
 }
 
 async function optimizeSingleBatch(
   addresses: (Address & { id: string })[],
   startAddress?: string | null,
   endAddress?: string | null
-): Promise<string[]> {
-  if (addresses.length <= 1) return addresses.map(a => a.id);
+): Promise<BatchResult> {
+  if (addresses.length <= 1) {
+    const a = addresses[0];
+    const coords = a?.lat != null && a?.lng != null ? [{ lat: a.lat, lng: a.lng }] : [];
+    return { ids: addresses.map(x => x.id), coords, distanceM: 0, durationS: 0 };
+  }
 
   const formatAddress = (a: Address) =>
     `${a.street} ${a.houseNumber}, ${a.postalCode} ${a.city}, Netherlands`;
@@ -404,40 +446,44 @@ async function optimizeSingleBatch(
       ? addresses.slice(0, -1)     // alles behalve het laatste
       : addresses.slice(1, -1);    // alles behalve eerste én laatste
 
-  const waypoints = waypointAddresses.map(a => formatAddress(a)).join('|');
+  const intermediates = waypointAddresses.map(a => formatAddress(a));
 
-  console.log('[Route] Google Maps aanroep voor', addresses.length, 'stops (fiets)...');
+  console.log('[Route] Routes API aanroep voor', addresses.length, 'stops (fiets)...');
 
   const response = await fetch('/.netlify/functions/maps', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-    body: JSON.stringify({ origin, destination, waypoints }),
+    body: JSON.stringify({ origin, destination, intermediates }),
   });
 
   const data = await response.json();
 
   if (data.status !== 'OK') {
-    throw new Error(`Google Maps fout: ${data.status} — ${data.error_message ?? ''}`);
+    throw new Error(`Routes API fout: ${data.status} — ${data.error_message ?? ''}`);
   }
 
-  const waypointOrder: number[] = data.routes[0].waypoint_order ?? [];
-  console.log('[Route] Google waypoint_order:', waypointOrder);
+  const order: number[] = data.order ?? [];
+  console.log('[Route] Geoptimaliseerde waypoint-volgorde:', order);
 
-  // Als eindadres extern: indices 0..n-1 verwijzen naar alle addresses
-  // Als alleen startadres extern: indices verwijzen naar addresses[0..n-2], laatste vaste stop achteraan
-  // Anders: indices verwijzen naar addresses[1..n-2], eerste en laatste zijn vast
   const reordered = hasExternalEnd
-    ? waypointOrder.map((i: number) => waypointAddresses[i].id)
+    ? order.map((i: number) => waypointAddresses[i].id)
     : hasExternalStart
       ? [
-          ...waypointOrder.map((i: number) => waypointAddresses[i].id),
+          ...order.map((i: number) => waypointAddresses[i].id),
           addresses[addresses.length - 1].id,
         ]
       : [
           addresses[0].id,
-          ...waypointOrder.map((i: number) => addresses[i + 1].id),
+          ...order.map((i: number) => addresses[i + 1].id),
           addresses[addresses.length - 1].id,
         ];
 
-  return [...new Set(reordered)];
+  const coords: LatLng[] = (data.coords ?? []).map((p: any) => ({ lat: p.lat, lng: p.lng }));
+
+  return {
+    ids:       [...new Set(reordered)],
+    coords,
+    distanceM: data.distanceMeters  ?? 0,
+    durationS: data.durationSeconds ?? 0,
+  };
 }
