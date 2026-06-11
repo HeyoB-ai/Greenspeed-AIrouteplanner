@@ -210,25 +210,15 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
   const normalized = code.trim().toUpperCase();
   let pharmacyId: string | null = null;
 
-  // 1. Zoek de apotheek op de permanente koppelcode (hoofdletter-ongevoelig).
-  //    Geen auth-sessie nodig om de code te valideren — de code is het geheim.
-  const { data: phRow } = await supabase
-    .from('pharmacies')
-    .select('id')
-    .ilike('courierCode', normalized)
-    .maybeSingle();
-  if (phRow) {
-    pharmacyId = phRow.id as string;
-  } else {
-    // 2. Fallback: tijdelijke code in pharmacy_codes (legacy, verloopt)
-    const { data: codeRow } = await supabase
-      .from('pharmacy_codes')
-      .select('pharmacy_id')
-      .ilike('code', normalized)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-    if (codeRow) pharmacyId = codeRow.pharmacy_id as string;
-  }
+  // 1+2. Zoek de apotheek op de koppelcode via SECURITY DEFINER RPC. Werkt zonder
+  //      auth-sessie (de code is het geheim) én blijft werken nadat pharmacies/
+  //      pharmacy_codes in golf 1b voor anon zijn afgeschermd. De RPC checkt eerst
+  //      de permanente courierCode en valt terug op pharmacy_codes (niet verlopen).
+  const { data: rpcId } = await supabase
+    .rpc('lookup_pharmacy_by_code', { p_code: normalized });
+  pharmacyId = typeof rpcId === 'string' && rpcId
+    ? rpcId
+    : Array.isArray(rpcId) ? ((rpcId[0] as string) ?? null) : null;
 
   if (!pharmacyId) return null;
 
