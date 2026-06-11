@@ -116,7 +116,7 @@ const SuperuserView: React.FC<Props> = ({
           />
           <UsersOverviewPanel />
           <CourierWagePanel />
-          <GroupManagementPanel />
+          {effectiveRole === UserRole.SUPERUSER && <GroupManagementPanel />}
         </div>
       )}
 
