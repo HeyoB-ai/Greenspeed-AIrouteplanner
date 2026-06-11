@@ -2,7 +2,7 @@ import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 const DELIVERED_STATUSES  = ['DELIVERED', 'MAILBOX', 'NEIGHBOUR', 'OTHER_LOCATION'];
 const RETOUR_STATUSES     = ['RETURN', 'FAILED'];
@@ -136,7 +136,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, headers: CORS_HEADERS, body: JSON.stringify({ error: true, message: 'Method not allowed' }) };
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.error('[track-and-trace] Supabase niet geconfigureerd');
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Er is een technische fout opgetreden.' }) };
   }
@@ -169,7 +169,7 @@ export const handler: Handler = async (event) => {
   console.log('[track-and-trace] Zoeken op:', { variants, huisnummer });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
