@@ -43,6 +43,10 @@ export interface PharmacyOverviewProps {
 const rateColor = (rate: number) =>
   rate >= 80 ? 'text-[#006b5a]' : rate >= 60 ? 'text-amber-600' : 'text-red-500';
 
+// Normaliseer apotheeknaam voor duplicaat-detectie: kleine letters, spaties samengevoegd, punten/komma's weg
+const normalizeName = (s: string) =>
+  s.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[.,]/g, '');
+
 const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
   packages, pharmacies, onSelectPharmacy, onExport, canAddPharmacy, onAddPharmacy, onEditPharmacy,
 }) => {
@@ -56,8 +60,20 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
   const [newGroupId, setNewGroupId]     = useState('');
   const [adding, setAdding]             = useState(false);
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Live duplicaat-detectie op genormaliseerde naam
+  const duplicateMatches = useMemo(() => {
+    const n = normalizeName(newName);
+    if (!n) return [];
+    return pharmacies.filter(p => normalizeName(p.name) === n);
+  }, [newName, pharmacies]);
+
+  const resetAddForm = () => {
+    setNewName('');
+    setNewAddress('');
+    setNewGroupId('');
+  };
+
+  const doAdd = async () => {
     if (!newName.trim() || !onAddPharmacy) return;
     const newPharmacy: Pharmacy = {
       id:      `ph-${Date.now()}`,
@@ -69,12 +85,23 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
     try {
       await onAddPharmacy(newPharmacy);
       setShowAddModal(false);
-      setNewName('');
-      setNewAddress('');
-      setNewGroupId('');
+      resetAddForm();
     } finally {
       setAdding(false);
     }
+  };
+
+  const openExisting = (p: Pharmacy) => {
+    setShowAddModal(false);
+    resetAddForm();
+    onEditPharmacy?.(p);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Bij een duplicaat is de knop al veranderd in "Toch toevoegen" (bewuste keuze);
+    // doAdd handelt beide gevallen af.
+    await doAdd();
   };
 
   // ── Global stats ──────────────────────────────────────────────
@@ -379,6 +406,34 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
               </div>
             ))}
 
+            {duplicateMatches.length > 0 && (
+              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs font-bold text-amber-800">
+                    Er bestaat al {duplicateMatches.length === 1 ? 'een apotheek' : `${duplicateMatches.length} apotheken`} met deze naam. Controleer of dit een duplicaat is.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {duplicateMatches.map(p => (
+                    <div key={p.id} className="flex items-center justify-between gap-2 bg-white rounded-xl px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-[#191c1e] truncate">{p.name}</div>
+                        <div className="text-[11px] text-[#3d4945]/70 truncate">{p.address || 'geen adres'}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openExisting(p)}
+                        className="shrink-0 px-3 h-9 rounded-full bg-[#006b5a] text-white text-xs font-bold active:scale-95 transition-all"
+                      >
+                        Openen
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -391,10 +446,10 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                 type="submit"
                 disabled={adding || !newName.trim()}
                 className="flex-1 h-12 rounded-full text-white font-display font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 active:scale-95"
-                style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+                style={{ background: duplicateMatches.length > 0 ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
               >
-                {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                {adding ? 'Opslaan...' : 'Toevoegen'}
+                {adding ? <Loader2 size={16} className="animate-spin" /> : (duplicateMatches.length > 0 ? <AlertCircle size={16} /> : <Plus size={16} />)}
+                {adding ? 'Opslaan...' : (duplicateMatches.length > 0 ? 'Toch toevoegen' : 'Toevoegen')}
               </button>
             </div>
           </form>
