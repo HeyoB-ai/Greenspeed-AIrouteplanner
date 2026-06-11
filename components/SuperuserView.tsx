@@ -9,6 +9,7 @@ import UserManagementPanel from './UserManagementPanel';
 import MonitoringDashboard from './MonitoringDashboard';
 import FinancialDashboard from './FinancialDashboard';
 import CourierWagePanel from './CourierWagePanel';
+import UsersOverviewPanel from './UsersOverviewPanel';
 
 interface Props {
   packages:        PackageType[];
@@ -108,6 +109,7 @@ const SuperuserView: React.FC<Props> = ({
             pharmacies={pharmacies}
             userRole={effectiveRole}
           />
+          <UsersOverviewPanel />
           <CourierWagePanel />
         </div>
       )}
