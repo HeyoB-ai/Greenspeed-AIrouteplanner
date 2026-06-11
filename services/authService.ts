@@ -172,13 +172,9 @@ export async function acceptInvitation(
   if (!supabase) return null;
 
   // Haal uitnodiging op
-  const { data: invite, error: inviteError } = await supabase
-    .from('invitations')
-    .select('*')
-    .eq('token', token)
-    .is('accepted_at', null)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  const { data: inviteRows, error: inviteError } = await supabase
+    .rpc('get_invitation', { p_token: token });
+  const invite = Array.isArray(inviteRows) ? inviteRows[0] : inviteRows;
 
   if (inviteError || !invite) return null;
 
@@ -193,10 +189,7 @@ export async function acceptInvitation(
   if (error || !data.user) return null;
 
   // Markeer uitnodiging als geaccepteerd
-  await supabase
-    .from('invitations')
-    .update({ accepted_at: new Date().toISOString() })
-    .eq('token', token);
+  await supabase.rpc('accept_invitation', { p_token: token });
 
   const user: AuthUser = {
     id:          data.user.id,
