@@ -63,10 +63,19 @@ export const handler: Handler = async (event) => {
       intermediates?: string[];
     };
 
+    // Routes API weigert "lat,lng" in het address-veld. Detecteer coördinaten
+    // en stuur die als location.latLng; tekst-adressen blijven address.
+    const toWaypoint = (v: string) => {
+      const m = String(v).trim().match(/^(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/);
+      return m
+        ? { location: { latLng: { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) } } }
+        : { address: v };
+    };
+
     const routesBody = {
-      origin:        { address: origin },
-      destination:   { address: destination },
-      intermediates: (intermediates ?? []).map((a: string) => ({ address: a })),
+      origin:        toWaypoint(origin),
+      destination:   toWaypoint(destination),
+      intermediates: (intermediates ?? []).map(toWaypoint),
       travelMode:            'BICYCLE',
       optimizeWaypointOrder: true,
     };
