@@ -21,7 +21,10 @@ export const handler: Handler = async (event) => {
       .from('packages')
       .select('id, pharmacyId, pharmacyName, courierName, createdAt, status, address')
       .order('createdAt', { ascending: false });
-    const packages = (data ?? []).filter((p: any) => !p.pharmacyId);
+    const { data: phData } = await admin.from('pharmacies').select('id');
+    const realIds = new Set((phData ?? []).map((p: any) => p.id));
+    // Niet-toegewezen = leeg apotheek-id OF een id dat bij geen echte apotheek hoort (spook-apotheek uit een scan)
+    const packages = (data ?? []).filter((p: any) => !p.pharmacyId || !realIds.has(p.pharmacyId));
     return json(200, { packages });
   }
 
