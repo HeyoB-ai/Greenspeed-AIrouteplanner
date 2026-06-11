@@ -487,3 +487,29 @@ async function optimizeSingleBatch(
     durationS: data.durationSeconds ?? 0,
   };
 }
+
+// ── Adresvalidatie via PDOK Locatieserver (officieel BAG) ─────────────
+
+export interface PdokResult {
+  found:        boolean;
+  street?:      string | null;
+  city?:        string | null;
+  postalCode?:  string | null;
+  houseNumber?: string | null;
+  lat?:         number | null;
+  lng?:         number | null;
+}
+
+export async function validateAddressPDOK(postalCode: string, houseNumber: string): Promise<PdokResult> {
+  try {
+    const res = await fetch('/.netlify/functions/pdok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify({ postalCode, houseNumber }),
+    });
+    if (!res.ok) return { found: false };
+    return await res.json();
+  } catch {
+    return { found: false };
+  }
+}

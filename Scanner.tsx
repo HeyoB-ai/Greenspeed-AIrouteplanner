@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, X, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { extractAddressFromImage } from './services/geminiService';
+import { extractAddressFromImage, validateAddressPDOK } from './services/geminiService';
+import { playSuccess, playError, buzz, unlockAudio } from './services/sound';
 import { Address } from './types';
 
 interface ScannerProps {
@@ -10,9 +11,14 @@ interface ScannerProps {
 
 type ScanEntry = {
   scanId: string;
-  status: 'processing' | 'success' | 'failed';
+  // 'ok' = geverifieerd, 'corrected' = officiële straat afwijkend, 'unverified' = niet te verifiëren
+  status: 'processing' | 'ok' | 'corrected' | 'unverified';
   address?: Address;
+  message?: string;
+  originalStreet?: string;
 };
+
+const UNVERIFIED_MSG = 'Adres niet geverifieerd — controleer en scan opnieuw';
 
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -71,11 +77,17 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   }, []);
 
   // OCR verwerking — volledig geïsoleerd per scanId via de base64 parameter
+  // Markeer een scan als rood (niet geverifieerd) + luid signaal
+  const markUnverified = (scanId: string, message: string) => {
+    playError(); buzz([80, 60, 80]);
+    setScans(prev => prev.map(s =>
+      s.scanId === scanId ? { ...s, status: 'unverified', message } : s
+    ));
+  };
+
   const processScan = useCallback(async (scanId: string, base64: string) => {
     if (semaphore.current >= MAX_CONCURRENT) {
-      setScans(prev => prev.map(s =>
-        s.scanId === scanId ? { ...s, status: 'failed' } : s
-      ));
+      markUnverified(scanId, 'Te druk — scan opnieuw');
       return;
     }
     semaphore.current++;
@@ -86,25 +98,56 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       // Scanner gesloten terwijl Gemini bezig was — resultaat weggooien
       if (!activeScansRef.current.has(scanId)) return;
 
-      if (!result?.address?.street || !result.address.houseNumber) {
-        setScans(prev => prev.map(s =>
-          s.scanId === scanId ? { ...s, status: 'failed' } : s
-        ));
+      const address = result?.address;
+      const hasCore = !!address?.street && !!address?.houseNumber && !!address?.postalCode;
+
+      // OCR leverde geen volledig adres → rood, niet stil accepteren
+      if (!hasCore || !address) {
+        markUnverified(scanId, UNVERIFIED_MSG);
         return;
       }
 
-      setScans(prev => prev.map(s =>
-        s.scanId === scanId
-          ? { ...s, status: 'success', address: result.address }
-          : s
-      ));
+      // Officiële BAG-validatie via PDOK vóór definitief opslaan
+      const norm = (s?: string | null) => (s ?? '').toLowerCase().replace(/\s+/g, '');
+      const pdok = await validateAddressPDOK(address.postalCode, address.houseNumber);
 
-      onScanCompleteRef.current({ scanId, address: result.address, pharmacyName: result.pharmacyName });
+      // Scanner ondertussen gesloten — resultaat weggooien
+      if (!activeScansRef.current.has(scanId)) return;
+
+      if (pdok.found) {
+        const corrected = norm(pdok.street) !== norm(address.street);
+        const finalAddress: Address = {
+          ...address,
+          street: pdok.street!,                 // officiële straatnaam
+          city:   pdok.city ?? address.city,
+          lat:    pdok.lat!,                     // officiële coördinaat → route klopt
+          lng:    pdok.lng!,
+        };
+
+        if (corrected) {
+          // ORANJE: opgeslagen met officiële versie, correctie tonen
+          playSuccess(); buzz(60);
+          setScans(prev => prev.map(s =>
+            s.scanId === scanId
+              ? { ...s, status: 'corrected', address: finalAddress, originalStreet: address.street, message: `${address.street} → ${pdok.street}` }
+              : s
+          ));
+        } else {
+          // GROEN
+          playSuccess(); buzz(40);
+          setScans(prev => prev.map(s =>
+            s.scanId === scanId ? { ...s, status: 'ok', address: finalAddress } : s
+          ));
+        }
+
+        onScanCompleteRef.current({ scanId, address: finalAddress, pharmacyName: result.pharmacyName });
+      } else {
+        // ROOD + LUID: niet geverifieerd, niet stil accepteren
+        markUnverified(scanId, UNVERIFIED_MSG);
+      }
     } catch {
       if (activeScansRef.current.has(scanId)) {
-        setScans(prev => prev.map(s =>
-          s.scanId === scanId ? { ...s, status: 'failed' } : s
-        ));
+        markUnverified(scanId, 'Verwerking mislukt — scan opnieuw');
       }
     } finally {
       semaphore.current--;
@@ -155,6 +198,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
   const handleCapture = useCallback(() => {
     if (!cameraReady || cooldown) return;
+
+    // Vereist op iOS: deblokkeer de AudioContext binnen deze user-gesture
+    unlockAudio();
 
     let base64: string;
     try {
@@ -211,12 +257,18 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
   // Maximaal 7 tiles zichtbaar — oudste verdwijnt als er meer zijn
   const visibleScans = scans.slice(-7);
-  const hasSuccess = scans.some(s => s.status === 'success');
-  const successCount = scans.filter(s => s.status === 'success').length;
+  // 'ok' én 'corrected' zijn opgeslagen (onScanComplete aangeroepen) → tellen als succes
+  const isSaved = (s: ScanEntry) => s.status === 'ok' || s.status === 'corrected';
+  const hasSuccess = scans.some(isSaved);
+  const successCount = scans.filter(isSaved).length;
   // Aantal scans dat nog op Gemini wacht — derived uit dezelfde scans-array,
   // dus altijd consistent met de tile-status zonder kans op race-conditions.
   const pendingScans = scans.filter(s => s.status === 'processing').length;
   const canFinish = hasSuccess && pendingScans === 0;
+
+  // Banner toont de laatst afgeronde scan als die aandacht vraagt (oranje/rood)
+  const lastDone = [...scans].reverse().find(s => s.status !== 'processing');
+  const feedback = lastDone && lastDone.status !== 'ok' ? lastDone : null;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden animate-in fade-in duration-300">
@@ -264,6 +316,25 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         </div>
 
+        {/* Validatie-feedback — luid en duidelijk (oranje = gecorrigeerd, rood = niet geverifieerd) */}
+        {feedback && (
+          <div
+            className={`absolute bottom-24 left-4 right-4 z-30 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl animate-in slide-in-from-bottom duration-300 text-white ${
+              feedback.status === 'unverified' ? 'bg-red-500' : 'bg-orange-500'
+            }`}
+          >
+            {feedback.status === 'unverified'
+              ? <AlertCircle size={22} className="shrink-0" />
+              : <Check size={22} className="shrink-0" />}
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-80">
+                {feedback.status === 'unverified' ? 'Niet geverifieerd' : 'Adres gecorrigeerd'}
+              </p>
+              <p className="text-sm font-black leading-tight truncate">{feedback.message}</p>
+            </div>
+          </div>
+        )}
+
         {/* Status tiles */}
         {visibleScans.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 z-20 pb-3 px-3 bg-gradient-to-t from-black/60 to-transparent pt-6">
@@ -274,15 +345,18 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
                   className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
                     scan.status === 'processing'
                       ? 'bg-slate-800'
-                      : scan.status === 'failed'
+                      : scan.status === 'unverified'
                       ? 'bg-red-500'
+                      : scan.status === 'corrected'
+                      ? 'bg-orange-500'
                       : ''
                   }`}
-                  style={scan.status === 'success' ? { background: '#006b5a' } : {}}
+                  style={scan.status === 'ok' ? { background: '#006b5a' } : {}}
                 >
-                  {scan.status === 'processing' && <Loader2 size={18} className="text-white/80 animate-spin" />}
-                  {scan.status === 'success'    && <Check   size={18} className="text-white" />}
-                  {scan.status === 'failed'     && <X       size={18} className="text-white" />}
+                  {scan.status === 'processing' && <Loader2     size={18} className="text-white/80 animate-spin" />}
+                  {scan.status === 'ok'         && <Check       size={18} className="text-white" />}
+                  {scan.status === 'corrected'  && <AlertCircle size={18} className="text-white" />}
+                  {scan.status === 'unverified' && <X           size={18} className="text-white" />}
                 </div>
               ))}
             </div>
