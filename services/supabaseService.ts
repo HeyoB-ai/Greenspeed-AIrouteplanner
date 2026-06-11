@@ -253,7 +253,7 @@ export const db = {
     return { synced: true };
   },
 
-  async syncMultiplePackages(packages: Package[]) {
+  async syncMultiplePackages(packages: Package[]): Promise<{ synced: boolean; error?: string }> {
     const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
     let localPackages: Package[] = localData ? JSON.parse(localData) : [];
     
@@ -266,11 +266,16 @@ export const db = {
     if (supabase) {
       try {
         const { error } = await supabase.from('packages').upsert(packages);
-        if (error) console.error('[syncMultiplePackages] Cloud bulk-opslag geweigerd:', error.message);
-      } catch (err) {
+        if (error) {
+          console.error('[syncMultiplePackages] Cloud bulk-opslag geweigerd:', error.message);
+          return { synced: false, error: error.message };
+        }
+      } catch (err: any) {
         console.error('[syncMultiplePackages] Cloud bulk-opslag mislukt:', err);
+        return { synced: false, error: err?.message ?? 'Onbekende fout' };
       }
     }
+    return { synced: true };
   },
 
   async saveConversation(conv: ChatConversation) {

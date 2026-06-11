@@ -789,7 +789,11 @@ const App: React.FC = () => {
       console.log('Gesynchroniseerd:', toSync.map(p => `stop ${p.routeIndex}: ${p.address.street} ${p.address.houseNumber}`));
 
       setPackages(updatedPackages);
-      await db.syncMultiplePackages(toSync);
+      const routeSync = await db.syncMultiplePackages(toSync);
+      if (routeSync && !routeSync.synced) {
+        setToast('Let op: de route is lokaal bijgewerkt maar NIET op de server opgeslagen. Controleer je verbinding en login.');
+        setTimeout(() => setToast(null), 8000);
+      }
 
     } catch (err) {
       console.error('Route optimalisatie mislukt:', err);
@@ -924,7 +928,11 @@ const App: React.FC = () => {
       return p;
     });
     setPackages(newPackages);
-    await db.syncMultiplePackages(pkgsToSync);
+    const statusSync = await db.syncMultiplePackages(pkgsToSync);
+    if (statusSync && !statusSync.synced) {
+      setToast('Let op: statuswijziging staat lokaal maar is NIET op de server opgeslagen. Controleer je verbinding en login.');
+      setTimeout(() => setToast(null), 8000);
+    }
   };
 
   const isActionable = (pkg: Package): boolean =>
