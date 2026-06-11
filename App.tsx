@@ -243,6 +243,7 @@ const App: React.FC = () => {
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [toast, setToast]                 = useState<string | null>(null);
+  const [cloudStale, setCloudStale]       = useState(false);
   const [isSyncing, setIsSyncing]         = useState(false);
   const [showSetupHelp, setShowSetupHelp] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -312,6 +313,7 @@ const App: React.FC = () => {
       if (pharms.length > 0 && !superuserPharmacyId) {
         setSuperuserPharmacyId(pharms[0].id);
       }
+      setCloudStale(db.cloudReadFailed());
       setIsSyncing(false);
     };
     loadData();
@@ -1210,6 +1212,14 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-black animate-in slide-in-from-top duration-300 whitespace-nowrap">
           💬 {toast}
+        </div>
+      )}
+
+      {/* Golf 2b: melding bij mislukte cloud-lees (mogelijk verouderde data) */}
+      {cloudStale && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold animate-in slide-in-from-top duration-300 flex items-center gap-3">
+          <span>Verbinding met de server mislukt — je ziet mogelijk verouderde gegevens.</span>
+          <button onClick={() => location.reload()} className="underline font-black whitespace-nowrap">Opnieuw proberen</button>
         </div>
       )}
 

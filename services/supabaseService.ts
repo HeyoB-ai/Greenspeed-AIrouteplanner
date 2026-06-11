@@ -51,28 +51,39 @@ const LOCAL_STORAGE_KEY    = 'medroute_backup_packages';
 const PHARMACIES_KEY       = 'medroute_pharmacies';
 const CONVERSATIONS_PREFIX = 'medroute_conversations_'; // + pharmacyId
 
+// Golf 2b: signaleert of de laatste cloud-lees mislukte (dan tonen we verouderde cache).
+let _cloudReadFailed = false;
+
 export const db = {
+  cloudReadFailed(): boolean { return _cloudReadFailed; },
+
   async fetchPackages(): Promise<Package[]> {
     try {
-      // Probeer eerst Supabase (cloud), val terug op localStorage
       if (supabase) {
         const { data, error } = await supabase.from('packages').select('*').order('createdAt', { ascending: false });
-        if (!error && data && data.length > 0) {
-          const mapped = data.map((row: any) => ({
-            ...row,
-            address: {
-              ...row.address,
-              ...(row.addressLat != null ? { lat: row.addressLat } : {}),
-              ...(row.addressLng != null ? { lng: row.addressLng } : {}),
-            },
-          }));
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mapped));
-          return mapped;
+        if (error) {
+          _cloudReadFailed = true;
+          console.error('[fetchPackages] Cloud-lees mislukt, toon cache:', error.message);
+          const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+          return localData ? JSON.parse(localData) : [];
         }
+        // Geslaagd: gebruik de cloud-stand (ook als die leeg is) en ververs de cache.
+        _cloudReadFailed = false;
+        const mapped = (data ?? []).map((row: any) => ({
+          ...row,
+          address: {
+            ...row.address,
+            ...(row.addressLat != null ? { lat: row.addressLat } : {}),
+            ...(row.addressLng != null ? { lng: row.addressLng } : {}),
+          },
+        }));
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mapped));
+        return mapped;
       }
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       return localData ? JSON.parse(localData) : [];
     } catch (err) {
+      _cloudReadFailed = true;
       console.error('Fout bij ophalen pakketten:', err);
       const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
       return localData ? JSON.parse(localData) : [];
@@ -87,7 +98,9 @@ export const db = {
           .from('pharmacies')
           .select('*')
           .order('name', { ascending: true });
+        if (error) { _cloudReadFailed = true; }
         if (!error && data && data.length > 0) {
+          _cloudReadFailed = false;
           localStorage.setItem(PHARMACIES_KEY, JSON.stringify(data));
           return data;
         }
@@ -128,6 +141,7 @@ export const db = {
         },
       ];
     } catch (err) {
+      _cloudReadFailed = true;
       const localData = localStorage.getItem(PHARMACIES_KEY);
       return localData ? JSON.parse(localData) : [{ id: 'ph-1', name: 'Apotheek de Kroon' }];
     }
