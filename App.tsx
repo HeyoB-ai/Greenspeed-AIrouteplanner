@@ -991,13 +991,16 @@ const App: React.FC = () => {
   };
 
   const handleDeletePharmacy = async (pharmacy: Pharmacy) => {
-    const hasPackages = packages.some(p => p.pharmacyId === pharmacy.id);
+    const packageCount = packages.filter(p => p.pharmacyId === pharmacy.id).length;
 
-    const message = hasPackages
-      ? `Weet je zeker dat je "${pharmacy.name}" wilt verwijderen?\n\nLet op: deze apotheek heeft nog pakketten in de database. Die blijven bewaard maar zijn niet meer gekoppeld aan een apotheek.`
-      : `Weet je zeker dat je "${pharmacy.name}" wilt verwijderen?`;
+    if (packageCount > 0) {
+      alert(
+        `"${pharmacy.name}" kan niet verwijderd worden: er ${packageCount === 1 ? 'hangt nog 1 pakket' : `hangen nog ${packageCount} pakketten`} aan deze apotheek.\n\nVerplaats die eerst naar een andere apotheek (via "Niet-toegewezen pakketten" of door ze te herkoppelen). Daarna kun je de apotheek verwijderen.`
+      );
+      return;
+    }
 
-    if (!confirm(message)) return;
+    if (!confirm(`Weet je zeker dat je "${pharmacy.name}" wilt verwijderen?`)) return;
 
     try {
       await db.deletePharmacy(pharmacy.id);
