@@ -19,7 +19,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === 'GET') {
     const { data } = await admin
       .from('packages')
-      .select('id, pharmacyId, pharmacyName, courierName, createdAt, status')
+      .select('id, pharmacyId, pharmacyName, courierName, createdAt, status, address')
       .order('createdAt', { ascending: false });
     const packages = (data ?? []).filter((p: any) => !p.pharmacyId);
     return json(200, { packages });
