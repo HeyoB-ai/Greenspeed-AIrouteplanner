@@ -429,8 +429,8 @@ const App: React.FC = () => {
   );
 
   const accessiblePackages = useMemo(
-    () => (session ? filterPackagesByAccess(session.user, packages) : []),
-    [session, packages],
+    () => (session ? filterPackagesByAccess(session.user, packages, pharmacies) : []),
+    [session, packages, pharmacies],
   );
 
   const handleLogin = (user: AuthUser, _activePharmacyId?: string) => {

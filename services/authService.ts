@@ -68,6 +68,7 @@ function profileToAuthUser(userId: string, profile: Record<string, any>): AuthUs
     role:        DB_ROLE_MAP[profile.role] ?? UserRole.PHARMACY,
     pharmacyIds: pharmacyIds.length > 0 ? pharmacyIds : undefined,
     pharmacyId:  pharmacyIds[0],
+    groupId:     profile.group_id ?? undefined,
     courierId:   profile.role === 'courier' ? userId : undefined,
   };
 }

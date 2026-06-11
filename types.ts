@@ -14,6 +14,7 @@ export interface AuthUser {
   pharmacyId?:   string;    // primaire apotheek (backwards compat)
   pharmacyIds?:  string[];  // alle apotheken die deze admin beheert
                             // undefined of leeg = geen beperking (alleen superuser)
+  groupId?:      string;    // groep/regio waar een supervisor bij hoort
   courierId?:    string;
   passwordHash?: string;
 }
