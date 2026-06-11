@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Package as PackageType, User, PackageStatus, Pharmacy } from '../types';
 import { Users, Package, ChevronRight, TrendingUp, ShieldCheck, CreditCard, Download, Building2, ExternalLink, Archive } from 'lucide-react';
 import ArchiveView from './ArchiveView';
+import UnassignedPackagesPanel from './UnassignedPackagesPanel';
 
 const STATUS_STYLE: Record<string, string> = {
   [PackageStatus.SCANNING]:        'bg-[#48c2a9]/10 text-[#006b5a]',
@@ -102,6 +103,8 @@ const SupervisorView: React.FC<Props> = ({ packages, couriers, pharmacies, onUpd
           </div>
         ))}
       </div>
+
+      <UnassignedPackagesPanel pharmacies={pharmacies ?? []} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

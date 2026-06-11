@@ -11,6 +11,7 @@ import FinancialDashboard from './FinancialDashboard';
 import CourierWagePanel from './CourierWagePanel';
 import UsersOverviewPanel from './UsersOverviewPanel';
 import GroupManagementPanel from './GroupManagementPanel';
+import UnassignedPackagesPanel from './UnassignedPackagesPanel';
 
 interface Props {
   packages:        PackageType[];
@@ -93,15 +94,18 @@ const SuperuserView: React.FC<Props> = ({
       </div>
 
       {activeTab === 'apotheken' && (
-        <PharmacyOverview
-          packages={packages}
-          pharmacies={pharmacies}
-          onSelectPharmacy={setSelected}
-          onExport={() => setShowExport(true)}
-          canAddPharmacy={canAddPharmacy}
-          onAddPharmacy={onAddPharmacy}
-          onEditPharmacy={onEditPharmacy}
-        />
+        <div>
+          <UnassignedPackagesPanel pharmacies={pharmacies} />
+          <PharmacyOverview
+            packages={packages}
+            pharmacies={pharmacies}
+            onSelectPharmacy={setSelected}
+            onExport={() => setShowExport(true)}
+            canAddPharmacy={canAddPharmacy}
+            onAddPharmacy={onAddPharmacy}
+            onEditPharmacy={onEditPharmacy}
+          />
+        </div>
       )}
 
       {activeTab === 'gebruikers' && pharmacies.length > 0 && (
