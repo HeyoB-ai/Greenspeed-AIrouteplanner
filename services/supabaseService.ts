@@ -171,8 +171,9 @@ export const db = {
             .insert({ id: pharmacy.id, ...payload });
           if (insertError) throw insertError;
         }
-      } catch (err) {
-        console.warn('Pharmacy cloud sync mislukt:', err);
+      } catch (err: any) {
+        console.error('Pharmacy cloud sync mislukt:', err);
+        throw new Error(err?.message || err?.error_description || err?.hint || 'Onbekende fout bij opslaan in cloud');
       }
     }
   },

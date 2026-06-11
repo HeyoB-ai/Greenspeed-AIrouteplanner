@@ -895,7 +895,12 @@ const App: React.FC = () => {
     setPharmacies(prev => [...prev, newPharmacy]);
 
     // 2. Opslaan via db (localStorage + Supabase)
-    await db.savePharmacy(newPharmacy);
+    try {
+      await db.savePharmacy(newPharmacy);
+    } catch (err: any) {
+      console.error('Opslaan apotheek mislukt:', err);
+      alert('Apotheek opslaan in de cloud mislukt:\n\n' + (err?.message || err) + '\n\nDe apotheek is NIET opgeslagen.');
+    }
 
     // 3. Herlaad vanuit Supabase zodat de lijst altijd de server-state weerspiegelt
     if (supabase) {
