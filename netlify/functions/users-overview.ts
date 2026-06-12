@@ -7,6 +7,8 @@ const EMPLOYER_MARKUP_PCT = 40; // loondienst werkgeverslasten (zelfde constante
 const trueHourlyCost = (wage: number, employmentType?: string | null) =>
   employmentType === 'zzp' ? wage : wage * (1 + EMPLOYER_MARKUP_PCT / 100);
 
+const PHARMACY_START_FEE = 15; // standaard startkosten per apotheek per actieve dag (alleen opbrengst)
+
 export const handler: Handler = async (event) => {
   const auth = await verifyPrivileged(event.headers as Record<string, string | undefined>);
   if (!auth.ok) {
@@ -46,28 +48,29 @@ export const handler: Handler = async (event) => {
   const pharmaById = new Map<string, any>((pharmacies ?? []).map((p: any) => [p.id, p]));
 
   // Uren per koerier-dag (identiek aan fetchFinancials)
-  type Day = { courierId: string; firstScan: string; lastDelivery: string; totalHours: number; packages: { pharmacyId: string; count: number }[] };
+  type Day = { courierId: string; date: string; firstScan: string; lastScan: string; lastDelivery: string; totalHours: number; packages: { pharmacyId: string; count: number }[] };
   const dayMap = new Map<string, Day>();
   (packages ?? []).forEach((pkg: any) => {
     const date = String(pkg.createdAt).split('T')[0];
     const key  = `${pkg.courierId}_${date}`;
     if (!dayMap.has(key)) {
-      dayMap.set(key, { courierId: pkg.courierId, firstScan: pkg.createdAt, lastDelivery: pkg.deliveredAt ?? pkg.createdAt, totalHours: 0, packages: [] });
+      dayMap.set(key, { courierId: pkg.courierId, date, firstScan: pkg.createdAt, lastScan: pkg.createdAt, lastDelivery: pkg.deliveredAt ?? pkg.createdAt, totalHours: 0, packages: [] });
     }
     const day = dayMap.get(key)!;
     if (pkg.createdAt < day.firstScan) day.firstScan = pkg.createdAt;
+    if (pkg.createdAt > day.lastScan) day.lastScan = pkg.createdAt;
     if ((pkg.deliveredAt ?? pkg.createdAt) > day.lastDelivery) day.lastDelivery = pkg.deliveredAt ?? pkg.createdAt;
     const entry = day.packages.find(p => p.pharmacyId === pkg.pharmacyId);
     if (entry) entry.count++; else day.packages.push({ pharmacyId: pkg.pharmacyId, count: 1 });
   });
   dayMap.forEach(day => {
-    const start = new Date(day.firstScan); start.setMinutes(start.getMinutes() - 30);
-    const end   = new Date(day.lastDelivery); end.setMinutes(end.getMinutes() + 15);
+    const start = new Date(day.firstScan); start.setMinutes(start.getMinutes() - 15);
+    const end   = new Date(day.lastScan); end.setMinutes(end.getMinutes() + 15);
     day.totalHours = (end.getTime() - start.getTime()) / 3600000;
   });
 
   // Alloceer uren proportioneel per apotheek -> per (courier, pharmacy)
-  type Alloc = { hours: number; packages: number };
+  type Alloc = { hours: number; packages: number; days: Set<string> };
   const allocMap = new Map<string, Alloc>();
   dayMap.forEach(day => {
     const totalPkgs = day.packages.reduce((s, p) => s + p.count, 0);
@@ -75,8 +78,8 @@ export const handler: Handler = async (event) => {
     day.packages.forEach(({ pharmacyId, count }) => {
       const allocHours = day.totalHours * (count / totalPkgs);
       const key = `${day.courierId}_${pharmacyId}`;
-      const ex = allocMap.get(key) ?? { hours: 0, packages: 0 };
-      ex.hours += allocHours; ex.packages += count;
+      const ex = allocMap.get(key) ?? { hours: 0, packages: 0, days: new Set<string>() };
+      ex.hours += allocHours; ex.packages += count; ex.days.add(day.date);
       allocMap.set(key, ex);
     });
   });
@@ -95,7 +98,8 @@ export const handler: Handler = async (event) => {
         const pid  = k.slice(prof.id.length + 1);
         const ph   = pharmaById.get(pid);
         const rate = ph?.hourlyRate ?? 0;
-        const revenue = a.hours * rate;
+        const startFees = a.days.size * PHARMACY_START_FEE; // €15 per actieve dag, alleen opbrengst
+        const revenue = a.hours * rate + startFees;
         const cost    = a.hours * cph;
         return {
           pharmacyId: pid,

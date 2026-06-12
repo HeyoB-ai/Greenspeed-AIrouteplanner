@@ -447,6 +447,8 @@ export const db = {
   ): Promise<PharmacyFinancials[]> {
     if (!supabase) return [];
 
+    const PHARMACY_START_FEE = 15; // standaard startkosten per apotheek per actieve dag (alleen opbrengst)
+
     // Haal bezorgde pakketten op in periode
     let query = supabase
       .from('packages')
@@ -490,6 +492,7 @@ export const db = {
           date,
           firstScan:    pkg.createdAt,
           lastDelivery: pkg.deliveredAt ?? pkg.createdAt,
+          lastScan:     pkg.createdAt,
           startTime:    '',
           endTime:      '',
           totalHours:   0,
@@ -504,6 +507,8 @@ export const db = {
         day.firstScan = pkg.createdAt;
       if ((pkg.deliveredAt ?? pkg.createdAt) > day.lastDelivery)
         day.lastDelivery = pkg.deliveredAt ?? pkg.createdAt;
+      if (pkg.createdAt > day.lastScan)
+        day.lastScan = pkg.createdAt;
 
       // Tel pakketten per apotheek
       const pharmaEntry = day.packages.find(p => p.pharmacyId === pkg.pharmacyId);
@@ -517,10 +522,10 @@ export const db = {
     // STAP B: Bereken start/einde/uren per koerier-dag
     courierDayMap.forEach(day => {
       const start = new Date(day.firstScan);
-      start.setMinutes(start.getMinutes() - 30); // 30 min vóór eerste scan
+      start.setMinutes(start.getMinutes() - 15); // 15 min vóór eerste scan
 
-      const end = new Date(day.lastDelivery);
-      end.setMinutes(end.getMinutes() + 15);     // 15 min ná laatste bezorging
+      const end = new Date(day.lastScan);
+      end.setMinutes(end.getMinutes() + 15);     // 15 min ná laatste scan
 
       day.startTime  = start.toISOString();
       day.endTime    = end.toISOString();
@@ -536,11 +541,16 @@ export const db = {
       packages: number;
     }>(); // key: `${pharmacyId}_${courierId}`
 
+    // €15 startkosten per apotheek per actieve dag (alleen opbrengst, niet doorbetaald)
+    const startDaysByPharmacy = new Map<string, Set<string>>();
+
     courierDayMap.forEach(day => {
       const totalPkgs = day.packages.reduce((s, p) => s + p.count, 0);
       if (totalPkgs === 0) return;
 
       day.packages.forEach(({ pharmacyId, count }) => {
+        if (!startDaysByPharmacy.has(pharmacyId)) startDaysByPharmacy.set(pharmacyId, new Set());
+        startDaysByPharmacy.get(pharmacyId)!.add(day.date);
         const fraction   = count / totalPkgs;
         const allocHours = day.totalHours * fraction;
         const allocCost  = allocHours * day.hourlyWage;
@@ -588,7 +598,8 @@ export const db = {
         totalCost  += alloc.cost;
       });
 
-      const revenue     = totalHours * (pharmacy.hourlyRate ?? 0);
+      const startFee    = PHARMACY_START_FEE * (startDaysByPharmacy.get(pharmacy.id)?.size ?? 0);
+      const revenue     = totalHours * (pharmacy.hourlyRate ?? 0) + startFee;
       const grossProfit = revenue - totalCost;
       const delivered   = pharmaPackages.length;
 

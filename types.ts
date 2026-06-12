@@ -118,8 +118,9 @@ export interface CourierDayStats {
   date:         string;  // 'YYYY-MM-DD'
   firstScan:    string;  // timestamp
   lastDelivery: string;  // timestamp
-  startTime:    string;  // firstScan - 30 min
-  endTime:      string;  // lastDelivery + 15 min
+  lastScan:     string;  // timestamp (laatste scan = max createdAt)
+  startTime:    string;  // firstScan - 15 min
+  endTime:      string;  // lastScan + 15 min
   totalHours:   number;  // decimaal
   packages:     { pharmacyId: string; count: number }[];
 }
