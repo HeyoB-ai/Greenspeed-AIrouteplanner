@@ -22,9 +22,12 @@ const PENDING_STATUSES = new Set([
   PackageStatus.PICKED_UP,
 ]);
 
-// Retour apotheek (niet thuis e.d.) — een nette uitkomst, GEEN mislukking.
+// Retour apotheek — alle "terug naar apotheek"-uitkomsten (niet thuis, verhuisd,
+// andere locatie). Nette uitkomsten, GEEN mislukking. Alleen FAILED telt als mislukt.
 const RETURNED_STATUSES = new Set([
   PackageStatus.RETURN,
+  PackageStatus.MOVED,
+  PackageStatus.OTHER_LOCATION,
 ]);
 
 interface PharmacyStat {
