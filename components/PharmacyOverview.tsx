@@ -22,12 +22,18 @@ const PENDING_STATUSES = new Set([
   PackageStatus.PICKED_UP,
 ]);
 
+// Retour apotheek (niet thuis e.d.) — een nette uitkomst, GEEN mislukking.
+const RETURNED_STATUSES = new Set([
+  PackageStatus.RETURN,
+]);
+
 interface PharmacyStat {
   id:           string;
   name:         string;
   total:        number;
   delivered:    number;
   pending:      number;
+  returned:     number;
   failed:       number;
   deliveryRate: number; // 0–100
 }
@@ -127,7 +133,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
 
   // ── Global stats ──────────────────────────────────────────────
   const globalStats = useMemo(() => {
-    const activePkgs = packages.filter(p => p.status !== PackageStatus.SCANNING);
+    const activePkgs = packages.filter(p => p.status !== PackageStatus.SCANNING && p.status !== PackageStatus.REMOVED);
     const delivered  = packages.filter(p => DELIVERED_STATUSES.has(p.status)).length;
     return {
       total:    activePkgs.length,
@@ -140,11 +146,11 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
     const map = new Map() as Map<string, PharmacyStat>;
 
     pharmacies.forEach(ph =>
-      map.set(ph.id, { id: ph.id, name: ph.name, total: 0, delivered: 0, pending: 0, failed: 0, deliveryRate: 0 })
+      map.set(ph.id, { id: ph.id, name: ph.name, total: 0, delivered: 0, pending: 0, returned: 0, failed: 0, deliveryRate: 0 })
     );
 
     packages.forEach(p => {
-      if (p.status === PackageStatus.SCANNING) return;
+      if (p.status === PackageStatus.SCANNING || p.status === PackageStatus.REMOVED) return;
       const s = map.get(p.pharmacyId);
       // Pakket met een apotheek-id dat bij geen echte apotheek hoort (spook) tonen we
       // niet meer als losse kaart; die pakketten horen in het toewijs-paneel thuis.
@@ -152,6 +158,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       s.total++;
       if (DELIVERED_STATUSES.has(p.status)) s.delivered++;
       else if (PENDING_STATUSES.has(p.status)) s.pending++;
+      else if (RETURNED_STATUSES.has(p.status)) s.returned++;
       else s.failed++;
     });
 
@@ -337,6 +344,12 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
                   <span className="text-[#006b5a]">{s.delivered} bezorgd</span>
                   <span className="text-[#bccac4]">|</span>
                   <span className="text-[#3d4945]/60">{s.pending} open</span>
+                  {s.returned > 0 && (
+                    <>
+                      <span className="text-[#bccac4]">|</span>
+                      <span className="text-amber-600">{s.returned} retour</span>
+                    </>
+                  )}
                   {s.failed > 0 && (
                     <>
                       <span className="text-[#bccac4]">|</span>
