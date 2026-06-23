@@ -5,6 +5,7 @@ import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
 import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
+import DienstCheck from './components/DienstCheck';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
@@ -279,6 +280,9 @@ const App: React.FC = () => {
 
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
+  const [dienstCheckOk, setDienstCheckOk] = useState(() => {
+    try { return sessionStorage.getItem('gs_dienstcheck_ok') === '1'; } catch { return false; }
+  });
 
   // Restore session on mount
   useEffect(() => {
@@ -1312,8 +1316,19 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           />
         )}
 
+        {/* COURIER — eerst de dienst-check (locatie/camera), dan de rit */}
+        {role === UserRole.COURIER && !dienstCheckOk && (
+          <DienstCheck
+            courierName={session?.user.name}
+            onReady={() => {
+              try { sessionStorage.setItem('gs_dienstcheck_ok', '1'); } catch {}
+              setDienstCheckOk(true);
+            }}
+          />
+        )}
+
         {/* COURIER — eigen rit, scannen en route plannen */}
-        {role === UserRole.COURIER && (
+        {role === UserRole.COURIER && dienstCheckOk && (
           <CourierView
             packages={visiblePackages}
             onUpdate={() => {}}
