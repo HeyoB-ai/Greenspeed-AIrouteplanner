@@ -207,6 +207,23 @@ export const db = {
     return data ?? [];
   },
 
+  async createGroup(name: string): Promise<{ id: string; name: string }> {
+    const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+    const res = await fetch('/.netlify/functions/groups-admin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action: 'create', name }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || `Aanmaken mislukt (status ${res.status})`);
+    }
+    return res.json();
+  },
+
   async deletePharmacy(id: string): Promise<void> {
     // 1. localStorage (synchroon)
     const localData = localStorage.getItem(PHARMACIES_KEY);
@@ -541,16 +558,17 @@ export const db = {
       packages: number;
     }>(); // key: `${pharmacyId}_${courierId}`
 
-    // €15 startkosten per apotheek per actieve dag (alleen opbrengst, niet doorbetaald)
-    const startDaysByPharmacy = new Map<string, Set<string>>();
+    // €15 startkosten per rit (koerier-dag) per apotheek (alleen opbrengst, niet doorbetaald).
+    // Twee koeriers die dezelfde dag voor dezelfde apotheek rijden = twee ritten = 2×€15.
+    const startRitsByPharmacy = new Map<string, Set<string>>();
 
     courierDayMap.forEach(day => {
       const totalPkgs = day.packages.reduce((s, p) => s + p.count, 0);
       if (totalPkgs === 0) return;
 
       day.packages.forEach(({ pharmacyId, count }) => {
-        if (!startDaysByPharmacy.has(pharmacyId)) startDaysByPharmacy.set(pharmacyId, new Set());
-        startDaysByPharmacy.get(pharmacyId)!.add(day.date);
+        if (!startRitsByPharmacy.has(pharmacyId)) startRitsByPharmacy.set(pharmacyId, new Set());
+        startRitsByPharmacy.get(pharmacyId)!.add(`${day.courierId}_${day.date}`);
         const fraction   = count / totalPkgs;
         const allocHours = day.totalHours * fraction;
         const allocCost  = allocHours * day.hourlyWage;
@@ -598,7 +616,7 @@ export const db = {
         totalCost  += alloc.cost;
       });
 
-      const startFee    = PHARMACY_START_FEE * (startDaysByPharmacy.get(pharmacy.id)?.size ?? 0);
+      const startFee    = PHARMACY_START_FEE * (startRitsByPharmacy.get(pharmacy.id)?.size ?? 0);
       const revenue     = totalHours * (pharmacy.hourlyRate ?? 0) + startFee;
       const grossProfit = revenue - totalCost;
       const delivered   = pharmaPackages.length;

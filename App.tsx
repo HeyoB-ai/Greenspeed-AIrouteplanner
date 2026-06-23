@@ -18,7 +18,7 @@ import RouteMapModal from './components/RouteMapModal';
 import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2 } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2 } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
@@ -70,6 +70,29 @@ const EditPharmacyModal: React.FC<{
   useEffect(() => {
     if (myRole === UserRole.SUPERVISOR && myGroupId) setGroupId(myGroupId);
   }, [myRole, myGroupId]);
+
+  // Nieuwe groep aanmaken vanuit dit scherm (alleen superuser)
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName,  setNewGroupName]  = useState('');
+  const [groupBusy,     setGroupBusy]     = useState(false);
+  const [groupError,    setGroupError]    = useState('');
+
+  const handleCreateGroup = async () => {
+    const naam = newGroupName.trim();
+    if (!naam) return;
+    setGroupBusy(true); setGroupError('');
+    try {
+      const created = await db.createGroup(naam);
+      setGroups(await db.fetchGroups());
+      setGroupId(created.id);
+      setCreatingGroup(false);
+      setNewGroupName('');
+    } catch (e: any) {
+      setGroupError(e?.message || 'Aanmaken mislukt');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,15 +188,60 @@ const EditPharmacyModal: React.FC<{
                 {groups.find(g => g.id === myGroupId)?.name ?? myGroupId ?? 'Geen groep toegewezen'}
               </div>
             ) : (
-              <select
-                value={groupId}
-                onChange={e => setGroupId(e.target.value)}
-                className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none"
-                style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
-              >
-                <option value="">— Geen groep —</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <>
+                <select
+                  value={groupId}
+                  onChange={e => setGroupId(e.target.value)}
+                  className="w-full bg-white rounded-xl px-5 h-12 font-body font-bold text-[#191c1e] text-sm outline-none"
+                  style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+                >
+                  <option value="">— Geen groep —</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+
+                {!creatingGroup ? (
+                  <button
+                    type="button"
+                    onClick={() => { setCreatingGroup(true); setGroupError(''); }}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-display font-black uppercase tracking-widest text-[#006b5a]"
+                  >
+                    <Plus size={13} /> Nieuwe groep
+                  </button>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newGroupName}
+                        onChange={e => setNewGroupName(e.target.value)}
+                        placeholder="Naam nieuwe groep"
+                        className="flex-1 bg-white rounded-xl px-4 h-11 font-body font-bold text-[#191c1e] text-sm outline-none"
+                        style={{ boxShadow: '0 0 0 1px rgba(188,202,196,0.2)' }}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateGroup(); } }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateGroup}
+                        disabled={groupBusy || !newGroupName.trim()}
+                        className="h-11 px-4 rounded-xl bg-[#006b5a] text-white font-display font-black text-sm flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {groupBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                        Aanmaken
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => { setCreatingGroup(false); setNewGroupName(''); setGroupError(''); }}
+                        className="text-[11px] font-display font-black uppercase tracking-widest text-[#3d4945]/50"
+                      >
+                        Annuleren
+                      </button>
+                      {groupError && <span className="text-[11px] text-red-500">{groupError}</span>}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
