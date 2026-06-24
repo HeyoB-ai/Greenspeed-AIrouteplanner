@@ -14,6 +14,32 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
   const [foundPackage, setFoundPackage] = useState<PackageType | null>(null);
   const [error, setError]               = useState<string | null>(null);
   const [showChat, setShowChat]         = useState(false);
+  const [loading, setLoading]           = useState(false);
+
+  const lookup = async (pc: string, hn: string) => {
+    setError(null);
+    setFoundPackage(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/track-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postcode: pc, huisnummer: hn }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.found && data.pkg) {
+        setFoundPackage(data.pkg);
+      } else if (res.ok) {
+        setError('Geen zending gevonden. Controleer de postcode en het huisnummer.');
+      } else {
+        setError('Er ging iets mis bij het ophalen. Probeer het zo nog eens.');
+      }
+    } catch {
+      setError('Er ging iets mis bij het ophalen. Probeer het zo nog eens.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -22,29 +48,14 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
     if (pc && hn) {
       setPostalCode(pc);
       setHouseNumber(hn);
-      if (packages.length > 0) {
-        const pkg = packages.find(p =>
-          p.address.postalCode.replace(/\s/g, '').toLowerCase() === pc.replace(/\s/g, '').toLowerCase() &&
-          p.address.houseNumber.toLowerCase() === hn.toLowerCase()
-        );
-        if (pkg) setFoundPackage(pkg);
-      }
+      lookup(pc, hn);
     }
-  }, [packages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setFoundPackage(null);
-    const pkg = packages.find(p =>
-      p.address.postalCode.replace(/\s/g, '').toLowerCase() === postalCode.replace(/\s/g, '').toLowerCase() &&
-      p.address.houseNumber.toLowerCase() === houseNumber.toLowerCase()
-    );
-    if (pkg) {
-      setFoundPackage(pkg);
-    } else {
-      setError('Geen zending gevonden. Controleer de postcode en het huisnummer.');
-    }
+    lookup(postalCode, houseNumber);
   };
 
   const patientStatusText: Partial<Record<PackageStatus, string>> = {
@@ -151,10 +162,11 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
 
             <button
               type="submit"
-              className="w-full text-white h-13 py-3 rounded-full font-display font-black text-base active:scale-95 transition-all"
+              disabled={loading}
+              className="w-full text-white h-13 py-3 rounded-full font-display font-black text-base active:scale-95 transition-all disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)', boxShadow: '0 8px 24px rgba(0,107,90,0.25)' }}
             >
-              Zoek Pakket
+              {loading ? 'Zoeken…' : 'Zoek Pakket'}
             </button>
           </form>
         ) : (
