@@ -5,6 +5,7 @@ import LoginScreen from './components/LoginScreen';
 import PharmacyView from './components/PharmacyView';
 import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
+import CourierPharmacyLink from './components/CourierPharmacyLink';
 import DienstCheck from './components/DienstCheck';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
@@ -348,15 +349,9 @@ const App: React.FC = () => {
   const activeScanPharmacyIdRef = useRef<string | null>(activeScanPharmacyId);
   useEffect(() => { activeScanPharmacyIdRef.current = activeScanPharmacyId; }, [activeScanPharmacyId]);
 
-  // Houd de actieve apotheek geldig: val terug op de eerste rit-apotheek zodra
-  // de huidige keuze leeg is of niet (meer) in de rit-apotheken voorkomt.
-  useEffect(() => {
-    setActiveScanPharmacyId(prev =>
-      prev && courierPharmacyIds.includes(prev)
-        ? prev
-        : (courierPharmacyIds[0] ?? null)
-    );
-  }, [courierPharmacyIds]);
+  // Koerier: toont het koppel-/kiesscherm (CourierPharmacyLink) om de actieve
+  // apotheek te wisselen, ook als er al een gekozen is.
+  const [showPharmacyPicker, setShowPharmacyPicker] = useState(false);
 
 
 
@@ -1435,8 +1430,23 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           />
         )}
 
+        {/* COURIER — kies/koppel eerst de apotheek waarvoor je vandaag scant */}
+        {role === UserRole.COURIER && dienstCheckOk && (activeScanPharmacyId === null || showPharmacyPicker) && (
+          <CourierPharmacyLink
+            pharmacies={pharmacies}
+            linkedIds={courierPharmacyIds}
+            onLinked={(id) => setCourierPharmacyIds(prev => prev.includes(id) ? prev : [...prev, id])}
+            onChoose={(id) => {
+              setActiveScanPharmacyId(id);
+              setCourierPharmacyIds(prev => prev.includes(id) ? prev : [...prev, id]);
+              setShowPharmacyPicker(false);
+            }}
+            {...(activeScanPharmacyId !== null ? { onSkip: () => setShowPharmacyPicker(false) } : {})}
+          />
+        )}
+
         {/* COURIER — eigen rit, scannen en route plannen */}
-        {role === UserRole.COURIER && dienstCheckOk && (
+        {role === UserRole.COURIER && dienstCheckOk && activeScanPharmacyId !== null && !showPharmacyPicker && (
           <CourierView
             packages={visiblePackages}
             onUpdate={() => {}}
@@ -1455,8 +1465,8 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             activePharmacies={courierPharmacyIds
               .map(id => pharmacies.find(p => p.id === id))
               .filter(Boolean) as Pharmacy[]}
-            activeScanPharmacyId={activeScanPharmacyId}
-            onActiveScanPharmacyChange={setActiveScanPharmacyId}
+            activeScanPharmacyName={pharmacies.find(p => p.id === activeScanPharmacyId)?.name}
+            onSwitchPharmacy={() => setShowPharmacyPicker(true)}
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}
