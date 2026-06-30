@@ -46,7 +46,7 @@ const SuperuserView: React.FC<Props> = ({
       <>
         <button
           onClick={() => setSelected(null)}
-          className="flex items-center gap-1.5 text-sm font-black text-slate-500 hover:text-slate-800 mb-5 transition-colors"
+          className="sticky top-0 z-30 w-full bg-[#f7f9fb]/90 backdrop-blur-sm py-3 mb-3 flex items-center gap-1.5 text-sm font-black text-slate-500 hover:text-slate-800 transition-colors border-b border-slate-200/70"
         >
           <ChevronLeft size={16} />
           Alle apotheken
