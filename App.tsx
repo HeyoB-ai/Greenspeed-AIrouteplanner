@@ -339,6 +339,25 @@ const App: React.FC = () => {
     }
   }, [courierPharmacyIds]);
 
+  // Courier: de door de koerier gekozen "actieve apotheek". Bepaalt aan welke
+  // apotheek nieuw gescande pakketten worden gekoppeld (OCR is enkel controle).
+  const [activeScanPharmacyId, setActiveScanPharmacyId] = useState<string | null>(null);
+
+  // Ref spiegelt de actieve apotheek zodat handleNewScan (refs i.p.v. closures)
+  // de actuele waarde leest zonder dat de useCallback-deps wijzigen.
+  const activeScanPharmacyIdRef = useRef<string | null>(activeScanPharmacyId);
+  useEffect(() => { activeScanPharmacyIdRef.current = activeScanPharmacyId; }, [activeScanPharmacyId]);
+
+  // Houd de actieve apotheek geldig: val terug op de eerste rit-apotheek zodra
+  // de huidige keuze leeg is of niet (meer) in de rit-apotheken voorkomt.
+  useEffect(() => {
+    setActiveScanPharmacyId(prev =>
+      prev && courierPharmacyIds.includes(prev)
+        ? prev
+        : (courierPharmacyIds[0] ?? null)
+    );
+  }, [courierPharmacyIds]);
+
 
 
   // Vaste instellingen
@@ -688,22 +707,43 @@ const App: React.FC = () => {
     let pharmacyName: string =
       pharmaciesRef.current.find(p => p.id === pharmacyId)?.name ?? currentPharmacy.name;
 
-    // Automatische apotheek-herkenning op basis van labelnaam — zoek in ALLE pharmacies
-    if (scannedPharmacyName) {
-      const normalize = (s: string) =>
-        s.toLowerCase().replace(/apotheek|pharmacy/gi, '').trim();
-      const normalizedLabel = normalize(scannedPharmacyName);
+    // Apotheek-herkenning op basis van labelnaam — zoek in ALLE pharmacies.
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/apotheek|pharmacy/gi, '').trim();
+    const matchPharmacyByLabel = (label: string): Pharmacy | undefined => {
+      const normalizedLabel = normalize(label);
+      if (normalizedLabel.length === 0) return undefined;
+      return pharmaciesRef.current.find(p => {
+        const normalizedPharmacy = normalize(p.name);
+        return normalizedPharmacy.length > 0 && (
+          normalizedPharmacy.includes(normalizedLabel) ||
+          normalizedLabel.includes(normalizedPharmacy)
+        );
+      });
+    };
 
-      const match = normalizedLabel.length > 0
-        ? pharmaciesRef.current.find(p => {
-            const normalizedPharmacy = normalize(p.name);
-            return normalizedPharmacy.length > 0 && (
-              normalizedPharmacy.includes(normalizedLabel) ||
-              normalizedLabel.includes(normalizedPharmacy)
-            );
-          })
-        : undefined;
+    if (isKoerier) {
+      // KOERIER: de door de koerier gekozen actieve apotheek bepaalt de koppeling.
+      // OCR-label is enkel een controle/waarschuwing en wordt nooit bepalend.
+      const activeId = activeScanPharmacyIdRef.current ?? courierPharmacyIds[0];
+      if (activeId) {
+        pharmacyId = activeId;
+        pharmacyName = pharmaciesRef.current.find(p => p.id === activeId)?.name ?? pharmacyName;
+        // Zorg dat de actieve apotheek in de rit zit — vult de pills en de route-modal.
+        setCourierPharmacyIds(prev => prev.includes(activeId) ? prev : [...prev, activeId]);
+      }
 
+      // OCR enkel als controle: een BEKENDE apotheek die afwijkt van de actieve → waarschuwen.
+      if (scannedPharmacyName) {
+        const match = matchPharmacyByLabel(scannedPharmacyName);
+        if (match && match.id !== pharmacyId) {
+          console.warn('[Scan] OCR-label wijkt af van actieve apotheek:', match.name, '≠', pharmacyName);
+          setPharmacyMismatch(match.name);
+        }
+      }
+    } else if (scannedPharmacyName) {
+      // NIET-KOERIER (apotheek-account): bestaande OCR-gebaseerde herkenning — ongewijzigd.
+      const match = matchPharmacyByLabel(scannedPharmacyName);
       if (match) {
         pharmacyId = match.id;
         pharmacyName = match.name;
@@ -776,7 +816,7 @@ const App: React.FC = () => {
       setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
       db.syncPackage(updatedPkg).catch(err => console.error('[Geocode] Sync naar DB mislukt:', err));
     }).catch(err => console.error('[Geocode] Onverwachte fout:', err));
-  }, [currentPharmacy]); // packages + pharmacies via refs; courierPharmacyIds niet meer gebruikt in scan
+  }, [currentPharmacy]); // packages/pharmacies + actieve apotheek via refs; courierPharmacyIds[0] is enkel een harmloze fallback
 
   const handleOptimizeRoute = useCallback(async (
     selectedIds: string[],
@@ -1415,6 +1455,8 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             activePharmacies={courierPharmacyIds
               .map(id => pharmacies.find(p => p.id === id))
               .filter(Boolean) as Pharmacy[]}
+            activeScanPharmacyId={activeScanPharmacyId}
+            onActiveScanPharmacyChange={setActiveScanPharmacyId}
             onScanStart={() => setShowScanner(true)}
             onManualAdd={() => setShowManualForm(true)}
             onOptimize={handleOptimizeRoute}

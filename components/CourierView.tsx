@@ -25,6 +25,9 @@ interface Props {
   onNewRit?: () => void;
   activePharmacyNames?: string[];
   activePharmacies?: Pharmacy[];
+  // Door de koerier gekozen apotheek waaraan nieuw gescande pakketten worden gekoppeld.
+  activeScanPharmacyId?: string | null;
+  onActiveScanPharmacyChange?: (id: string) => void;
   onInstitutionRoute?: () => void;
   activeInstitutionRoute?: Institution[];
   onOptimizeInstitutions?: (
@@ -83,6 +86,8 @@ const CourierView: React.FC<Props> = ({
   onNewRit,
   activePharmacyNames,
   activePharmacies,
+  activeScanPharmacyId,
+  onActiveScanPharmacyChange,
   onInstitutionRoute,
   activeInstitutionRoute,
   onOptimizeInstitutions,
@@ -400,6 +405,45 @@ const CourierView: React.FC<Props> = ({
           )}
         </div>
       </div>
+
+      {/* ── Actieve apotheek (bepaalt koppeling van nieuwe scans) ── */}
+      {linkedPharmacies.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-1.5 ml-0.5">
+            Actieve apotheek
+          </p>
+          {linkedPharmacies.length === 1 ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#48c2a9]/15">
+              <Building2 size={12} className="text-[#006b5a] shrink-0" />
+              <span className="text-xs font-black text-[#006b5a] truncate max-w-[200px]">
+                {linkedPharmacies[0].name}
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {linkedPharmacies.map(pharmacy => {
+                const isActive = pharmacy.id === activeScanPharmacyId;
+                return (
+                  <button
+                    key={pharmacy.id}
+                    type="button"
+                    onClick={() => onActiveScanPharmacyChange?.(pharmacy.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-xs active:scale-95 transition-all ${
+                      isActive
+                        ? 'text-white'
+                        : 'bg-[#f2f4f6] text-[#3d4945]'
+                    }`}
+                    style={isActive ? { background: 'linear-gradient(135deg, #006b5a, #48c2a9)' } : undefined}
+                  >
+                    <Building2 size={12} className={`shrink-0 ${isActive ? 'text-white' : 'text-[#3d4945]/60'}`} />
+                    <span className="truncate max-w-[140px]">{pharmacy.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Actieve apotheken (vandaag gescand) ── */}
       {linkedPharmacies.length > 0 && (
