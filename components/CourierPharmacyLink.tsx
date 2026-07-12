@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, ArrowRight, Check, Loader2 } from 'lucide-react';
-import { linkPharmacyCode } from '../services/authService';
+import { linkPharmacyCode, linkCodeErrorMessage } from '../services/authService';
 import { Pharmacy } from '../types';
 
 interface Props {
@@ -26,13 +26,13 @@ const CourierPharmacyLink: React.FC<Props> = ({
     setError('');
     setIsLinking(true);
     try {
-      const result = await linkPharmacyCode(code.trim().toUpperCase());
-      if (result) {
+      const result = await linkPharmacyCode(code);
+      if (result.ok) {
         setJustLinked(result.pharmacyId);
         onLinked(result.pharmacyId);
         setCode('');
       } else {
-        setError('Code ongeldig of verlopen. Vraag een nieuwe code bij de apotheek.');
+        setError(linkCodeErrorMessage(result.reason));
       }
     } finally {
       setIsLinking(false);

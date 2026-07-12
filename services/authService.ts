@@ -204,54 +204,78 @@ export async function acceptInvitation(
 
 // ── Apotheekcode koppelen (koerier) ───────────────────────────────────
 
-export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: string } | null> {
-  if (!supabase) return null;
+export type LinkCodeFailure = 'no_session' | 'not_found' | 'error';
+
+export type LinkCodeResult =
+  | { ok: true;  pharmacyId: string }
+  | { ok: false; reason: LinkCodeFailure };
+
+/** Foutmelding bij een mislukte koppeling — gedeeld door alle koppelschermen. */
+export function linkCodeErrorMessage(reason: LinkCodeFailure): string {
+  switch (reason) {
+    case 'not_found':
+      return 'Deze koppelcode bestaat niet. Vraag de apotheek om de actuele code.';
+    case 'no_session':
+      return 'Je bent niet (meer) ingelogd. Log opnieuw in en probeer het nogmaals.';
+    default:
+      return 'Koppelen mislukt door een verbindingsfout. Probeer het opnieuw.';
+  }
+}
+
+/**
+ * Koppelt de ingelogde koerier aan de apotheek met deze koppelcode. De code is de
+ * permanente pharmacies."courierCode" — hij verloopt niet; de apotheek maakt hem
+ * ongeldig door een nieuwe te genereren. De match én de koppeling in
+ * courier_pharmacy_access gebeuren server-side in de RPC link_courier_via_code,
+ * zodat de koerier de pharmacies-tabel niet hoeft te kunnen lezen.
+ */
+export async function linkPharmacyCode(code: string): Promise<LinkCodeResult> {
+  if (!supabase) return { ok: false, reason: 'error' };
 
   const normalized = code.trim().toUpperCase();
-  let pharmacyId: string | null = null;
+  if (!normalized) return { ok: false, reason: 'not_found' };
 
-  // 1+2. Zoek de apotheek op de koppelcode via SECURITY DEFINER RPC. Werkt zonder
-  //      auth-sessie (de code is het geheim) én blijft werken nadat pharmacies/
-  //      pharmacy_codes in golf 1b voor anon zijn afgeschermd. De RPC checkt eerst
-  //      de permanente courierCode en valt terug op pharmacy_codes (niet verlopen).
-  const { data: rpcId } = await supabase
-    .rpc('lookup_pharmacy_by_code', { p_code: normalized });
-  pharmacyId = typeof rpcId === 'string' && rpcId
-    ? rpcId
-    : Array.isArray(rpcId) ? ((rpcId[0] as string) ?? null) : null;
+  // De koppeling hangt aan auth.uid(): zonder echte Supabase-sessie kan de RPC
+  // niets vastleggen, dus melden we dat expliciet i.p.v. stil te falen.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { ok: false, reason: 'no_session' };
 
-  if (!pharmacyId) return null;
+  const { data, error } = await supabase
+    .rpc('link_courier_via_code', { p_code: normalized });
 
-  // 3. Persistente koppeling opslaan — best-effort, alleen als er een
-  //    Supabase auth-sessie is. Mislukt dit (geen sessie / RLS), dan gaat
-  //    de koerier toch verder met de lokale koppeling.
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      await supabase.from('courier_pharmacy_access').upsert({
-        courier_id:  session.user.id,
-        pharmacy_id: pharmacyId,
-      });
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('pharmacy_ids')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      const existing: string[] = profile?.pharmacy_ids ?? [];
-      if (!existing.includes(pharmacyId)) {
-        await supabase
-          .from('user_profiles')
-          .update({ pharmacy_ids: [...existing, pharmacyId] })
-          .eq('id', session.user.id);
-      }
-    }
-  } catch (err) {
-    console.warn('[linkPharmacyCode] persistente koppeling mislukt, ga lokaal verder:', err);
+  if (error) {
+    console.error('[linkPharmacyCode] RPC mislukt:', error);
+    return { ok: false, reason: 'error' };
   }
 
-  // 4. Lokale sessie bijwerken zodat de koerier de apotheek meteen ziet
+  const result = (Array.isArray(data) ? data[0] : data) as
+    { status?: string; pharmacy_id?: string } | null;
+
+  if (result?.status === 'no_session')                   return { ok: false, reason: 'no_session' };
+  if (result?.status !== 'ok' || !result.pharmacy_id)    return { ok: false, reason: 'not_found' };
+
+  const pharmacyId = result.pharmacy_id;
+
+  // Profiel bijwerken zodat de koppeling ook buiten courier_pharmacy_access zichtbaar is
+  try {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('pharmacy_ids')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    const existing: string[] = profile?.pharmacy_ids ?? [];
+    if (!existing.includes(pharmacyId)) {
+      await supabase
+        .from('user_profiles')
+        .update({ pharmacy_ids: [...existing, pharmacyId] })
+        .eq('id', session.user.id);
+    }
+  } catch (err) {
+    console.warn('[linkPharmacyCode] profiel bijwerken mislukt:', err);
+  }
+
+  // Lokale sessie bijwerken zodat de koerier de apotheek meteen ziet
   const localSession = getSession();
   if (localSession) {
     const updatedPharmacyIds = Array.from(
@@ -265,7 +289,7 @@ export async function linkPharmacyCode(code: string): Promise<{ pharmacyId: stri
     saveLocalSession(updatedUser);
   }
 
-  return { pharmacyId };
+  return { ok: true, pharmacyId };
 }
 
 // ── Permanente koppelcode op de apotheek zetten (apotheker/admin/...) ──
@@ -295,29 +319,6 @@ export async function setPharmacyCourierCode(pharmacyId: string): Promise<string
     if (!error) return code;
   }
   return null;
-}
-
-// ── Tijdelijke apotheekcode genereren (legacy, 24u) ───────────────────
-
-export async function generatePharmacyCode(pharmacyId: string): Promise<string | null> {
-  if (!supabase) return null;
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  // Genereer code: 2 letters + koppelteken + 4 cijfers, bijv. "KR-4821"
-  const letters = String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
-                  String.fromCharCode(65 + Math.floor(Math.random() * 26));
-  const digits  = String(Math.floor(1000 + Math.random() * 9000));
-  const code    = `${letters}-${digits}`;
-
-  const { error } = await supabase.from('pharmacy_codes').insert({
-    pharmacy_id: pharmacyId,
-    code,
-    created_by:  session.user.id,
-  });
-
-  return error ? null : code;
 }
 
 // ── Gebruiker uitnodigen (apotheker/supervisor) ───────────────────────

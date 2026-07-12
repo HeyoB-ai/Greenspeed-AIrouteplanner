@@ -4,7 +4,7 @@ import {
   LogIn, Search, UserPlus, Building2, ArrowRight, Link, Loader2, Plus,
 } from 'lucide-react';
 import { AuthUser, UserRole } from '../types';
-import { login, registerCourier, saveSession, getCourierPharmacies, linkPharmacyCode, DEMO_USERS } from '../services/authService';
+import { login, registerCourier, saveSession, getCourierPharmacies, linkPharmacyCode, linkCodeErrorMessage, DEMO_USERS } from '../services/authService';
 import { supabase } from '../services/supabaseService';
 
 interface Props {
@@ -123,8 +123,8 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
     setCodeError('');
     setIsLinking(true);
     try {
-      const result = await linkPharmacyCode(codeValue.trim().toUpperCase());
-      if (!result) { setCodeError('Code ongeldig of verlopen.'); return; }
+      const result = await linkPharmacyCode(codeValue);
+      if (!result.ok) { setCodeError(linkCodeErrorMessage(result.reason)); return; }
       const newOptions = await fetchPharmacyNames([result.pharmacyId]);
       const updated = [...courierPharmacies.filter(p => p.id !== result.pharmacyId), ...newOptions];
       setCourierPharmacies(updated);

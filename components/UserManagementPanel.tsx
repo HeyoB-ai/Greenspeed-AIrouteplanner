@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Users, UserPlus, Link, X, Loader2, Copy, Check, Mail, RefreshCw } from 'lucide-react';
 import { Pharmacy, UserRole } from '../types';
-import { inviteUser, generatePharmacyCode } from '../services/authService';
+import { inviteUser, setPharmacyCourierCode } from '../services/authService';
 import { supabase } from '../services/supabaseService';
 
 interface Props {
@@ -125,12 +125,13 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
   };
 
   // ── Apotheekcode genereren ────────────────────────────────────────
+  // Zet de permanente koppelcode op de apotheek; een oude code vervalt daarmee.
   const handleGenerateCode = async () => {
     if (!pharmacyId) return;
     setError('');
     setIsLoading(true);
     try {
-      const code = await generatePharmacyCode(pharmacyId);
+      const code = await setPharmacyCourierCode(pharmacyId);
       if (code) {
         setGeneratedCode(code);
       } else {
@@ -348,7 +349,7 @@ const UserManagementPanel: React.FC<Props> = ({ pharmacies, userRole, defaultPha
                         <p className="text-white font-black text-4xl tracking-widest">{generatedCode}</p>
                       </div>
                       <p className="text-xs text-[#3d4945]/50 font-bold text-center">
-                        Geldig 24 uur. Deel deze code met de koerier.
+                        Deel deze code met de koerier. De code blijft geldig tot je een nieuwe genereert.
                       </p>
                       <button
                         onClick={copyCode}
