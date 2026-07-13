@@ -165,12 +165,12 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
 
   const stats = [
     {
-      label: 'Aangemaakt',
+      label: 'Gescand',
       val:   statPackages.length,
       icon:  Package,
     },
     {
-      label: 'In transit',
+      label: 'Onderweg',
       val:   statPackages.filter(p =>
         [PackageStatus.PENDING, PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(p.status)
       ).length,
@@ -184,9 +184,10 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
       icon: CheckCircle2,
     },
     {
-      label: 'Niet bezorgd',
+      label: 'Terug naar de apotheek',
+      // FAILED telt hier niet mee: dat is geen retour-uitkomst (zie PharmacyOverview)
       val:   statPackages.filter(p =>
-        [PackageStatus.FAILED, PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION].includes(p.status)
+        [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION].includes(p.status)
       ).length,
       icon: AlertTriangle,
     },

@@ -122,7 +122,7 @@ const PharmacyView: React.FC<Props> = ({
 
   const stats = [
     { label: 'Totaal',     val: packages.length,                                                                                              icon: Package,     color: 'text-[#006b5a]',    bg: 'bg-[#48c2a9]/10' },
-    { label: 'In transit', val: packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP).length,     icon: Truck,       color: 'text-[#006b5a]',    bg: 'bg-[#48c2a9]/10' },
+    { label: 'Onderweg',   val: packages.filter(p => p.status === PackageStatus.ASSIGNED || p.status === PackageStatus.PICKED_UP).length,     icon: Truck,       color: 'text-[#006b5a]',    bg: 'bg-[#48c2a9]/10' },
     { label: 'Bezorgd',    val: packages.filter(p => p.status === PackageStatus.DELIVERED).length,                                            icon: ShieldCheck, color: 'text-emerald-600',  bg: 'bg-emerald-50' },
     { label: 'Wachten',    val: pendingPackages.length,                                                                                       icon: Clock,       color: 'text-amber-600',    bg: 'bg-amber-50' },
   ];
