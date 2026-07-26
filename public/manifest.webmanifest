@@ -1,0 +1,33 @@
+{
+  "name": "GreenSpeed",
+  "short_name": "GreenSpeed",
+  "description": "GreenSpeed — Apotheek Bezorgservice",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "nl",
+  "dir": "ltr",
+  "background_color": "#ffffff",
+  "theme_color": "#006b5a",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
