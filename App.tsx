@@ -388,13 +388,6 @@ const App: React.FC = () => {
         }));
       setPackages(enriched);
 
-      // Initialiseer de atomische scanNumber teller op basis van vandaag
-      const today = new Date().toDateString();
-      const todayMax = enriched
-        .filter(p => new Date(p.createdAt).toDateString() === today)
-        .reduce((max, p) => Math.max(max, p.scanNumber ?? 0), 0);
-      nextScanNumberRef.current = todayMax + 1;
-
       setPharmacies(pharms);
       if (pharms.length > 0 && !superuserPharmacyId) {
         setSuperuserPharmacyId(pharms[0].id);
@@ -608,6 +601,8 @@ const App: React.FC = () => {
     }
   };
 
+  // Start elke scansessie op 1 — het scannummer is enkel een hulpmiddel voor de
+  // koerier om op het pakje te schrijven, niet uniek over koeriers of dagen heen.
   const nextScanNumberRef  = useRef<number>(1);
   async function geocodeAddress(address: Address): Promise<{ lat: number; lng: number } | null> {
     console.log('[Geocode] Aanroep gestart voor:', address.street, address.houseNumber);
