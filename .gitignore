@@ -16,6 +16,9 @@ dist/
 .vscode/
 .idea/
 
+# Lokale Claude Code-instellingen (machine-specifiek, kan tokens bevatten)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
