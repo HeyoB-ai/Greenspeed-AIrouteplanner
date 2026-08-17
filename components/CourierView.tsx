@@ -178,8 +178,20 @@ const CourierView: React.FC<Props> = ({
         stopsMap.set(key, { addressKey: key, address: p.address, packages: [p], orderIndex: p.orderIndex ?? p.routeIndex ?? 999 });
       }
     });
-    return Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
-  }, [sortedPackages]);
+    const result = Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+
+    // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — verwijderen na de fix.
+    // Onderscheidt "pakket weg uit state" van "pakket aanwezig maar samengevoegd
+    // tot één stop". De pakkettenlijst rendert per pakket, de stops-lijst per adres.
+    console.log('[DubbelAdres] CourierView |', packages.length, 'in props →',
+      sortedPackages.length, 'in lijst →', active.length, 'actief →', result.length, 'stops');
+    result
+      .filter(s => s.packages.length > 1)
+      .forEach(s => console.log('[DubbelAdres]   gedeeld adres:', s.addressKey,
+        '→', s.packages.length, 'pakketten:', s.packages.map(p => `#${p.scanNumber}/${p.id}`).join(', ')));
+
+    return result;
+  }, [sortedPackages, packages]);
 
   // Aantal nog te bezorgen pakketten per adres — voedt het amber label op de tegels,
   // zodat een gedeeld adres zichtbaar blijft nadat de scannermelding weg is.

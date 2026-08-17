@@ -273,8 +273,29 @@ export const db = {
         };
         const { error } = await supabase.from('packages').upsert(row);
         if (error) {
+          // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — code 23505 = unique violation,
+          // dat zou wijzen op een unieke index op de packages-tabel
+          console.error('[DubbelAdres] upsert GEWEIGERD | id:', pkg.id,
+            '| code:', (error as any).code, '| message:', error.message,
+            '| details:', (error as any).details, '| hint:', (error as any).hint);
           console.error('[syncPackage] Cloud-opslag geweigerd:', error.message);
           return { synced: false, error: error.message };
+        }
+
+        // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — staat de rij er echt, en hoeveel
+        // rijen liggen er op ditzelfde adres? Read-only, geen gedragswijziging.
+        try {
+          const { data: own } = await supabase.from('packages').select('id').eq('id', pkg.id);
+          const { data: sameAddr } = await supabase
+            .from('packages')
+            .select('id, status, createdAt')
+            .eq('address->>postalCode', pkg.address.postalCode)
+            .eq('address->>houseNumber', pkg.address.houseNumber);
+          console.log('[DubbelAdres] na upsert | eigen rij gevonden:', own?.length ?? 0,
+            '| rijen op', pkg.address.postalCode, pkg.address.houseNumber, ':', sameAddr?.length ?? 0,
+            sameAddr?.map((r: any) => `${r.id}/${r.status}`).join(', ') ?? '');
+        } catch (checkErr) {
+          console.warn('[DubbelAdres] verificatie-query mislukt:', checkErr);
         }
       } catch (err: any) {
         console.error('[syncPackage] Cloud-opslag mislukt:', err);

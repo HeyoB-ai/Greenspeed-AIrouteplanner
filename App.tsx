@@ -795,15 +795,35 @@ const App: React.FC = () => {
       }],
     };
 
-    setPackages(prev => [pkg, ...prev]);
+    // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — verwijderen na de fix
+    const key = addressKey(normalizedAddress);
+    console.log('[DubbelAdres] scan binnen | key:', key,
+      '| pkgId:', pkg.id, '| status:', pkg.status,
+      '| courierId:', pkg.courierId, '| createdAt:', pkg.createdAt,
+      '| adres:', normalizedAddress.street, normalizedAddress.houseNumber, normalizedAddress.postalCode);
+
+    setPackages(prev => {
+      const next = [pkg, ...prev];
+      const sameKeyBefore = prev.filter(p => addressKey(p.address) === key).length;
+      const sameKeyAfter  = next.filter(p => addressKey(p.address) === key).length;
+      console.log('[DubbelAdres] setPackages | state', prev.length, '→', next.length,
+        '| zelfde key vóór:', sameKeyBefore, '→ na:', sameKeyAfter,
+        '| id al aanwezig:', prev.some(p => p.id === pkg.id));
+      return next;
+    });
 
     // Hoeveel nog niet afgeleverde pakketten liggen er nu op dit adres, inclusief
     // dit pakket? Puur informatief — er wordt niets geblokkeerd, twee patiënten
     // kunnen prima hetzelfde afleveradres hebben.
-    const key = addressKey(normalizedAddress);
     const sameAddressCount = currentPackages.filter(p =>
       OPEN_STATUSES.includes(p.status) && addressKey(p.address) === key
     ).length + 1;
+
+    // Let op: dit telt uit packagesRef (stand vóór deze scan) + 1, dus los van
+    // de setPackages hierboven. Bij burst-scans kan die ref achterlopen.
+    console.log('[DubbelAdres] sameAddressCount =', sameAddressCount,
+      '| berekend uit packagesRef met', currentPackages.length, 'pakketten',
+      '| open op deze key:', currentPackages.filter(p => OPEN_STATUSES.includes(p.status) && addressKey(p.address) === key).map(p => p.id));
 
     if (hasRoute && routeIndex !== undefined) {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
@@ -811,6 +831,9 @@ const App: React.FC = () => {
     }
 
     const syncResult = await db.syncPackage(pkg);
+    // TIJDELIJKE DIAGNOSTIEK [DubbelAdres]
+    console.log('[DubbelAdres] syncPackage resultaat | id:', pkg.id,
+      '| synced:', syncResult?.synced, '| error:', syncResult?.error ?? '—');
     if (syncResult && !syncResult.synced) {
       setToast(`Let op: pakket #${scanNumber} staat lokaal maar is NIET op de server opgeslagen. Controleer je verbinding en login, en scan zo nodig opnieuw.`);
       setTimeout(() => setToast(null), 8000);

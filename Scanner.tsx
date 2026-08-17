@@ -224,6 +224,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         void Promise.resolve(
           onScanCompleteRef.current({ scanId, address: finalAddress, pharmacyName: result.pharmacyName })
         ).then(outcome => {
+          // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — wordt de meldingcode bereikt?
+          console.log('[DubbelAdres] Scanner onScanComplete klaar | scanId:', scanId,
+            '| outcome:', JSON.stringify(outcome ?? null),
+            '| scan nog actief:', activeScansRef.current.has(scanId));
           if (!outcome || outcome.sameAddressCount < 2) return;
           if (!activeScansRef.current.has(scanId)) return;
           playAttention(); buzz([30, 40, 30]);
