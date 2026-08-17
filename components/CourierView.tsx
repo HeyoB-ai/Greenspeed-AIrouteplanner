@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy } from '../types';
+import { addressKey } from '../utils/addressKey';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
@@ -169,7 +170,7 @@ const CourierView: React.FC<Props> = ({
     const active = sortedPackages.filter(isActionable);
     const stopsMap = new Map() as Map<string, Stop>;
     active.forEach(p => {
-      const key = `${p.address.street} ${p.address.houseNumber} ${p.address.postalCode}`.toLowerCase().trim();
+      const key = addressKey(p.address);
       const existing = stopsMap.get(key);
       if (existing) {
         existing.packages.push(p);
@@ -178,6 +179,17 @@ const CourierView: React.FC<Props> = ({
       }
     });
     return Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [sortedPackages]);
+
+  // Aantal nog te bezorgen pakketten per adres — voedt het amber label op de tegels,
+  // zodat een gedeeld adres zichtbaar blijft nadat de scannermelding weg is.
+  const countPerAddress = useMemo(() => {
+    const counts = new Map<string, number>();
+    sortedPackages.filter(isActionable).forEach(p => {
+      const key = addressKey(p.address);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return counts;
   }, [sortedPackages]);
 
   const actionableCount = sortedPackages.filter(isActionable).length;
@@ -648,11 +660,18 @@ const CourierView: React.FC<Props> = ({
                   <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
                   </p>
-                  {pkg.pharmacyName && (
-                    <span className="inline-block mt-1 text-[10px] font-bold text-[#3d4945] bg-[#f2f4f6] px-2 py-0.5 rounded-full truncate max-w-full">
-                      {pkg.pharmacyName}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {pkg.pharmacyName && (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-[#3d4945] bg-[#f2f4f6] px-2 py-0.5 rounded-full truncate max-w-full">
+                        {pkg.pharmacyName}
+                      </span>
+                    )}
+                    {isActionable(pkg) && (countPerAddress.get(addressKey(pkg.address)) ?? 0) > 1 && (
+                      <span className="inline-block mt-1 text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {countPerAddress.get(addressKey(pkg.address))} pakketten dit adres
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Navigeer */}

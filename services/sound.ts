@@ -43,6 +43,15 @@ export function playError(): void {
   tone(160, 0.22, 0.3, 'square', 0.25);
 }
 
+// Attentietoon: twee korte blips op dezelfde toonhoogte. Bewust anders dan
+// playSuccess (stijgend sine) en playError (laag, dalend square) — het is geen
+// fout, maar wel iets om even naar te kijken.
+export function playAttention(): void {
+  unlockAudio();
+  tone(784, 0,    0.09, 'triangle', 0.22);
+  tone(784, 0.13, 0.09, 'triangle', 0.22);
+}
+
 export function buzz(pattern: number | number[]): void {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try { (navigator as any).vibrate(pattern); } catch { /* no-op */ }

@@ -19,6 +19,7 @@ import RouteMapModal from './components/RouteMapModal';
 import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
+import { addressKey } from './utils/addressKey';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2 } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
@@ -30,6 +31,14 @@ const COURIER_NAMES: Record<string, string> = {
 // Geeft de invoer ongewijzigd terug als hij niet matcht (bv. buitenlands of incompleet).
 const normalizePostcode = (pc: string): string =>
   pc.replace(/^(\d{4})\s*([A-Z]{2})$/i, '$1 $2').toUpperCase();
+
+// Statussen die meetellen als "ligt nog in de rit" voor de dubbel-adresmelding
+const OPEN_STATUSES = [
+  PackageStatus.SCANNING,
+  PackageStatus.PENDING,
+  PackageStatus.ASSIGNED,
+  PackageStatus.PICKED_UP,
+];
 
 const enrichWithHistory = (pkg: Package): Package => {
   if (pkg.statusHistory && pkg.statusHistory.length > 0) return pkg;
@@ -788,6 +797,14 @@ const App: React.FC = () => {
 
     setPackages(prev => [pkg, ...prev]);
 
+    // Hoeveel nog niet afgeleverde pakketten liggen er nu op dit adres, inclusief
+    // dit pakket? Puur informatief — er wordt niets geblokkeerd, twee patiënten
+    // kunnen prima hetzelfde afleveradres hebben.
+    const key = addressKey(normalizedAddress);
+    const sameAddressCount = currentPackages.filter(p =>
+      OPEN_STATUSES.includes(p.status) && addressKey(p.address) === key
+    ).length + 1;
+
     if (hasRoute && routeIndex !== undefined) {
       setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
       setTimeout(() => setToast(null), 4000);
@@ -806,6 +823,8 @@ const App: React.FC = () => {
       setPackages(prev => prev.map(p => p.id === pkg.id ? updatedPkg : p));
       db.syncPackage(updatedPkg).catch(err => console.error('[Geocode] Sync naar DB mislukt:', err));
     }).catch(err => console.error('[Geocode] Onverwachte fout:', err));
+
+    return { sameAddressCount };
   }, [currentPharmacy]); // packages/pharmacies + actieve apotheek via refs; courierPharmacyIds[0] is enkel een harmloze fallback
 
   const handleOptimizeRoute = useCallback(async (

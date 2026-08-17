@@ -1,13 +1,21 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, X, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { extractAddressFromImage, validateAddressPDOK } from './services/geminiService';
-import { playSuccess, playError, buzz, unlockAudio } from './services/sound';
+import { playSuccess, playError, playAttention, buzz, unlockAudio } from './services/sound';
 import { Address } from './types';
 
+/** Wat App terugmeldt na het opslaan: hoeveel open pakketten er nu op dit adres liggen. */
+export type ScanOutcome = { sameAddressCount: number };
+
 interface ScannerProps {
-  onScanComplete: (result: { scanId: string; address: Address; pharmacyName?: string }) => void;
+  onScanComplete: (
+    result: { scanId: string; address: Address; pharmacyName?: string }
+  ) => void | ScanOutcome | Promise<void | ScanOutcome>;
   onCancel: () => void;
 }
+
+const ORDINALS = ['', '', 'Tweede', 'Derde', 'Vierde', 'Vijfde', 'Zesde', 'Zevende', 'Achtste', 'Negende', 'Tiende'];
+const ordinal = (n: number): string => ORDINALS[n] ?? `${n}e`;
 
 type ScanEntry = {
   scanId: string;
@@ -75,6 +83,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<CameraFault | null>(null);
   const [showFlash, setShowFlash] = useState(false);
+  // Informatieve melding als er al een pakket voor hetzelfde adres in de rit ligt
+  const [addressNotice, setAddressNotice] = useState<{ count: number; address: Address } | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
   const [scans, setScans] = useState<ScanEntry[]>([]);
   // Cooldown van 2s na elke fysieke capture, voorkomt rate-limit bursts
   const [cooldown, setCooldown] = useState(false);
@@ -207,7 +218,19 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           ));
         }
 
-        onScanCompleteRef.current({ scanId, address: finalAddress, pharmacyName: result.pharmacyName });
+        // Niet awaiten: de semafoor moet direct vrijkomen zodat burst-scannen
+        // niet op de opslag hoeft te wachten. De melding komt na als het adres
+        // al in de rit ligt.
+        void Promise.resolve(
+          onScanCompleteRef.current({ scanId, address: finalAddress, pharmacyName: result.pharmacyName })
+        ).then(outcome => {
+          if (!outcome || outcome.sameAddressCount < 2) return;
+          if (!activeScansRef.current.has(scanId)) return;
+          playAttention(); buzz([30, 40, 30]);
+          setAddressNotice({ count: outcome.sameAddressCount, address: finalAddress });
+          if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+          noticeTimerRef.current = window.setTimeout(() => setAddressNotice(null), 4000);
+        });
       } else {
         // ROOD + LUID: niet geverifieerd, niet stil accepteren
         markUnverified(scanId, UNVERIFIED_MSG);
@@ -266,6 +289,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const handleCapture = useCallback(() => {
     if (!cameraReady || cooldown) return;
 
+    // Melding van de vorige scan opruimen — hij blijft staan tot de volgende scan
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setAddressNotice(null);
+
     // Vereist op iOS: deblokkeer de AudioContext binnen deze user-gesture
     unlockAudio();
 
@@ -319,6 +346,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
 
   const handleClose = useCallback(() => {
     activeScansRef.current.clear();
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     onCancel();
   }, [onCancel]);
 
@@ -372,6 +400,28 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
             <div className="bg-[#d7e2fe] text-[#101c30] rounded-2xl px-4 py-2.5 shadow-2xl flex items-center justify-center">
               <p className="text-sm font-black leading-tight text-center">
                 📸 Foto gemaakt — je kunt verder scannen
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Tweede pakket voor hetzelfde adres — informatief, blokkeert niets.
+            Twee patiënten kunnen hetzelfde afleveradres hebben, dus het pakket
+            is gewoon toegevoegd; dit is alleen een controlevraag. */}
+        {addressNotice && (
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-30 px-6 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-amber-400 text-[#191c1e] rounded-2xl px-4 py-3 shadow-2xl mx-auto max-w-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="shrink-0" />
+                <p className="font-display font-black text-sm leading-tight">
+                  {ordinal(addressNotice.count)} pakket voor dit adres
+                </p>
+              </div>
+              <p className="text-xs font-bold mt-1.5 leading-snug">
+                {addressNotice.address.street} {addressNotice.address.houseNumber}, {addressNotice.address.postalCode}
+              </p>
+              <p className="text-xs mt-1 leading-snug opacity-80">
+                Klopt dat? Beide pakketten blijven in de rit staan.
               </p>
             </div>
           </div>
