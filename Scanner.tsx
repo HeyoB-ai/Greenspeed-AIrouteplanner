@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, X, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { extractAddressFromImage, validateAddressPDOK } from './services/geminiService';
 import { playSuccess, playError, buzz, unlockAudio } from './services/sound';
 import { Address } from './types';
@@ -20,11 +20,60 @@ type ScanEntry = {
 
 const UNVERIFIED_MSG = 'Adres niet geverifieerd — controleer en scan opnieuw';
 
+type CameraFault = { title: string; text: string; detail?: string };
+
+// iOS behandelt een app vanaf het beginscherm als een eigen permissie-context:
+// camerarechten die in Safari gegeven zijn gelden daar niet, en ze zijn niet via
+// Instellingen te herstellen — alleen door het icoon te verwijderen en opnieuw
+// toe te voegen. Zonder deze uitleg ziet de koerier enkel een zwart scherm.
+const isStandaloneMode = (): boolean =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (window.navigator as any).standalone === true;
+
+const describeCameraError = (err: any): CameraFault => {
+  const name = err?.name ?? '';
+
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return isStandaloneMode()
+      ? {
+          title: 'Geen toegang tot de camera',
+          text: "Houd het Greenspeed-icoon op je beginscherm ingedrukt, kies 'App verwijderen', " +
+                'open greenspeed.netlify.app opnieuw in Safari en zet hem via het deel-icoon weer ' +
+                'op je beginscherm. Daarna vraagt de app opnieuw om cameratoegang.',
+        }
+      : {
+          title: 'Geen toegang tot de camera',
+          text: 'Tik op het aA-icoon in de adresbalk, kies Website-instellingen en zet Camera op ' +
+                'Vragen of Sta toe.',
+        };
+  }
+
+  if (name === 'NotFoundError') {
+    return { title: 'Geen camera gevonden', text: 'Geen camera gevonden op dit apparaat.' };
+  }
+
+  if (name === 'NotReadableError') {
+    return {
+      title: 'Camera niet beschikbaar',
+      text: 'De camera is in gebruik door een andere app. Sluit die app en probeer opnieuw.',
+    };
+  }
+
+  return {
+    title: 'Camera kon niet starten',
+    text: 'Probeer het opnieuw of sluit de scanner.',
+    detail: [name, err?.message].filter(Boolean).join(' — ') || undefined,
+  };
+};
+
 const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef  = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  // Voorkomt dat de pause-listener zich opstapelt bij elke retry
+  const pauseHandlerRef = useRef(false);
 
   const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState('');
+  const [cameraError, setCameraError] = useState<CameraFault | null>(null);
   const [showFlash, setShowFlash] = useState(false);
   const [scans, setScans] = useState<ScanEntry[]>([]);
   // Cooldown van 2s na elke fysieke capture, voorkomt rate-limit bursts
@@ -42,89 +91,57 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const onScanCompleteRef = useRef(onScanComplete);
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
 
-  // Camera setup
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    async function setupCamera() {
-      // TIJDELIJKE DIAGNOSTIEK (zwart camerabeeld iOS) — verwijderen na de fix
-      console.log('[ScanCam] start setupCamera',
-        'standalone(PWA):', (navigator as any).standalone,
-        'displayMode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-        'secureContext:', window.isSecureContext,
-        'hasMediaDevices:', !!navigator.mediaDevices?.getUserMedia,
-        'UA:', navigator.userAgent);
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        });
-        const video = videoRef.current;
-        // TIJDELIJKE DIAGNOSTIEK — trackstatus direct na toekenning
-        const track = stream.getVideoTracks()[0];
-        console.log('[ScanCam] stream ok',
-          'videoTracks:', stream.getVideoTracks().length,
-          'readyState:', track?.readyState,
-          'enabled:', track?.enabled,
-          'muted:', track?.muted,
-          'label:', track?.label,
-          'settings:', JSON.stringify(track?.getSettings?.() ?? {}),
-          'videoRef aanwezig:', !!video);
-        if (video) {
-          // Zet attributen expliciet — sommige iOS Safari versies negeren JSX props
-          video.setAttribute('autoplay', '');
-          video.setAttribute('playsinline', '');
-          video.setAttribute('muted', '');
+  // Camera setup — uitgelicht uit de useEffect zodat "Probeer opnieuw" hem
+  // opnieuw kan aanroepen. De stream hangt aan een ref in plaats van een
+  // effect-lokale variabele, anders kan de cleanup een latere stream niet stoppen.
+  const startCamera = useCallback(async () => {
+    // Vorige stream vrijgeven — een tweede getUserMedia op een bezette camera
+    // faalt op iOS met NotReadableError
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCameraError(null);
+    setCameraReady(false);
 
-          video.srcObject = stream;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        // Zet attributen expliciet — sommige iOS Safari versies negeren JSX props
+        video.setAttribute('autoplay', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('muted', '');
 
-          // TIJDELIJKE DIAGNOSTIEK — resultaat van play() inclusief rejection
-          console.log('[ScanCam] srcObject gezet',
-            'muted(property):', video.muted,
-            'playsInline(property):', video.playsInline,
-            'autoplay(property):', video.autoplay);
-          video.play().then(
-            () => console.log('[ScanCam] play() resolved',
-              'paused:', video.paused,
-              'readyState:', video.readyState,
-              'videoWidth:', video.videoWidth,
-              'videoHeight:', video.videoHeight,
-              'currentTime:', video.currentTime),
-            (e: any) => console.error('[ScanCam] play() REJECTED',
-              'name:', e?.name, 'message:', e?.message,
-              'muted:', video.muted, 'playsInline:', video.playsInline)
-          );
+        video.srcObject = stream;
+        video.play().catch(e => console.error('Video play failed:', e));
 
-          // TIJDELIJKE DIAGNOSTIEK — is er na 1,5s daadwerkelijk beeld?
-          setTimeout(() => {
-            const t = stream?.getVideoTracks()[0];
-            console.log('[ScanCam] +1500ms',
-              'paused:', video.paused,
-              'readyState:', video.readyState,
-              'videoWidth:', video.videoWidth,
-              'videoHeight:', video.videoHeight,
-              'currentTime:', video.currentTime,
-              'trackReadyState:', t?.readyState,
-              'trackMuted:', t?.muted);
-          }, 1500);
-
-          // Hervat direct als video onverwacht pauzeert (iOS Safari freeze)
+        // Hervat direct als video onverwacht pauzeert (iOS Safari freeze).
+        // Eenmalig — bij een retry zou de listener zich anders opstapelen.
+        if (!pauseHandlerRef.current) {
+          pauseHandlerRef.current = true;
           video.addEventListener('pause', () => {
-            console.warn('[ScanCam] pause-event — hervatten');
             video.play().catch(() => {});
           });
-
-          // iOS Safari: geef camera 300ms om te initialiseren
-          setTimeout(() => setCameraReady(true), 300);
         }
-      } catch (err: any) {
-        // TIJDELIJKE DIAGNOSTIEK — de catch slikte de fout eerder volledig op
-        console.error('[ScanCam] getUserMedia FAALT',
-          'name:', err?.name, 'message:', err?.message, 'constraint:', err?.constraint, err);
-        setCameraError('Kan de camera niet starten. Controleer je rechten.');
+
+        // iOS Safari: geef camera 300ms om te initialiseren
+        setTimeout(() => setCameraReady(true), 300);
       }
+    } catch (err: any) {
+      console.error('[Scan] getUserMedia mislukt:', err?.name, err?.message, 'standalone:', isStandaloneMode(), err);
+      setCameraError(describeCameraError(err));
     }
-    setupCamera();
-    return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    };
+  }, [startCamera]);
 
   // OCR verwerking — volledig geïsoleerd per scanId via de base64 parameter
   // Markeer een scan als rood (niet geverifieerd) + luid signaal
@@ -256,12 +273,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     try {
       base64 = captureFrame();
     } catch (err: any) {
-      setCameraError(err.message ?? 'Camera niet gereed, probeer opnieuw');
+      setCameraError({ title: 'Camera niet gereed', text: err?.message ?? 'Probeer het opnieuw.' });
       return;
     }
 
     if (!base64 || base64.length < 1000) {
-      setCameraError('Camera niet gereed, probeer opnieuw');
+      setCameraError({ title: 'Camera niet gereed', text: 'Er kwam nog geen beeld door. Probeer het opnieuw.' });
       return;
     }
 
@@ -427,11 +444,36 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Camerafout */}
+        {/* Camerafout — midden in het kader, want bij een fout is het beeld zwart
+            en las niemand de melding onderaan. Titel + uitleg met een concrete
+            volgende stap in plaats van "Controleer je rechten". */}
         {cameraError && (
-          <div className="absolute bottom-4 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl flex items-center space-x-3 shadow-2xl z-30 animate-in slide-in-from-bottom duration-300">
-            <AlertCircle size={20} className="shrink-0" />
-            <p className="text-sm font-black">{cameraError}</p>
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-8 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl px-5 py-5 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+                  <AlertCircle size={20} className="text-red-500" />
+                </div>
+                <p className="font-display font-black text-[#191c1e] text-base leading-tight">
+                  {cameraError.title}
+                </p>
+              </div>
+              <p className="text-sm text-[#3d4945] font-body leading-snug">
+                {cameraError.text}
+              </p>
+              {cameraError.detail && (
+                <p className="mt-2 text-[11px] text-[#3d4945]/60 font-body break-words">
+                  {cameraError.detail}
+                </p>
+              )}
+              <button
+                onClick={startCamera}
+                className="mt-4 w-full h-11 bg-red-500 text-white rounded-full font-display font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <RefreshCw size={16} />
+                Probeer opnieuw
+              </button>
+            </div>
           </div>
         )}
       </div>
