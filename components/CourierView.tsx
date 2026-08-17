@@ -140,9 +140,21 @@ const CourierView: React.FC<Props> = ({
     const done       = visible.filter(p => !isActionable(p) && p.status !== PackageStatus.REMOVED);
     const removed    = visible.filter(p => p.status === PackageStatus.REMOVED);
 
+    // Vóór routeoptimalisatie: nieuwste scan bovenaan, zodat de koerier zijn laatste
+    // scan direct ziet en kan controleren. Zodra er een route is: eerste stop bovenaan.
+    // De modus wordt één keer voor de hele lijst bepaald — een per-paar keuze levert
+    // een inconsistente comparator op zodra maar een deel een routeIndex heeft.
+    const hasRoute = actionable.some(p => p.routeIndex != null);
+
     const sortedActionable = [...actionable].sort((a, b) => {
-      if (a.routeIndex && b.routeIndex) return a.routeIndex - b.routeIndex;
-      return (a.scanNumber ?? 999) - (b.scanNumber ?? 999);
+      if (hasRoute) {
+        // Pakjes zonder routeIndex (gescand na de optimalisatie) achteraan
+        const ai = a.routeIndex ?? Infinity;
+        const bi = b.routeIndex ?? Infinity;
+        if (ai !== bi) return ai - bi;
+        return (a.scanNumber ?? 0) - (b.scanNumber ?? 0);
+      }
+      return (b.scanNumber ?? 0) - (a.scanNumber ?? 0);
     });
 
     const sortedDone = [...done].sort((a, b) =>
