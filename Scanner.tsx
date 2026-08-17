@@ -46,11 +46,28 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   useEffect(() => {
     let stream: MediaStream | null = null;
     async function setupCamera() {
+      // TIJDELIJKE DIAGNOSTIEK (zwart camerabeeld iOS) — verwijderen na de fix
+      console.log('[ScanCam] start setupCamera',
+        'standalone(PWA):', (navigator as any).standalone,
+        'displayMode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+        'secureContext:', window.isSecureContext,
+        'hasMediaDevices:', !!navigator.mediaDevices?.getUserMedia,
+        'UA:', navigator.userAgent);
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
         const video = videoRef.current;
+        // TIJDELIJKE DIAGNOSTIEK — trackstatus direct na toekenning
+        const track = stream.getVideoTracks()[0];
+        console.log('[ScanCam] stream ok',
+          'videoTracks:', stream.getVideoTracks().length,
+          'readyState:', track?.readyState,
+          'enabled:', track?.enabled,
+          'muted:', track?.muted,
+          'label:', track?.label,
+          'settings:', JSON.stringify(track?.getSettings?.() ?? {}),
+          'videoRef aanwezig:', !!video);
         if (video) {
           // Zet attributen expliciet — sommige iOS Safari versies negeren JSX props
           video.setAttribute('autoplay', '');
@@ -58,17 +75,50 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           video.setAttribute('muted', '');
 
           video.srcObject = stream;
-          video.play().catch(e => console.error('Video play failed:', e));
+
+          // TIJDELIJKE DIAGNOSTIEK — resultaat van play() inclusief rejection
+          console.log('[ScanCam] srcObject gezet',
+            'muted(property):', video.muted,
+            'playsInline(property):', video.playsInline,
+            'autoplay(property):', video.autoplay);
+          video.play().then(
+            () => console.log('[ScanCam] play() resolved',
+              'paused:', video.paused,
+              'readyState:', video.readyState,
+              'videoWidth:', video.videoWidth,
+              'videoHeight:', video.videoHeight,
+              'currentTime:', video.currentTime),
+            (e: any) => console.error('[ScanCam] play() REJECTED',
+              'name:', e?.name, 'message:', e?.message,
+              'muted:', video.muted, 'playsInline:', video.playsInline)
+          );
+
+          // TIJDELIJKE DIAGNOSTIEK — is er na 1,5s daadwerkelijk beeld?
+          setTimeout(() => {
+            const t = stream?.getVideoTracks()[0];
+            console.log('[ScanCam] +1500ms',
+              'paused:', video.paused,
+              'readyState:', video.readyState,
+              'videoWidth:', video.videoWidth,
+              'videoHeight:', video.videoHeight,
+              'currentTime:', video.currentTime,
+              'trackReadyState:', t?.readyState,
+              'trackMuted:', t?.muted);
+          }, 1500);
 
           // Hervat direct als video onverwacht pauzeert (iOS Safari freeze)
           video.addEventListener('pause', () => {
+            console.warn('[ScanCam] pause-event — hervatten');
             video.play().catch(() => {});
           });
 
           // iOS Safari: geef camera 300ms om te initialiseren
           setTimeout(() => setCameraReady(true), 300);
         }
-      } catch {
+      } catch (err: any) {
+        // TIJDELIJKE DIAGNOSTIEK — de catch slikte de fout eerder volledig op
+        console.error('[ScanCam] getUserMedia FAALT',
+          'name:', err?.name, 'message:', err?.message, 'constraint:', err?.constraint, err);
         setCameraError('Kan de camera niet starten. Controleer je rechten.');
       }
     }
