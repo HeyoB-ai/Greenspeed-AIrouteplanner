@@ -311,6 +311,17 @@ function clusterByGeography(stops: GeoStop[], maxClusterSize = 23): GeoStop[][] 
   return result.filter(c => c.length > 0);
 }
 
+/**
+ * Herkent een startpunt in de vorm "lat,lng" (GPS-positie van de koerier) en geeft
+ * de coördinaat terug. Een tekstadres (apotheek) levert null — dezelfde detectie als
+ * in netlify/functions/maps.ts, die "lat,lng" als location.latLng doorstuurt.
+ */
+function parseLatLng(value?: string | null): LatLng | null {
+  if (!value) return null;
+  const m = value.trim().match(/^(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/);
+  return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+}
+
 function orderClusters(clusters: GeoStop[][], startCoord?: { lat: number; lng: number }): GeoStop[][] {
   if (clusters.length <= 1) return clusters;
 
@@ -393,26 +404,41 @@ async function optimizeBatch(
 
   if (geoStops.length === 0) return { ids: addresses.map(a => a.id), coords: [], distanceM: 0, durationS: 0 };
 
-  const startCoord      = geoStops[0];
+  // Clustervolgorde vanaf de GPS-positie van de koerier als die bekend is; bij een
+  // tekstadres (apotheek) of geen startpunt terug naar het eerste adres in de lijst.
+  const gpsStart        = parseLatLng(startAddress);
+  const startCoord      = gpsStart ?? geoStops[0];
   const rawClusters     = clusterByGeography(geoStops, 23);
   const orderedClusters = orderClusters(rawClusters, startCoord);
 
+  console.log('[Route] Clustervolgorde bepaald vanaf', gpsStart ? 'GPS-locatie koerier' : 'eerste adres', `(${startCoord.lat}, ${startCoord.lng})`);
   console.log('[Route]', orderedClusters.length, 'geografische clusters:', orderedClusters.map(c => c.length).join(' / '), 'stops');
 
   const allIds: string[] = [];
   const allCoords: LatLng[] = [];
   let distanceM = 0;
   let durationS = 0;
+  // Elk volgend cluster start waar het vorige eindigde — niet opnieuw bij de
+  // GPS-startlocatie, anders fietst de koerier tussen clusters heen en weer.
+  let prevEndCoord: LatLng | null = null;
   for (let i = 0; i < orderedClusters.length; i++) {
+    const batchStart = i === 0
+      ? startAddress
+      : (prevEndCoord ? `${prevEndCoord.lat},${prevEndCoord.lng}` : null);
+
     const batch = await optimizeSingleBatch(
       orderedClusters[i],
-      i === 0 ? startAddress : null,
+      batchStart,
       i === orderedClusters.length - 1 ? endAddress : null,
     );
     allIds.push(...batch.ids);
     allCoords.push(...batch.coords);
     distanceM += batch.distanceM;
     durationS += batch.durationS;
+
+    // Eindpunt van dit cluster = laatste stop in de geoptimaliseerde volgorde
+    const lastStop = orderedClusters[i].find(s => s.id === batch.ids[batch.ids.length - 1]);
+    if (lastStop) prevEndCoord = { lat: lastStop.lat, lng: lastStop.lng };
   }
   return { ids: [...new Set([...allIds, ...missingIds])], coords: allCoords, distanceM, durationS };
 }
