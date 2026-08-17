@@ -4,11 +4,25 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { X, Bike, Clock, Route as RouteIcon } from 'lucide-react';
 import type { LatLng } from '../services/geminiService';
+import type { Address } from '../types';
+import { addressKey } from '../utils/addressKey';
+
+// ── Schattingen voor de bezorgtijd ──────────────────────────────────────────
+// Dit zijn SCHATTINGEN, geen gemeten waarden. Zodra er echte tijdregistratie per
+// stop is, horen deze getallen daaruit te komen.
+//
+// De fietstijd zelf komt van de Google Routes API (travelMode BICYCLE) en is dus
+// werkelijke wegafstand met Google's fietsmodel — er wordt hier niets over de
+// snelheid aangenomen. Wat ontbrak is de tijd die stilstaan bij de deur kost.
+const STOP_SECONDS_PER_ADDRESS       = 90; // aanbellen, overdracht, terug naar de fiets
+const STOP_SECONDS_PER_EXTRA_PACKAGE = 15; // tweede/derde pakket op hetzelfde adres
 
 interface Props {
   coords:         LatLng[];
   totalDistanceM: number;
   totalDurationS: number;
+  /** Adressen van de stops in deze route — bepaalt de geschatte bezorgtijd. */
+  stopAddresses?: Address[];
   onClose:        () => void;
 }
 
@@ -35,10 +49,20 @@ const FitBounds: React.FC<{ coords: LatLng[] }> = ({ coords }) => {
   return null;
 };
 
-const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS, onClose }) => {
+const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS, stopAddresses = [], onClose }) => {
   const km  = (totalDistanceM / 1000).toFixed(1);
-  const min = Math.round(totalDurationS / 60);
   const hasStats = totalDistanceM > 0;
+
+  // Groepeer op adres: twee pakketten op één adres kosten één stop plus een
+  // beetje extra, niet twee volle stops.
+  const uniqueAddresses = new Set(stopAddresses.map(addressKey)).size;
+  const extraPackages   = Math.max(0, stopAddresses.length - uniqueAddresses);
+
+  const cyclingMin  = Math.round(totalDurationS / 60);
+  const deliveryMin = Math.round(
+    (uniqueAddresses * STOP_SECONDS_PER_ADDRESS + extraPackages * STOP_SECONDS_PER_EXTRA_PACKAGE) / 60
+  );
+  const totalMin = cyclingMin + deliveryMin;
   const center: [number, number] = coords.length
     ? [coords[0].lat, coords[0].lng]
     : [52.0907, 5.1214];
@@ -60,19 +84,34 @@ const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS
           </button>
         </div>
 
-        <div className="flex items-center gap-6 px-6 py-3 bg-[#f7f9fa]">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-full bg-[#006b5a] text-white text-xs font-black flex items-center justify-center">{coords.length}</span>
-            <span className="text-xs font-bold text-[#3d4945]">stops</span>
+        {/* Eén regel met "Fietsen · Bezorgen · Totaal" wordt op een telefoon te
+            breed, dus het totaal staat groot en de splitsing eronder klein. */}
+        <div className="px-6 py-3 bg-[#f7f9fa]">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-full bg-[#006b5a] text-white text-xs font-black flex items-center justify-center">{coords.length}</span>
+              <span className="text-xs font-bold text-[#3d4945]">stops</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Bike size={15} className="text-[#006b5a]" />
+              <span className="text-sm font-black text-[#191c1e]">{hasStats ? `${km} km` : '—'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock size={15} className="text-[#006b5a]" />
+              <span className="text-sm font-black text-[#191c1e]">
+                {hasStats ? `Totaal ~${totalMin} min` : '—'}
+              </span>
+              {hasStats && (
+                <span className="text-[11px] font-bold text-[#3d4945]/60">(indicatie)</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Bike size={15} className="text-[#006b5a]" />
-            <span className="text-sm font-black text-[#191c1e]">{hasStats ? `${km} km` : '—'}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock size={15} className="text-[#006b5a]" />
-            <span className="text-sm font-black text-[#191c1e]">{hasStats ? `${min} min` : '—'}</span>
-          </div>
+          {hasStats && (
+            <p className="mt-1 text-[11px] font-bold text-[#3d4945]/60">
+              Fietsen ~{cyclingMin} min · Bezorgen ~{deliveryMin} min
+              {uniqueAddresses > 0 && ` · ${uniqueAddresses} adres${uniqueAddresses === 1 ? '' : 'sen'}`}
+            </p>
+          )}
         </div>
 
         <div className="flex-1 min-h-[320px]">

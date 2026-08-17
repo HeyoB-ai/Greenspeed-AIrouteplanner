@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy } from '../types';
+import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy, Address } from '../types';
 import { addressKey } from '../utils/addressKey';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
@@ -191,6 +191,15 @@ const CourierView: React.FC<Props> = ({
     });
     return counts;
   }, [sortedPackages]);
+
+  // Adressen van de stops waar de Routes API-cijfers over gaan — basis voor de
+  // bezorgtijd-schatting in de routekaart.
+  const routeAddresses = useMemo<Address[]>(() => {
+    const ids = routeGeometry?.orderedIds ?? [];
+    return ids
+      .map(id => packages.find(p => p.id === id)?.address)
+      .filter((a): a is Address => !!a);
+  }, [routeGeometry, packages]);
 
   const actionableCount = sortedPackages.filter(isActionable).length;
   const doneCount       = sortedPackages.filter(p => !isActionable(p)).length;
@@ -1080,6 +1089,7 @@ const CourierView: React.FC<Props> = ({
           coords={routeGeometry.coords}
           totalDistanceM={routeGeometry.totalDistanceM}
           totalDurationS={routeGeometry.totalDurationS}
+          stopAddresses={routeAddresses}
           onClose={() => setShowRouteMap(false)}
         />
       )}
