@@ -714,6 +714,17 @@ const CourierView: React.FC<Props> = ({
                       })}
                     </span>
                   )}
+                  {/* Alleen voor DELIVERED — de niet-thuis statussen (brievenbus, buren,
+                      retour, verhuisd, andere locatie) blijven definitief. Gaat via
+                      onUpdateMany: de onUpdate-prop is in App.tsx een lege stub. */}
+                  {pkg.status === PackageStatus.DELIVERED && (
+                    <button
+                      onClick={() => onUpdateMany([pkg.id], PackageStatus.ASSIGNED)}
+                      className="ml-auto text-xs font-body font-bold text-[#3d4945]/60 hover:text-[#191c1e] active:scale-95 transition-all shrink-0"
+                    >
+                      ↩ Ongedaan maken
+                    </button>
+                  )}
                 </div>
               )}
             </div>
