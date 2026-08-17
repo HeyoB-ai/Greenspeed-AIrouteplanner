@@ -1541,6 +1541,11 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
       {showScanner && (
         <Scanner
           onScanComplete={({ address, pharmacyName }) => handleNewScan(address, pharmacyName)}
+          onSessionExpired={async () => {
+            setShowScanner(false);
+            await logout();
+            setSession(null);
+          }}
           onCancel={() => setShowScanner(false)}
         />
       )}

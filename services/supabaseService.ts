@@ -47,6 +47,38 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+/**
+ * Controleert of de Supabase-sessie nog lang genoeg geldig is en ververst hem
+ * anders. Bedoeld om vóór een scansessie te draaien: een token dat halverwege
+ * een rit verloopt levert 401's op de gemini- en maps-functies, en die zagen er
+ * voor de koerier uit als mislukte scans.
+ */
+export async function ensureFreshSession(
+  minSecondsLeft = 300
+): Promise<{ ok: boolean; reason?: 'no-session' | 'refresh-failed'; secondsLeft?: number }> {
+  // Zonder cloud draait de app op localStorage — dan valt er niets te verifiëren.
+  if (!supabase) return { ok: true };
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { ok: false, reason: 'no-session' };
+
+  const secondsLeft = session.expires_at
+    ? Math.round(session.expires_at - Date.now() / 1000)
+    : Infinity;
+
+  if (secondsLeft > minSecondsLeft) return { ok: true, secondsLeft };
+
+  console.warn('[Auth] Sessie verloopt over', secondsLeft, 's — verversen');
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error || !data.session) {
+    console.error('[Auth] Verversen mislukt:', error?.message);
+    return { ok: false, reason: 'refresh-failed', secondsLeft };
+  }
+  return { ok: true, secondsLeft: data.session.expires_at
+    ? Math.round(data.session.expires_at - Date.now() / 1000)
+    : Infinity };
+}
+
 const LOCAL_STORAGE_KEY    = 'medroute_backup_packages';
 const PHARMACIES_KEY       = 'medroute_pharmacies';
 const CONVERSATIONS_PREFIX = 'medroute_conversations_'; // + pharmacyId

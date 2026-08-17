@@ -22,6 +22,10 @@ export const handler: Handler = async (event) => {
 
   const auth = await verifyAuth(event.headers as Record<string, string | undefined>);
   if (!auth.ok) {
+    // Zonder deze regel is een geweigerde aanroep onzichtbaar in de Netlify-logs:
+    // de functie keert terug vóór elke andere [gemini]-log, wat zich uit als een
+    // aanroep van een paar milliseconden zonder inhoud.
+    console.warn(`[gemini] Auth geweigerd (${auth.statusCode}): ${auth.reason ?? 'reden onbekend'}`);
     return { statusCode: auth.statusCode!, headers: { 'Content-Type': 'application/json' }, body: auth.body! };
   }
 

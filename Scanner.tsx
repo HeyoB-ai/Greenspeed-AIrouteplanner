@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, X, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { extractAddressFromImage, validateAddressPDOK } from './services/geminiService';
+import { ensureFreshSession } from './services/supabaseService';
 import { playSuccess, playError, playAttention, buzz, unlockAudio } from './services/sound';
 import { Address } from './types';
 
@@ -12,10 +13,64 @@ interface ScannerProps {
     result: { scanId: string; address: Address; pharmacyName?: string }
   ) => void | ScanOutcome | Promise<void | ScanOutcome>;
   onCancel: () => void;
+  /** Sessie verlopen: sluit de scanner en breng de koerier naar het inlogscherm. */
+  onSessionExpired?: () => void;
 }
 
 const ORDINALS = ['', '', 'Tweede', 'Derde', 'Vierde', 'Vijfde', 'Zesde', 'Zevende', 'Achtste', 'Negende', 'Tiende'];
 const ordinal = (n: number): string => ORDINALS[n] ?? `${n}e`;
+
+/**
+ * Blokkerende storing die het scannen stopzet — sessie verlopen, rate limit,
+ * serverfout. Los van de per-scan tegels: die blijven per pakket rood/groen.
+ */
+type ScanFault = {
+  title:      string;
+  text:       string;
+  detail?:    string;
+  needsLogin?: boolean;
+};
+
+const describeScanError = (err: any): ScanFault => {
+  const status = typeof err?.status === 'number' ? err.status : undefined;
+
+  if (status === 401 || status === 403) {
+    return {
+      title: 'Je sessie is verlopen',
+      text:  'Log opnieuw in om te blijven scannen. De pakketten die je al gescand hebt blijven staan.',
+      needsLogin: true,
+    };
+  }
+
+  if (status === 429) {
+    return {
+      title: 'Te veel scans achter elkaar',
+      text:  'Wacht even en probeer opnieuw.',
+    };
+  }
+
+  if (status != null && status >= 500) {
+    return {
+      title: 'Serverfout bij het verwerken',
+      text:  'Probeer opnieuw.',
+      detail: err?.message,
+    };
+  }
+
+  // fetch gooit AbortError bij de 30s-timeout en TypeError bij een dode verbinding
+  if (err?.name === 'AbortError' || err?.name === 'TypeError' || status === 0) {
+    return {
+      title: 'Geen verbinding',
+      text:  'Controleer je internet en probeer opnieuw.',
+    };
+  }
+
+  return {
+    title:  'Verwerking mislukt',
+    text:   'Probeer de scan opnieuw.',
+    detail: [err?.name, err?.message].filter(Boolean).join(' — ') || undefined,
+  };
+};
 
 type ScanEntry = {
   scanId: string;
@@ -74,7 +129,7 @@ const describeCameraError = (err: any): CameraFault => {
   };
 };
 
-const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
+const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel, onSessionExpired }) => {
   const videoRef  = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // Voorkomt dat de pause-listener zich opstapelt bij elke retry
@@ -86,6 +141,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   // Informatieve melding als er al een pakket voor hetzelfde adres in de rit ligt
   const [addressNotice, setAddressNotice] = useState<{ count: number; address: Address } | null>(null);
   const noticeTimerRef = useRef<number | null>(null);
+  // Blokkerende storing (sessie verlopen, rate limit, serverfout)
+  const [scanFault, setScanFault] = useState<ScanFault | null>(null);
   const [scans, setScans] = useState<ScanEntry[]>([]);
   // Cooldown van 2s na elke fysieke capture, voorkomt rate-limit bursts
   const [cooldown, setCooldown] = useState(false);
@@ -102,16 +159,21 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const onScanCompleteRef = useRef(onScanComplete);
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
 
-  // TIJDELIJKE DIAGNOSTIEK [ScanFout] — de melding-logica draait bewust buiten de
-  // try/catch van processScan. Een fout in handleNewScan komt daardoor niet in de
-  // catch terecht maar als unhandled rejection; hier wordt die zichtbaar.
+  // Controleer de sessie vóórdat de koerier begint. Een token dat halverwege de
+  // rit verloopt gaf 401's die als mislukte scans op het scherm kwamen; beter om
+  // dat hier te ontdekken dan bij pakket zeven.
   useEffect(() => {
-    const onRejection = (e: PromiseRejectionEvent) => {
-      console.error('[ScanFout] UNHANDLED REJECTION |',
-        'name:', (e.reason as any)?.name, '| message:', (e.reason as any)?.message, e.reason);
-    };
-    window.addEventListener('unhandledrejection', onRejection);
-    return () => window.removeEventListener('unhandledrejection', onRejection);
+    let cancelled = false;
+    ensureFreshSession().then(res => {
+      if (cancelled || res.ok) return;
+      console.warn('[Auth] Sessie niet bruikbaar bij openen scanner:', res.reason);
+      setScanFault({
+        title: 'Je sessie is verlopen',
+        text:  'Log opnieuw in voordat je begint met scannen. Zo raak je onderweg geen pakketten kwijt.',
+        needsLogin: true,
+      });
+    }).catch(err => console.error('[Auth] Sessiecontrole mislukt:', err));
+    return () => { cancelled = true; };
   }, []);
 
   // Camera setup — uitgelicht uit de useEffect zodat "Probeer opnieuw" hem
@@ -250,19 +312,29 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           setAddressNotice({ count: outcome.sameAddressCount, address: finalAddress });
           if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
           noticeTimerRef.current = window.setTimeout(() => setAddressNotice(null), 4000);
+        }).catch(err => {
+          // Zonder deze catch verdwijnt een opslagfout als unhandled rejection:
+          // de tegel staat dan groen terwijl het pakket nergens is opgeslagen.
+          console.error('[Scan] Opslaan na scan mislukt | scanId:', scanId,
+            '| name:', err?.name, '| status:', err?.status, '| message:', err?.message, err);
+          if (!activeScansRef.current.has(scanId)) return;
+          const fault = describeScanError(err);
+          setScanFault(fault);
+          markUnverified(scanId, `Niet opgeslagen — ${fault.title.toLowerCase()}`);
         });
       } else {
         // ROOD + LUID: niet geverifieerd, niet stil accepteren
         markUnverified(scanId, UNVERIFIED_MSG);
       }
     } catch (err: any) {
-      // TIJDELIJKE DIAGNOSTIEK [ScanFout] — deze catch slikte de oorzaak volledig
-      // op, waardoor elke fout als "Verwerking mislukt" op het scherm kwam.
-      console.error('[ScanFout] processScan gooide | scanId:', scanId,
-        '| name:', err?.name, '| message:', err?.message,
-        '| scan nog actief:', activeScansRef.current.has(scanId), err);
+      console.error('[Scan] processScan gooide | scanId:', scanId,
+        '| name:', err?.name, '| status:', err?.status, '| message:', err?.message, err);
       if (activeScansRef.current.has(scanId)) {
-        markUnverified(scanId, 'Verwerking mislukt — scan opnieuw');
+        const fault = describeScanError(err);
+        // Een verlopen sessie of rate limit is geen scanfout: die geldt voor élke
+        // volgende scan, dus die tonen we blokkerend in plaats van als rode tegel.
+        setScanFault(fault);
+        markUnverified(scanId, fault.title);
       }
     } finally {
       semaphore.current--;
@@ -426,6 +498,51 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
               <p className="text-sm font-black leading-tight text-center">
                 📸 Foto gemaakt — je kunt verder scannen
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Blokkerende storing: geldt voor élke volgende scan, dus niet als rode
+            tegel maar als melding die het scannen stopzet. Bij een verlopen sessie
+            is dit geen scanfout en mag er dus ook niet "scan opnieuw" staan. */}
+        {scanFault && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-8 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl px-5 py-5 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+                  <AlertCircle size={20} className="text-red-500" />
+                </div>
+                <p className="font-display font-black text-[#191c1e] text-base leading-tight">
+                  {scanFault.title}
+                </p>
+              </div>
+              <p className="text-sm text-[#3d4945] font-body leading-snug">{scanFault.text}</p>
+              {scanFault.detail && (
+                <p className="mt-2 text-[11px] text-[#3d4945]/60 font-body break-words">
+                  {scanFault.detail}
+                </p>
+              )}
+              {scanFault.needsLogin ? (
+                <button
+                  onClick={() => {
+                    activeScansRef.current.clear();
+                    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+                    (onSessionExpired ?? onCancel)();
+                  }}
+                  className="mt-4 w-full h-11 text-white rounded-full font-display font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  style={{ background: 'linear-gradient(135deg, #006b5a, #48c2a9)' }}
+                >
+                  Opnieuw inloggen
+                </button>
+              ) : (
+                <button
+                  onClick={() => setScanFault(null)}
+                  className="mt-4 w-full h-11 bg-red-500 text-white rounded-full font-display font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <RefreshCw size={16} />
+                  Verder scannen
+                </button>
+              )}
             </div>
           </div>
         )}

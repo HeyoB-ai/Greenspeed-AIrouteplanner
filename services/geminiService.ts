@@ -12,6 +12,20 @@ const MODEL = 'gemini-2.5-flash';
  * Stuurt een verzoek naar de Netlify proxy-functie die de Gemini API aanroept.
  * De API key blijft op de server — nooit zichtbaar in de browser.
  */
+/**
+ * Fout van de Gemini-proxy mét HTTP-status. Zonder de status kan de Scanner geen
+ * onderscheid maken tussen een verlopen sessie (401), een rate limit (429) en een
+ * echte verwerkingsfout — allemaal zagen ze er hetzelfde uit.
+ */
+export class GeminiProxyError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'GeminiProxyError';
+    this.status = status;
+  }
+}
+
 const MAX_RETRIES = 3;
 // 429 niet meer retrybaar — de proxy doet een eigen rate limit, dus retryen
 // is zinloos én vermenigvuldigt het probleem. 503 is wel een tijdelijke
@@ -58,18 +72,16 @@ async function callGemini(requestBody: object): Promise<string | null> {
         raw = JSON.stringify(errData).slice(0, 300);
         errMsg = errData?.error?.message || errData?.error || errMsg;
       } catch {}
-      // TIJDELIJKE DIAGNOSTIEK [ScanFout] — de HTTP-status is de snelste manier om
-      // 401 (auth), 429 (rate limit) en 500 (ontbrekende key) te onderscheiden.
-      console.error('[ScanFout] Gemini-proxy HTTP', response.status, response.statusText,
+      console.error('[Gemini] Proxy HTTP', response.status, response.statusText,
         '| body:', raw, '| errMsg:', errMsg);
-      throw new Error(errMsg);
+      throw new GeminiProxyError(errMsg, response.status);
     }
 
     const data = await response.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
   }
 
-  throw new Error('Gemini rate limit bereikt na meerdere pogingen');
+  throw new GeminiProxyError('Gemini rate limit bereikt na meerdere pogingen', 429);
 }
 
 export async function extractAddressFromImage(
