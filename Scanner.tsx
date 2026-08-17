@@ -296,6 +296,20 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
           </div>
         )}
 
+        {/* Bevestiging dat de foto al binnen is. Zonder dit denken koeriers dat ze de
+            camera stil moeten houden tijdens de 6-7s Gemini-verwerking, terwijl de
+            capture al klaar is op het moment van de flits. Zichtbaar zolang er een
+            zandlopertje draait; verdwijnt als de laatste tile zijn vinkje krijgt. */}
+        {pendingScans > 0 && (
+          <div className="absolute top-16 left-4 right-4 z-30 pointer-events-none animate-in fade-in slide-in-from-top duration-200">
+            <div className="bg-[#d7e2fe] text-[#101c30] rounded-2xl px-4 py-2.5 shadow-2xl flex items-center justify-center">
+              <p className="text-sm font-black leading-tight text-center">
+                📸 Foto gemaakt — je kunt verder scannen
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Scan frame met hoek-accenten */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
           <div className="w-full max-w-md aspect-[4/3] border-2 border-white/20 rounded-3xl relative shadow-[0_0_0_2000px_rgba(0,0,0,0.65)]">
