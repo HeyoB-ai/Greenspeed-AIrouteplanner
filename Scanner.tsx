@@ -102,6 +102,18 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
   const onScanCompleteRef = useRef(onScanComplete);
   useEffect(() => { onScanCompleteRef.current = onScanComplete; }, [onScanComplete]);
 
+  // TIJDELIJKE DIAGNOSTIEK [ScanFout] — de melding-logica draait bewust buiten de
+  // try/catch van processScan. Een fout in handleNewScan komt daardoor niet in de
+  // catch terecht maar als unhandled rejection; hier wordt die zichtbaar.
+  useEffect(() => {
+    const onRejection = (e: PromiseRejectionEvent) => {
+      console.error('[ScanFout] UNHANDLED REJECTION |',
+        'name:', (e.reason as any)?.name, '| message:', (e.reason as any)?.message, e.reason);
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, []);
+
   // Camera setup — uitgelicht uit de useEffect zodat "Probeer opnieuw" hem
   // opnieuw kan aanroepen. De stream hangt aan een ref in plaats van een
   // effect-lokale variabele, anders kan de cleanup een latere stream niet stoppen.
@@ -170,8 +182,11 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
     }
     semaphore.current++;
     try {
+      // TIJDELIJKE DIAGNOSTIEK [ScanFout] — welke stap haalt het wel/niet
+      console.log('[ScanFout] 1. Gemini-aanroep start | scanId:', scanId, '| base64:', base64.length);
       // base64 is een lokale parameter — geen gedeelde variabele, geen stale closure
       const result = await extractAddressFromImage(base64);
+      console.log('[ScanFout] 2. Gemini terug | scanId:', scanId, '| result:', JSON.stringify(result ?? null));
 
       // Scanner gesloten terwijl Gemini bezig was — resultaat weggooien
       if (!activeScansRef.current.has(scanId)) return;
@@ -188,6 +203,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
       // Officiële BAG-validatie via PDOK vóór definitief opslaan
       const norm = (s?: string | null) => (s ?? '').toLowerCase().replace(/\s+/g, '');
       const pdok = await validateAddressPDOK(address.postalCode, address.houseNumber);
+      console.log('[ScanFout] 3. PDOK terug | scanId:', scanId, '| found:', pdok.found);
 
       // Scanner ondertussen gesloten — resultaat weggooien
       if (!activeScansRef.current.has(scanId)) return;
@@ -239,7 +255,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onCancel }) => {
         // ROOD + LUID: niet geverifieerd, niet stil accepteren
         markUnverified(scanId, UNVERIFIED_MSG);
       }
-    } catch {
+    } catch (err: any) {
+      // TIJDELIJKE DIAGNOSTIEK [ScanFout] — deze catch slikte de oorzaak volledig
+      // op, waardoor elke fout als "Verwerking mislukt" op het scherm kwam.
+      console.error('[ScanFout] processScan gooide | scanId:', scanId,
+        '| name:', err?.name, '| message:', err?.message,
+        '| scan nog actief:', activeScansRef.current.has(scanId), err);
       if (activeScansRef.current.has(scanId)) {
         markUnverified(scanId, 'Verwerking mislukt — scan opnieuw');
       }

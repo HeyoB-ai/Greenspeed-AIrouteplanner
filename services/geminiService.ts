@@ -52,10 +52,16 @@ async function callGemini(requestBody: object): Promise<string | null> {
 
     if (!response.ok) {
       let errMsg = `Gemini proxy error ${response.status}`;
+      let raw = '';
       try {
         const errData = await response.json();
+        raw = JSON.stringify(errData).slice(0, 300);
         errMsg = errData?.error?.message || errData?.error || errMsg;
       } catch {}
+      // TIJDELIJKE DIAGNOSTIEK [ScanFout] — de HTTP-status is de snelste manier om
+      // 401 (auth), 429 (rate limit) en 500 (ontbrekende key) te onderscheiden.
+      console.error('[ScanFout] Gemini-proxy HTTP', response.status, response.statusText,
+        '| body:', raw, '| errMsg:', errMsg);
       throw new Error(errMsg);
     }
 
