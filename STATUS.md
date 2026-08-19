@@ -1,8 +1,43 @@
 # Status — koeriersfeedback
 
-Bijgewerkt: 17 augustus 2026
+Bijgewerkt: 19 augustus 2026
 
 Statuswaarden: `open` · `in behandeling` · `gedaan` · `vervallen`
+
+## Livegang
+
+**Doel: binnen een maand live, gesteld op 19 augustus 2026.**
+
+De app is nog **niet in productie**. Er wordt met echte pakjes en echte routes getest, maar dit is een testomgeving.
+
+Bij de livegang wordt alle data gewist en wordt met een schone database begonnen. Daarna worden **67 apotheken** en **meer dan 50 bezorgers** ingevoerd en aan de juiste apotheken gekoppeld. Pas daarna gaat het systeem echt van start.
+
+Twee kaders waar al het werk hieronder binnen valt:
+
+- **Alle openstaande punten in dit document worden vóór de livegang opgepakt.** Er wordt niets doorgeschoven naar erna.
+- **Geen grote refactor van de bestaande code.** Het schema-werk valt samen met het opzetten van de schone database; dat is het natuurlijke moment en er is geen tweede.
+
+### Fasering
+
+**Week 1 — Fundament**
+
+Schema in migraties vastleggen: `packages`, `statusHistory` en de RLS-policies staan nu buiten versiebeheer. De policy uit `c2ee76c` testen en meenemen. `tsconfig.json` repareren en de 15 typefouten wegwerken.
+
+Parallel, en dit is vragen stellen in plaats van code schrijven: uitzoeken hoe de import van apotheken en het koppelproces voor koeriers eruit moeten zien. Dat is de grootste onbekende.
+
+**Week 2 — Koerierspunten**
+
+De tien punten uit de tweede feedbackronde plus de openstaande punten uit de eerste.
+
+De retour-bug voorop: een opmerking bij "andere reden" zet het pakket op retour terwijl het bezorgd is (`NotHomeSheet.tsx`, de optie `custom` heeft `status: PackageStatus.RETURN`). De apotheek krijgt daardoor verkeerde informatie over waar medicijnen zijn.
+
+**Week 3 — Livegang-machinerie**
+
+Import van 67 apotheken. Koppelproces voor 50+ koeriers. Accounts opschonen. Database leegmaken en opnieuw opbouwen uit migraties.
+
+**Week 4 — Testen en marge**
+
+Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij. Ruimte voor wat er dan blijkt.
 
 ## Tabel 1 — Koeriersfeedback
 
