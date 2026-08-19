@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Package as PackageType, PackageStatus, DeliveryEvidence, Institution, Pharmacy, Address } from '../types';
 import { addressKey } from '../utils/addressKey';
-import { buzz } from '../services/sound';
 import {
   Navigation, CheckCircle, X, Clock, Check, List,
   Truck, ScanLine, PenLine, ArrowRight, Loader2,
@@ -49,11 +48,6 @@ interface Stop {
 
 const isActionable = (pkg: PackageType): boolean =>
   [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(pkg.status);
-
-// Long-press om een afgeronde tegel weer bewerkbaar te maken. Statuswijzigingen
-// waren onomkeerbaar: één misklik op "Afgeleverd" of een niet-thuis-reden en het
-// pakket zat vast in de grijze lijst.
-const LONG_PRESS_MS = 800;
 
 const getStatusLabel = (status: PackageStatus): string => {
   switch (status) {
@@ -114,64 +108,24 @@ const CourierView: React.FC<Props> = ({
   const [startFrom, setStartFrom]                   = useState<string>('current');
   const [deliveredInstitutions, setDeliveredInstitutions] = useState<Set<string>>(new Set());
   const [showMoreMenu, setShowMoreMenu]             = useState(false);
-  // Tegels die via long-press tijdelijk weer bewerkbaar zijn gemaakt
+  // Tegels die via de Wijzigen-chip weer bewerkbaar zijn gemaakt
   const [unlockedIds, setUnlockedIds]               = useState<Set<string>>(new Set());
-  const [pressingId, setPressingId]                 = useState<string | null>(null);
-  const [pressFill, setPressFill]                   = useState(false);
-  const pressTimerRef = useRef<number | null>(null);
 
   const linkedPharmacies = activePharmacies ?? [];
 
-  const cancelPress = () => {
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current);
-      pressTimerRef.current = null;
-    }
-    setPressingId(null);
-    setPressFill(false);
-  };
-
-  const startPress = (pkg: PackageType) => {
-    // Alleen afgeronde tegels die nog op slot zitten
-    if (isActionable(pkg) || unlockedIds.has(pkg.id)) return;
-    // Op touch-toestellen vuren de muis-events ook; die tweede aanroep negeren
-    if (pressTimerRef.current) return;
-
-    setPressingId(pkg.id);
-    setPressFill(false);
-    // Eerst renderen op 0%, dan pas naar 100% — anders draait de transitie niet
-    requestAnimationFrame(() => setPressFill(true));
-
-    pressTimerRef.current = window.setTimeout(() => {
-      pressTimerRef.current = null;
-      setPressingId(null);
-      setPressFill(false);
-      buzz(40); // zelfde signaal als een geslaagde scan
-
-      if (pkg.status === PackageStatus.REMOVED) {
-        // Terugzetten in de rit is ingrijpender dan een status corrigeren
-        if (confirm('Dit pakket terugzetten in de rit?')) {
-          onUpdateMany([pkg.id], PackageStatus.ASSIGNED);
-        }
-        return;
+  // Statuswijzigingen waren onomkeerbaar: één misklik op "Afgeleverd" of een
+  // niet-thuis-reden en het pakket zat vast in de grijze lijst.
+  const handleUnlock = (pkg: PackageType) => {
+    if (pkg.status === PackageStatus.REMOVED) {
+      // Terugzetten in de rit is ingrijpender dan een status corrigeren
+      if (confirm('Dit pakket terugzetten in de rit?')) {
+        onUpdateMany([pkg.id], PackageStatus.ASSIGNED);
       }
-      // Afgeleverd en niet-thuis: direct bewerkbaar, geen extra bevestiging —
-      // de koerier staat op straat en corrigeert een misklik
-      setUnlockedIds(prev => new Set(prev).add(pkg.id));
-    }, LONG_PRESS_MS);
-  };
-
-  useEffect(() => () => { if (pressTimerRef.current) clearTimeout(pressTimerRef.current); }, []);
-
-  // Long-press mag niet vuren tijdens het scrollen door de lijst
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!pressTimerRef.current) return;
-    const t = e.touches[0];
-    if (!t) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
-      cancelPress();
+      return;
     }
+    // Afgeleverd en niet-thuis: direct bewerkbaar, geen extra bevestiging —
+    // de koerier staat op straat en corrigeert een misklik
+    setUnlockedIds(prev => new Set(prev).add(pkg.id));
   };
 
   const handleRouteClick = (ids: string[]) => {
@@ -714,32 +668,19 @@ const CourierView: React.FC<Props> = ({
         </div>
       ) : sortedPackages.length === 0 ? null : (
         <div className="space-y-2">
-          {sortedPackages.map(pkg => (
+          {sortedPackages.map(pkg => {
+            const isLocked = !isActionable(pkg) && !unlockedIds.has(pkg.id);
+            return (
             <div
               key={pkg.id}
-              className={`relative bg-white rounded-2xl overflow-hidden transition-opacity ${
-                (pkg.status === PackageStatus.REMOVED || !isActionable(pkg)) && !unlockedIds.has(pkg.id)
-                  ? 'opacity-60 select-none'
-                  : ''
-              }`}
+              className="bg-white rounded-2xl overflow-hidden"
               style={{ boxShadow: '0 4px 24px rgba(25,28,30,0.04)' }}
-              onTouchStart={() => startPress(pkg)}
-              onTouchEnd={cancelPress}
-              onTouchCancel={cancelPress}
-              onTouchMove={handleTouchMove}
-              onMouseDown={() => startPress(pkg)}
-              onMouseUp={cancelPress}
-              onMouseLeave={cancelPress}
-              onContextMenu={e => { if (pressingId === pkg.id) e.preventDefault(); }}
             >
-              {/* Voortgang van de long-press — vult in 800 ms de onderrand */}
-              {pressingId === pkg.id && (
-                <div className="absolute bottom-0 left-0 h-1 bg-[#006b5a] z-10 rounded-full"
-                  style={{ width: pressFill ? '100%' : '0%', transition: `width ${LONG_PRESS_MS}ms linear` }}
-                />
-              )}
-              {/* Info sectie */}
-              <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+              {/* Info sectie — gedimd zolang de tegel afgerond en vergrendeld is.
+                  De dimming zit bewust hier en niet op de hele kaart: CSS-opacity
+                  werkt door op alle kinderen, waardoor de Wijzigen-chip in de
+                  statusrij mee zou vervagen en juist onleesbaar zou worden. */}
+              <div className={`flex items-center gap-3 px-4 pt-4 pb-3 transition-opacity ${isLocked ? 'opacity-60' : ''}`}>
 
                 {/* Pakjenummer badge */}
                 <div
@@ -834,17 +775,24 @@ const CourierView: React.FC<Props> = ({
                       })}
                     </span>
                   )}
-                  {/* Zonder deze hint vindt niemand de long-press. Vervangt de
-                      losse "Ongedaan maken"-knop, die alleen DELIVERED dekte. */}
-                  {!unlockedIds.has(pkg.id) && (
-                    <span className="ml-auto text-[10px] font-body font-bold text-[#3d4945]/50 whitespace-nowrap shrink-0">
-                      lang indrukken om te wijzigen
-                    </span>
+                  {/* Ontgrendelt de tegel zodat de statusknoppen terugkomen. Staat
+                      buiten de gedimde sectie en houdt dus vol contrast. */}
+                  {isLocked && (
+                    <button
+                      onClick={() => handleUnlock(pkg)}
+                      className="ml-auto h-11 min-w-[44px] px-3.5 inline-flex items-center gap-1.5 shrink-0
+                                 rounded-full bg-[#f2f4f6] border border-[#6d7a75] text-[#006b5a]
+                                 text-xs font-display font-bold active:scale-95 transition-all"
+                    >
+                      <PenLine size={14} />
+                      Wijzigen
+                    </button>
                   )}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
           {actionableCount === 0 && onNewRit && (
             <button
               onClick={onNewRit}

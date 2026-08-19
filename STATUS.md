@@ -14,7 +14,7 @@ Statuswaarden: `open` · `in behandeling` · `gedaan` · `vervallen`
 | 2 | Laatst gescande adres bovenaan / lijst omgekeerd sorteren | gedaan | `f04ce75` |
 | 3 | Verwijderd pakket blijft in de lijst staan | open | `?` |
 | 4 | Opmerkingenveld per adres | vervallen | — |
-| 5 | Status afgeleverd niet terug te draaien | in behandeling | `6edf051` |
+| 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `?` |
 | 6 | Melding bij tweede scan van hetzelfde adres | in behandeling | `531e082` |
 | 7 | Huisnummer onzichtbaar bij lange straatnaam | open | `?` |
 
@@ -36,7 +36,11 @@ Statuswaarden: `open` · `in behandeling` · `gedaan` · `vervallen`
 
 **4 — Opmerkingenveld.** Bewuste keuze om dit niet te bouwen.
 
-**5 — Afgeleverd terugdraaien.** De knop "↩ Ongedaan maken" staat op pakketten met status `DELIVERED` en zet ze terug naar `ASSIGNED`. Werkt niet voor pakketten in de grijze lijst — nog te reproduceren en af te bakenen welke statussen daar precies onder vallen. Bewust níét van toepassing op `MAILBOX`, `NEIGHBOUR`, `RETURN`, `MOVED` en `OTHER_LOCATION`.
+**5 — Afgeleverd en niet-thuis terugdraaien.** Elke afgeronde tegel heeft een "Wijzigen"-chip in de statusrij die de statusknoppen terugbrengt, voor alle eindstatussen. `REMOVED` vraagt eerst om bevestiging; afgeleverd en niet-thuis ontgrendelen direct.
+
+Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6f9c5` verving die door een long-press van 800 ms met een hint op ~1,7:1 — dekking van alle statussen, maar de vindbaarheid ging erop achteruit. Daarna vervangen door een aantikbare chip met rand en pictogram op 5,86:1, waarmee de long-press-machinerie volledig is verwijderd.
+
+**Staat op "in behandeling", niet op "gedaan": geen van deze drie varianten is op een toestel bevestigd.** Te controleren: of de chip met 44 px raakhoogte goed te raken is naast de statusbadge, en of de bevestigingsdialoog bij `REMOVED` op iOS niet in de weg zit.
 
 **6 — Melding bij tweede scan.** Gebouwd op de gedeelde helper `utils/addressKey.ts`: amber melding in het scankader, eigen attentietoon, en een amber label op de tegels. Blokkeert niets — het pakket wordt altijd toegevoegd. **Nog niet op een toestel bevestigd.** Bijbehorende openstaande melding: een tweede pakket op hetzelfde adres verdween in de praktijk; de tijdelijke `[DubbelAdres]`-logging uit `ad6f8dd` staat nog live om dat te herleiden. Mogelijk dezelfde oorzaak als de verlopen sessie (zie Openstaande diagnostiek).
 
