@@ -98,6 +98,22 @@ De code schrijft ze niet meer: bij een status in de actieve groep of `REMOVED` w
 
 **De bestaande rijen staan er nog.** Opschoonqueries staan klaar in `supabase/cleanup_deliveredAt.sql` — bewust buiten `supabase/migrations/` zodat ze niet met een deploy meelopen. Volgorde: eerst tellen, dan de risicoquery, dan pas de update. Nog niet uitgevoerd.
 
+## Ontbrekende controles
+
+**Er bestaat geen ritcontrole.** Nergens wordt gecontroleerd of alles van vandaag is afgehandeld. Wat er is, zijn tellers zonder bewaking:
+
+| Wat | Waar | Kijkt naar |
+|:--|:--|:--|
+| `actionableCount` / `doneCount` / voortgangspercentage | `CourierView.tsx` | `status` via `isActionable` |
+| `"{n} te bezorgen · {n} klaar"` | `CourierView.tsx` | idem |
+| `"Alle stops afgerond"` | `CourierView.tsx`, stops-lijst | `stops.length === 0` |
+| `canFinish` | `Scanner.tsx` | `pendingScans` — gaat over Gemini-verwerking, niet over bezorging |
+| `deliveryRate` per apotheek | `PharmacyOverview.tsx` | `status` |
+
+Geen daarvan blokkeert of waarschuwt. "Nieuwe rit starten" (`handleNewRit`) vraagt alleen "Nieuwe rit starten? De huidige rit wordt gearchiveerd" en verwijdert de pakketten van deze koerier uit de lokale state, ongeacht hoeveel er nog op `ASSIGNED` of `PICKED_UP` staan. Een koerier kan dus met onbezorgde pakketten een nieuwe rit beginnen zonder dat iets dat opmerkt.
+
+Te beslissen: waarschuwing bij het starten van een nieuwe rit met openstaande pakketten, en of er een dagafsluiting hoort te zijn die de apotheek meldt wat er is blijven liggen.
+
 ## Bekende techniek-schuld
 
 - **`tsc --noEmit` checkt nul bestanden.** `tsconfig.json` heeft `"include": ["src"]` terwijl alle bronbestanden in de root staan. Een echte typecheck vereist een tijdelijke config die `App.tsx`, `Scanner.tsx`, `components`, `services` en `utils` meeneemt. Baseline: 15 fouten (2 `App.tsx`, 2 `ArchiveView.tsx`, 8 `DienstCheck.tsx`, 3 `supabaseService.ts`).
