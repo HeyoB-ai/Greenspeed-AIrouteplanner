@@ -40,6 +40,11 @@ const OPEN_STATUSES = [
   PackageStatus.PICKED_UP,
 ];
 
+// Enige definitie van "nog te bezorgen". De pakket-variant hieronder en de
+// deliveredAt-regel in updateMultipleStatus leiden hier allebei van af.
+const isActionableStatus = (status: PackageStatus): boolean =>
+  [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(status);
+
 const enrichWithHistory = (pkg: Package): Package => {
   if (pkg.statusHistory && pkg.statusHistory.length > 0) return pkg;
   const history: StatusEvent[] = [{ status: PackageStatus.PENDING, timestamp: pkg.createdAt }];
@@ -1061,11 +1066,18 @@ const App: React.FC = () => {
           timestamp: evidence?.timestamp ?? new Date().toISOString(),
           note:      evidence?.deliveryNote,
         };
+        // Terug in de actieve groep, of uit de rit gehaald? Dan hoort er geen
+        // bezorgtijdstip meer aan te hangen. Bleef dat staan, dan hield een pakket
+        // dat nog bezorgd moest worden een deliveredAt uit een eerdere poging —
+        // wat doorwerkt in de urenberekening en in de Track & Trace-tekst.
+        // Expliciet null, niet undefined: undefined valt weg bij JSON.stringify
+        // en laat de kolom in Supabase dan ongemoeid.
+        const backToActive = isActionableStatus(status) || status === PackageStatus.REMOVED;
         const updated: Package = {
           ...p,
           status,
           deliveryEvidence: evidence,
-          deliveredAt: evidence?.timestamp ?? p.deliveredAt,
+          deliveredAt: backToActive ? null : (evidence?.timestamp ?? p.deliveredAt),
           statusHistory: [...(p.statusHistory ?? [{ status: p.status, timestamp: p.createdAt }]), newEvent],
         };
         pkgsToSync.push(updated);
@@ -1081,8 +1093,7 @@ const App: React.FC = () => {
     }
   };
 
-  const isActionable = (pkg: Package): boolean =>
-    [PackageStatus.ASSIGNED, PackageStatus.PICKED_UP].includes(pkg.status);
+  const isActionable = (pkg: Package): boolean => isActionableStatus(pkg.status);
 
   const handleNewRit = useCallback(() => {
     if (!confirm('Nieuwe rit starten? De huidige rit wordt gearchiveerd.')) return;

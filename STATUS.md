@@ -90,6 +90,14 @@ Opgeloste diagnostiek, logging inmiddels verwijderd of vervangen door permanente
 | `[ScanCam]` | `ec792b5` | Zwart camerabeeld op iOS — camerarechten niet gegeven in standalone-modus. Opgelost met een uitleg-melding in `9a7ff0d`; manifest ongewijzigd |
 | `[ScanFout]` | `b765319` | "Verwerking mislukt" bij elke scan — verlopen Supabase-sessie, afgewezen door `verifyAuth` vóór de eerste `[gemini]`-log. Opgelost in `1950bf6` |
 
+## Openstaande data-opschoning
+
+**Verweesde `deliveredAt`-waarden.** `updateMultipleStatus` behield het bezorgtijdstip bij elke statuswijziging zonder evidence, dus een pakket dat werd teruggezet naar `ASSIGNED` hield zijn oude `deliveredAt`. Dat werkt door in de urenberekening (`lastDelivery` → `totalHours` → gefactureerde uren, in `supabaseService.ts` en `netlify/functions/users-overview.ts`) en in het tijdstip dat Track & Trace aan de patiënt toont.
+
+De code schrijft ze niet meer: bij een status in de actieve groep of `REMOVED` wordt `deliveredAt` nu expliciet op `null` gezet.
+
+**De bestaande rijen staan er nog.** Opschoonqueries staan klaar in `supabase/cleanup_deliveredAt.sql` — bewust buiten `supabase/migrations/` zodat ze niet met een deploy meelopen. Volgorde: eerst tellen, dan de risicoquery, dan pas de update. Nog niet uitgevoerd.
+
 ## Bekende techniek-schuld
 
 - **`tsc --noEmit` checkt nul bestanden.** `tsconfig.json` heeft `"include": ["src"]` terwijl alle bronbestanden in de root staan. Een echte typecheck vereist een tijdelijke config die `App.tsx`, `Scanner.tsx`, `components`, `services` en `utils` meeneemt. Baseline: 15 fouten (2 `App.tsx`, 2 `ArchiveView.tsx`, 8 `DienstCheck.tsx`, 3 `supabaseService.ts`).

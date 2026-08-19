@@ -79,7 +79,9 @@ export interface Package {
   courierId?:   string;
   courierName?: string;  // naam van de koerier voor weergave
   createdAt: string;
-  deliveredAt?: string;
+  // null = expliciet gewist (bijv. bij terugzetten naar de actieve groep).
+  // undefined zou door JSON.stringify wegvallen en de kolom in Supabase ongemoeid laten.
+  deliveredAt?: string | null;
   deliveryEvidence?: DeliveryEvidence;
   priority: number;
   orderIndex?: number;
