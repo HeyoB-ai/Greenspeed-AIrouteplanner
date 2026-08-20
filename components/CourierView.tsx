@@ -8,7 +8,7 @@ import {
   Map as MapIcon, RefreshCw, Building2, Trash2, Plus, MoreHorizontal
 } from 'lucide-react';
 import NotHomeSheet from './NotHomeSheet';
-import RouteMapModal from './RouteMapModal';
+import RouteMapModal, { type RouteStop } from './RouteMapModal';
 import type { RouteGeometry } from '../services/geminiService';
 
 interface Props {
@@ -221,13 +221,15 @@ const CourierView: React.FC<Props> = ({
     return counts;
   }, [sortedPackages]);
 
-  // Adressen van de stops waar de Routes API-cijfers over gaan — basis voor de
-  // bezorgtijd-schatting in de routekaart.
-  const routeAddresses = useMemo<Address[]>(() => {
+  // Pakketten in bezorgvolgorde — voedt de markers, de stops-teller en de
+  // bezorgtijd-schatting in de routekaart. Bewust de pakketten zelf en niet de
+  // coords van de Routes API: die bevatten ook vertrek- en eindpunt.
+  const routeStops = useMemo<RouteStop[]>(() => {
     const ids = routeGeometry?.orderedIds ?? [];
     return ids
-      .map(id => packages.find(p => p.id === id)?.address)
-      .filter((a): a is Address => !!a);
+      .map(id => packages.find(p => p.id === id))
+      .filter((p): p is PackageType => !!p)
+      .map(p => ({ id: p.id, scanNumber: p.scanNumber, address: p.address }));
   }, [routeGeometry, packages]);
 
   const actionableCount = sortedPackages.filter(isActionable).length;
@@ -1107,7 +1109,7 @@ const CourierView: React.FC<Props> = ({
           coords={routeGeometry.coords}
           totalDistanceM={routeGeometry.totalDistanceM}
           totalDurationS={routeGeometry.totalDurationS}
-          stopAddresses={routeAddresses}
+          stops={routeStops}
           onClose={() => setShowRouteMap(false)}
         />
       )}

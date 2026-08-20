@@ -57,7 +57,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 
 | Punt | Omschrijving | Status | Commit |
 |:--|:--|:--|:--|
-| K1 | Nummers tonen bezorgvolgorde in plaats van pakketnummers | open | `?` |
+| K1 | Nummers tonen bezorgvolgorde in plaats van pakketnummers | gedaan | zie tweede ronde punt 1 |
 | K2 | Tijdsindicatie zonder bezorgtijd per pakje | gedaan | `268511c` |
 | K3 | Echte route tekenen | vervallen | — |
 
@@ -65,7 +65,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 
 | Punt | Omschrijving | Status | Commit |
 |:--|:--|:--|:--|
-| 1 | Kaart toont bezorgvolgorde in plaats van pakketnummers | open | `?` |
+| 1 | Kaart toont bezorgvolgorde in plaats van pakketnummers | gedaan | `?` |
 | 2 | Doorklikken naar Google Maps vertrok vanaf de apotheek | gedaan | `39b74b8` |
 | 3 | Na een niet-thuis-melding niets meer kunnen wijzigen | in behandeling | zie punt 5 eerste ronde |
 | 4 | Scanteller begint opnieuw bij 1 na onderbreken | open | `?` |
@@ -104,13 +104,17 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 ## Toelichting — tweede ronde
 
-**1 — Kaart toont bezorgvolgorde in plaats van pakketnummers.** *(zelfde punt als K1 eerste ronde)* **Geblokkeerd op een datakwestie, niet op de weergave.**
+**1 — Kaart toont bezorgvolgorde in plaats van pakketnummers.** *(zelfde punt als K1 eerste ronde)*
 
-`RouteMapModal.tsx:126-129` nummert met `i + 1` over `coords`, en `coords` is niet de pakkettenlijst. Het komt uit `netlify/functions/maps.ts:117-121` als `[legs[0].startLocation, ...elke legs.endLocation]`, dus inclusief het vertrek- en eindpunt van de route. Staat de route ingesteld op "vanaf apotheek" en "terug naar apotheek" — de standaard in `handleRouteClick` — dan bevat `coords` twee elementen méér dan er pakketten zijn.
+De markers kwamen uit `coords` — de leg-punten van de Routes API (`maps.ts:117-121`), inclusief vertrek- en eindpunt. Bij de standaard "vanaf apotheek, terug naar apotheek" bevatte `coords` twee elementen méér dan er pakketten zijn, en bij meer dan 25 stops werden de coords van meerdere clusters aan elkaar geplakt. Marker 1 was dus de apotheek, en `coords[i]` verwees niet naar `orderedIds[i]`.
 
-Gevolgen die nu al zichtbaar zijn: marker **1 is de apotheek**, niet het eerste pakket, en de teller "{n} stops" bovenaan de modal telt het vertrek- en eindpunt mee. Bij meer dan 25 stops worden de coords van meerdere clusters achter elkaar geplakt, waardoor het verschil per rit varieert.
+Opgelost door de markers uit de geordende pakketten te renderen. `coords` voedt alleen nog de `Polyline`, zodat de lijn de werkelijke route blijft volgen. Op de marker staat het **scannummer** — het nummer dat de koerier fysiek op het pakje schrijft. Bewust geen routepositie erbij: twee getallen zijn op 26 px onleesbaar. De volgorde blijft afleesbaar uit de lijn.
 
-Het scannummer is er dus niet zomaar op te plakken: `coords[i]` en `orderedIds[i]` verwijzen niet naar hetzelfde. Voorstel: de markers renderen uit de geordende pakketten (die hebben `lat`/`lng` uit PDOK/geocoding) en `coords` alleen nog gebruiken voor de `Polyline`. Dat lost de verschuiving en de stops-teller in één keer op. Vereist een beslissing, want het is meer dan alleen het getal in de marker vervangen.
+Vertrek- en eindpunt hebben nu een eigen marker: kleiner, zonder nummer, donkerblauw voor vertrek en oranje voor eind. Ze worden alleen getekend als ze niet samenvallen met het eerste of laatste pakket (marge ~20 m) — zonder extern startpunt ís `coords[0]` het eerste pakket.
+
+De stops-teller telt nu pakketten in plaats van `coords.length`, en heet "pakketten".
+
+**Pakketten zonder coördinaten krijgen geen marker.** Ze worden niet stil weggelaten maar boven de kaart genoemd met scannummer en adres, met de zin dat ze wel bezorgd moeten worden. `FitBounds` neemt de pakketposities mee, zodat er niets buiten beeld valt als de Routes API weinig teruggaf.
 
 **2 — Doorklikken naar Google Maps.** `handleNavigate` bepaalde een `origin` op basis van de positie in de lijst: bij de eerste stop het apotheekadres, daarna het adres van de vorige stop. Omdat afgehandelde pakketten uit die lijst verdwijnen, is het doelpakket bijna altijd de eerste — dus kreeg de koerier telkens de route vanaf de apotheek. De hele `originParam`-berekening is verwijderd; zonder `origin` vertrekt Google Maps vanaf de GPS-positie van het toestel. `handleNavigateToInstitution` had deze constructie niet en is ongewijzigd.
 

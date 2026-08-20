@@ -17,25 +17,56 @@ import { addressKey } from '../utils/addressKey';
 const STOP_SECONDS_PER_ADDRESS       = 90; // aanbellen, overdracht, terug naar de fiets
 const STOP_SECONDS_PER_EXTRA_PACKAGE = 15; // tweede/derde pakket op hetzelfde adres
 
+/** Eén pakket in de geoptimaliseerde volgorde. */
+export interface RouteStop {
+  id:          string;
+  scanNumber?: number;
+  address:     Address;
+}
+
 interface Props {
   coords:         LatLng[];
   totalDistanceM: number;
   totalDurationS: number;
-  /** Adressen van de stops in deze route — bepaalt de geschatte bezorgtijd. */
-  stopAddresses?: Address[];
+  /** Pakketten in bezorgvolgorde — voedt de markers, de teller en de bezorgtijd. */
+  stops?:         RouteStop[];
   onClose:        () => void;
 }
 
-const numberedIcon = (n: number, color: string) =>
+// Marge waarbinnen twee coördinaten als hetzelfde punt gelden. ~0,0002° is op
+// deze breedtegraad ruwweg 20 m: genoeg om het verschil tussen de leg-coördinaat
+// van Google en de PDOK-coördinaat van hetzelfde adres te overbruggen.
+const SAME_POINT_DEG = 0.0002;
+
+const isSamePoint = (a?: LatLng | null, b?: { lat?: number | null; lng?: number | null } | null): boolean => {
+  if (!a || b?.lat == null || b?.lng == null) return false;
+  return Math.abs(a.lat - b.lat) < SAME_POINT_DEG && Math.abs(a.lng - b.lng) < SAME_POINT_DEG;
+};
+
+// Pakketmarker: toont het scannummer dat de koerier op het pakje schrijft.
+// Bewust niet de routepositie erbij — twee getallen zijn op 26 px onleesbaar.
+const scanIcon = (scanNumber?: number) =>
   L.divIcon({
     className: '',
     html: `<div style="
-      background:${color};color:#fff;width:26px;height:26px;border-radius:50%;
+      background:#006b5a;color:#fff;width:26px;height:26px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;font-weight:800;
       font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);
-    ">${n}</div>`,
+    ">${scanNumber ?? '?'}</div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
+  });
+
+// Vertrek- en eindpunt zijn geen pakketten: kleiner, zonder nummer, eigen kleur.
+const endpointIcon = (color: string) =>
+  L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${color};width:16px;height:16px;border-radius:50%;
+      border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);
+    "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
   });
 
 const FitBounds: React.FC<{ coords: LatLng[] }> = ({ coords }) => {
@@ -49,12 +80,28 @@ const FitBounds: React.FC<{ coords: LatLng[] }> = ({ coords }) => {
   return null;
 };
 
-const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS, stopAddresses = [], onClose }) => {
+const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS, stops = [], onClose }) => {
   const km  = (totalDistanceM / 1000).toFixed(1);
   const hasStats = totalDistanceM > 0;
 
+  // Markers komen uit de pakketten, niet uit coords. coords bevat de leg-punten
+  // van de Routes API inclusief vertrek- en eindpunt, en bij meer dan 25 stops
+  // de punten van meerdere clusters achter elkaar — die index zegt niets over
+  // welk pakket het is.
+  const mappable   = stops.filter(s => s.address.lat != null && s.address.lng != null);
+  const unmappable = stops.filter(s => s.address.lat == null || s.address.lng == null);
+
+  // Vertrek- en eindpunt alleen tonen als ze niet samenvallen met het eerste of
+  // laatste pakket. Zonder extern startpunt ís coords[0] het eerste pakket, en
+  // dan zou er een tweede marker bovenop komen.
+  const first = coords[0];
+  const last  = coords[coords.length - 1];
+  const startPoint = coords.length > 0 && !isSamePoint(first, mappable[0]?.address) ? first : null;
+  const endPoint   = coords.length > 1 && !isSamePoint(last, mappable[mappable.length - 1]?.address) ? last : null;
+
   // Groepeer op adres: twee pakketten op één adres kosten één stop plus een
   // beetje extra, niet twee volle stops.
+  const stopAddresses   = stops.map(s => s.address);
   const uniqueAddresses = new Set(stopAddresses.map(addressKey)).size;
   const extraPackages   = Math.max(0, stopAddresses.length - uniqueAddresses);
 
@@ -63,8 +110,14 @@ const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS
     (uniqueAddresses * STOP_SECONDS_PER_ADDRESS + extraPackages * STOP_SECONDS_PER_EXTRA_PACKAGE) / 60
   );
   const totalMin = cyclingMin + deliveryMin;
-  const center: [number, number] = coords.length
-    ? [coords[0].lat, coords[0].lng]
+  // Alles wat de kaart moet omvatten: de route én de pakketmarkers. Zonder de
+  // markers erbij valt een pakket buiten beeld als de Routes API niets teruggaf.
+  const bounds: LatLng[] = [
+    ...coords,
+    ...mappable.map(s => ({ lat: s.address.lat!, lng: s.address.lng! })),
+  ];
+  const center: [number, number] = bounds.length
+    ? [bounds[0].lat, bounds[0].lng]
     : [52.0907, 5.1214];
 
   return (
@@ -89,8 +142,12 @@ const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS
         <div className="px-6 py-3 bg-[#f7f9fa]">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-full bg-[#006b5a] text-white text-xs font-black flex items-center justify-center">{coords.length}</span>
-              <span className="text-xs font-bold text-[#3d4945]">stops</span>
+              {/* Aantal pakketten, niet coords.length: dat telde vertrek- en
+                  eindpunt mee en bij clusters ook de tussenpunten daarvan. */}
+              <span className="w-7 h-7 rounded-full bg-[#006b5a] text-white text-xs font-black flex items-center justify-center">{stops.length}</span>
+              <span className="text-xs font-bold text-[#3d4945]">
+                {stops.length === 1 ? 'pakket' : 'pakketten'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Bike size={15} className="text-[#006b5a]" />
@@ -114,20 +171,49 @@ const RouteMapModal: React.FC<Props> = ({ coords, totalDistanceM, totalDurationS
           )}
         </div>
 
+        {/* Pakketten zonder coördinaten hebben geen marker. Ze stil weglaten zou
+            betekenen dat een te bezorgen pakket nergens opduikt, dus ze worden
+            hier bij scannummer genoemd. */}
+        {unmappable.length > 0 && (
+          <div className="px-6 py-2.5 bg-amber-100 text-amber-900">
+            <p className="text-xs font-black">
+              {unmappable.length} van {stops.length} {stops.length === 1 ? 'pakket staat' : 'pakketten staan'} niet op de kaart
+            </p>
+            <p className="text-[11px] font-bold mt-0.5 leading-snug">
+              Geen coördinaten gevonden voor {unmappable.map(s => `#${s.scanNumber ?? '?'}`).join(', ')}
+              {' '}— {unmappable.map(s => `${s.address.street} ${s.address.houseNumber}`).join(' · ')}.
+              Ze staan wel gewoon in de lijst en moeten bezorgd worden.
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 min-h-[320px]">
-          {coords.length === 0 ? (
+          {coords.length === 0 && mappable.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm font-bold text-[#3d4945]/60 py-10">
               Geen coördinaten beschikbaar voor deze route.
             </div>
           ) : (
             <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%', minHeight: 320 }}>
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {/* De lijn blijft de werkelijke route volgen — die komt uit coords */}
               <Polyline positions={coords.map(c => [c.lat, c.lng] as [number, number])} pathOptions={{ color: '#006b5a', weight: 4, opacity: 0.7 }} />
-              {coords.map((c, i) => {
-                const color = i === 0 ? '#253046' : i === coords.length - 1 ? '#c2410c' : '#006b5a';
-                return <Marker key={i} position={[c.lat, c.lng]} icon={numberedIcon(i + 1, color)} />;
-              })}
-              <FitBounds coords={coords} />
+
+              {startPoint && (
+                <Marker position={[startPoint.lat, startPoint.lng]} icon={endpointIcon('#253046')} title="Vertrekpunt" />
+              )}
+              {endPoint && (
+                <Marker position={[endPoint.lat, endPoint.lng]} icon={endpointIcon('#c2410c')} title="Eindpunt" />
+              )}
+
+              {mappable.map(s => (
+                <Marker
+                  key={s.id}
+                  position={[s.address.lat!, s.address.lng!]}
+                  icon={scanIcon(s.scanNumber)}
+                  title={`#${s.scanNumber ?? '?'} — ${s.address.street} ${s.address.houseNumber}`}
+                />
+              ))}
+              <FitBounds coords={bounds} />
             </MapContainer>
           )}
         </div>
