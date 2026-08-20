@@ -13,7 +13,7 @@ import {
 } from '../services/archiveService';
 import {
   Package, CheckCircle2, MailCheck, Users, Undo2,
-  XCircle, MapPin, TrendingUp, BarChart3, LayoutGrid,
+  XCircle, MapPin, TrendingUp, BarChart3, LayoutGrid, DoorClosed,
 } from 'lucide-react';
 
 // Fix Leaflet default icon paths broken by Vite bundling
@@ -212,7 +212,7 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
 
       {/* ── Niet-thuis rapportage ── */}
       {(() => {
-        const notHomeStatuses = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION, PackageStatus.FAILED];
+        const notHomeStatuses = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION, PackageStatus.NOT_HOME, PackageStatus.FAILED];
         const notHomePkgs = periodPackages.filter(p => notHomeStatuses.includes(p.status));
         if (notHomePkgs.length === 0) return null;
         return (
@@ -227,13 +227,15 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
               {notHomePkgs.map(p => (
                 <div key={p.id} className="px-5 py-3 flex items-start gap-3">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                    p.status === PackageStatus.RETURN  ? 'bg-amber-50'      :
+                    p.status === PackageStatus.RETURN   ? 'bg-amber-50'     :
+                    p.status === PackageStatus.NOT_HOME ? 'bg-amber-50'     :
                     p.status === PackageStatus.FAILED  ? 'bg-red-50'        :
                     'bg-[#f2f4f6]'
                   }`}>
                     {p.status === PackageStatus.MOVED          && <MapPin  size={14} className="text-[#3d4945]" />}
                     {p.status === PackageStatus.OTHER_LOCATION && <LayoutGrid size={14} className="text-[#3d4945]" />}
                     {p.status === PackageStatus.RETURN         && <Undo2   size={14} className="text-amber-600" />}
+                    {p.status === PackageStatus.NOT_HOME       && <DoorClosed size={14} className="text-amber-600" />}
                     {p.status === PackageStatus.FAILED         && <XCircle size={14} className="text-red-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -254,6 +256,7 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
                     p.status === PackageStatus.MOVED          ? 'bg-[#48c2a9]/15 text-[#006b5a]' :
                     p.status === PackageStatus.OTHER_LOCATION ? 'bg-[#f2f4f6] text-[#3d4945]' :
                     p.status === PackageStatus.RETURN         ? 'bg-amber-100 text-amber-700' :
+                    p.status === PackageStatus.NOT_HOME       ? 'bg-amber-100 text-amber-700' :
                     'bg-red-100 text-red-600'
                   }`}>
                     {p.status}

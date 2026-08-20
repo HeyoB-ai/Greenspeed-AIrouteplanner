@@ -1,4 +1,5 @@
 import { Package, PackageStatus, ArchiveStats, DailyCount, HeatmapPoint } from '../types';
+import { isDelivered } from '../utils/packageStatus';
 
 export type Period = 'today' | 'yesterday' | 'week' | 'month' | 'year';
 
@@ -57,7 +58,9 @@ export function calculateStats(packages: Package[], period: Period): ArchiveStat
   const failed        = packages.filter(p => p.status === PackageStatus.FAILED).length;
   const moved         = packages.filter(p => p.status === PackageStatus.MOVED).length;
   const otherLocation = packages.filter(p => p.status === PackageStatus.OTHER_LOCATION).length;
-  const totalDone     = delivered + mailbox + neighbour;
+  const notHome       = packages.filter(p => p.status === PackageStatus.NOT_HOME).length;
+  // Via de gedeelde definitie, zodat BILLED hier niet langer ontbreekt
+  const totalDone     = packages.filter(p => isDelivered(p.status)).length;
 
   return {
     period,
@@ -69,6 +72,7 @@ export function calculateStats(packages: Package[], period: Period): ArchiveStat
     failed,
     moved,
     otherLocation,
+    notHome,
     deliveryRate: packages.length > 0
       ? Math.round((totalDone / packages.length) * 100)
       : 0,
@@ -82,15 +86,13 @@ export function getDailyCounts(packages: Package[]): DailyCount[] {
   packages.forEach(pkg => {
     const date = pkg.createdAt.split('T')[0];
     const existing = map.get(date) ?? { date, total: 0, delivered: 0, failed: 0 };
-    const isDelivered = [
-      PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR,
-    ].includes(pkg.status);
-    const isFailed = pkg.status === PackageStatus.FAILED;
+    const delivered = isDelivered(pkg.status);
+    const isFailed  = pkg.status === PackageStatus.FAILED;
 
     map.set(date, {
       date,
       total:     existing.total + 1,
-      delivered: existing.delivered + (isDelivered ? 1 : 0),
+      delivered: existing.delivered + (delivered ? 1 : 0),
       failed:    existing.failed + (isFailed ? 1 : 0),
     });
   });

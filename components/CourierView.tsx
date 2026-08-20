@@ -54,6 +54,7 @@ const getStatusLabel = (status: PackageStatus): string => {
     case PackageStatus.DELIVERED:      return '✓ Bezorgd';
     case PackageStatus.MAILBOX:        return '✓ Brievenbus';
     case PackageStatus.NEIGHBOUR:      return '✓ Buren';
+    case PackageStatus.NOT_HOME:       return '↩ Niet thuis';
     case PackageStatus.RETURN:         return '↩ Retour';
     case PackageStatus.MOVED:          return '↩ Verhuisd';
     case PackageStatus.OTHER_LOCATION: return '↩ Andere locatie';
@@ -67,7 +68,7 @@ const getStatusLabel = (status: PackageStatus): string => {
 
 const getStatusStyle = (status: PackageStatus): string => {
   const done = [PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR];
-  const back = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION];
+  const back = [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION, PackageStatus.NOT_HOME];
   if (done.includes(status)) return 'bg-[#48c2a9]/15 text-[#006b5a]';
   if (back.includes(status)) return 'bg-[#d7e2fe] text-[#101c30]';
   if (status === PackageStatus.FAILED)  return 'bg-red-50 text-red-600';

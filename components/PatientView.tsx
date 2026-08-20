@@ -66,6 +66,7 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
     [PackageStatus.DELIVERED]:       'Afgeleverd',
     [PackageStatus.MAILBOX]:         'Afgeleverd in uw brievenbus',
     [PackageStatus.NEIGHBOUR]:       'Afgeleverd bij de buren',
+    [PackageStatus.NOT_HOME]:        'Er was niemand thuis — de bezorger heeft een toelichting achtergelaten. Neem contact op met uw apotheek',
     [PackageStatus.RETURN]:          'Retour bij apotheek — neem contact op',
     [PackageStatus.FAILED]:          'Bezorging mislukt — neem contact op',
     [PackageStatus.MOVED]:           'Bezorging niet gelukt — neem contact op met uw apotheek',
@@ -81,6 +82,10 @@ const PatientView: React.FC<Props> = ({ packages, onBack }) => {
       case PackageStatus.DELIVERED:
       case PackageStatus.MAILBOX:
       case PackageStatus.NEIGHBOUR:
+      case PackageStatus.NOT_HOME:
+      case PackageStatus.MOVED:
+      case PackageStatus.OTHER_LOCATION:
+      case PackageStatus.FAILED:
       case PackageStatus.RETURN:    return 3;
       default:                      return 1;
     }

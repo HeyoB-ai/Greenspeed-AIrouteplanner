@@ -39,6 +39,9 @@ export enum PackageStatus {
   DELIVERED      = 'DELIVERED',
   MAILBOX        = 'MAILBOX',
   NEIGHBOUR      = 'NEIGHBOUR',
+  // Patiënt niet thuis, afgehandeld volgens de toelichting van de koerier.
+  // Telt NIET als bezorgd: de app weet niet waar het pakket terechtkwam.
+  NOT_HOME       = 'NOT_HOME',
   RETURN         = 'RETURN',
   BILLED         = 'BILLED',
   FAILED         = 'FAILED',
@@ -216,6 +219,7 @@ export interface ArchiveStats {
   failed:        number;
   moved:         number;   // verhuisd
   otherLocation: number;   // andere locatie
+  notHome:       number;   // niet thuis, afgehandeld volgens toelichting
   deliveryRate:  number;   // percentage succesvol bezorgd
   avgPerDay:     number;   // gemiddeld per dag in periode
 }

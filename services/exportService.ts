@@ -36,6 +36,7 @@ const statusLabel = (status: PackageStatus): string => {
     [PackageStatus.DELIVERED]:      'Bezorgd',
     [PackageStatus.MAILBOX]:        'Brievenbus',
     [PackageStatus.NEIGHBOUR]:      'Bij buren',
+    [PackageStatus.NOT_HOME]:       'Niet thuis — zie toelichting',
     [PackageStatus.RETURN]:         'Retour apotheek',
     [PackageStatus.MOVED]:          'Verhuisd',
     [PackageStatus.OTHER_LOCATION]: 'Andere locatie',

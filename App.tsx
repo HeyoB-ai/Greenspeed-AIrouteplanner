@@ -1039,6 +1039,7 @@ const App: React.FC = () => {
     PackageStatus.RETURN,
     PackageStatus.MOVED,
     PackageStatus.OTHER_LOCATION,
+    PackageStatus.NOT_HOME,
     PackageStatus.FAILED,
   ];
 

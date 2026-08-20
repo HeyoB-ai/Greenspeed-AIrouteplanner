@@ -69,7 +69,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | 2 | Doorklikken naar Google Maps vertrok vanaf de apotheek | gedaan | `39b74b8` |
 | 3 | Na een niet-thuis-melding niets meer kunnen wijzigen | in behandeling | zie punt 5 eerste ronde |
 | 4 | Scanteller begint opnieuw bij 1 na onderbreken | open | `?` |
-| 5 | Opmerking bij "andere reden" zet het pakket op retour terwijl het bezorgd is | open | `?` |
+| 5 | Opmerking bij "andere reden" zet het pakket op retour terwijl het bezorgd is | gedaan | `?` |
 | 6 | Geen duidelijke reactie na het aantikken van "bezorgd" | open | `?` |
 | 7 | Bij buren kan alleen een huisnummer worden ingevuld, geen naam | open | `?` |
 | 8 | Zelf het laatste adres van de rit kiezen | vervallen | — |
@@ -96,7 +96,7 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 **7 — Huisnummer onzichtbaar.** Bevestigd in de code: `CourierView.tsx:678` zet `truncate` op de regel `{street} {houseNumber}`, dus bij een lange straatnaam valt juist het huisnummer weg — het deel dat de koerier nodig heeft. Geen commit gevonden. Mogelijke oplossingen: huisnummer in een apart element dat niet meekrimpt (`shrink-0`), of de straatnaam laten afbreken in plaats van de hele regel.
 
-**K1 — Nummering op de kaart.** Zelfde onderwerp als punt 1 van de tweede ronde; de analyse staat daar. **Geblokkeerd:** de markers zijn met de huidige data niet betrouwbaar aan een scannummer te koppelen.
+**K1 — Nummering op de kaart.** Zelfde onderwerp als punt 1 van de tweede ronde; wat er is gebeurd staat daar.
 
 **K2 — Tijdsindicatie.** De rijtijd kwam al van de Google Routes API, maar zonder stoptijd. Nu inclusief bezorgtijd per adres, getoond als "Totaal ~Z min (indicatie)" met de splitsing eronder.
 
@@ -134,7 +134,13 @@ Drie mogelijke afbakeningen, oplopend in ingrijpendheid — hier is een keuze no
 2. **Rit-id op het pakket.** Een `ritId`-kolom die `handleNewRit` roteert, teller uit `max(scanNumber)` binnen de huidige `ritId`. Klopt altijd, maar vraagt een kolom — past in het schema-werk van week 1.
 3. **Teller in localStorage naast `courierPharmacyIds`.** Snel, maar gaat verloren bij een ander toestel of gewiste opslag, en het scannummer staat fysiek op het pakje.
 
-**5 — "Andere reden" zet het pakket op retour.** Bevestigd in de code: `NotHomeSheet.tsx` heeft zes opties maar vijf statussen — de optie `custom` ("Andere reden") is gedefinieerd met `status: PackageStatus.RETURN`. Wie bij een geslaagde bezorging een opmerking typt, zet het pakket daarmee op retour. De apotheek krijgt dan verkeerde informatie over waar de medicijnen zijn. Staat in de fasering als eerste punt van week 2.
+**5 — "Andere reden" zet het pakket op retour.** `NotHomeSheet.tsx` had zes opties maar vijf statussen: `custom` mapte op `RETURN`. Wie "in de schuur gelegd" typte, zag de apotheek als retour, en de patiënt kreeg via Track & Trace te horen dat zijn medicijnen waren teruggebracht.
+
+Opgelost met een nieuwe status **`NOT_HOME`** — patiënt niet thuis, afgehandeld volgens de toelichting van de koerier. Hernoemen kon niet: `RETURN` wordt ook gezet door de optie "Terug naar apotheek", waar hij correct is.
+
+`NOT_HOME` en `OTHER_LOCATION` tellen allebei **niet** als bezorgd. In beide gevallen weet de app niet wat er met het pakket is gebeurd, en bij medicijnen is niet-weten hetzelfde als niet-zeker-afgeleverd. `OTHER_LOCATION` is daarom uit de bezorgd-set van `track-and-trace.ts` gehaald, waar hij als enige plek wél als bezorgd telde.
+
+`NOT_HOME` is ontgrendelbaar via de Wijzigen-chip, net als de andere eindstatussen — dat volgt automatisch uit `isActionable`.
 
 ## Aannames en constanten
 
@@ -197,6 +203,23 @@ De code schrijft ze niet meer: bij een status in de actieve groep of `REMOVED` w
 Geen daarvan blokkeert of waarschuwt. "Nieuwe rit starten" (`handleNewRit`) vraagt alleen "Nieuwe rit starten? De huidige rit wordt gearchiveerd" en verwijdert de pakketten van deze koerier uit de lokale state, ongeacht hoeveel er nog op `ASSIGNED` of `PICKED_UP` staan. Een koerier kan dus met onbezorgde pakketten een nieuwe rit beginnen zonder dat iets dat opmerkt.
 
 Te beslissen: waarschuwing bij het starten van een nieuwe rit met openstaande pakketten, en of er een dagafsluiting hoort te zijn die de apotheek meldt wat er is blijven liggen.
+
+## Eén definitie van bezorgd
+
+Er stonden **vier** verschillende definities in de code:
+
+| Waar | Set |
+|:--|:--|
+| `PharmacyOverview.tsx:12` | DELIVERED, MAILBOX, NEIGHBOUR, BILLED |
+| `SinglePharmacyDashboard.tsx:182` | DELIVERED, MAILBOX, NEIGHBOUR, BILLED |
+| `track-and-trace.ts:7` | DELIVERED, MAILBOX, NEIGHBOUR, **OTHER_LOCATION** |
+| `archiveService.ts:60` en `:88` | DELIVERED, MAILBOX, NEIGHBOUR (zonder BILLED) |
+
+Samengebracht in **`utils/packageStatus.ts`**: `DELIVERED_STATUSES` (enum-set), `isDelivered()`, `DELIVERED_STATUS_VALUES` (kale strings voor de Netlify-functies) en `NEEDS_FOLLOW_UP_STATUSES` — de oude `RETURNED_STATUSES`, nu inclusief `NOT_HOME`.
+
+`BILLED` telt mee: factureren kan alleen na een geslaagde bezorging. Dat `archiveService` hem miste was een omissie, geen keuze.
+
+**Eén verschil is bewust blijven bestaan:** `CourierView.tsx:70` heeft `const done = [DELIVERED, MAILBOX, NEIGHBOUR]`. Dat is geen telling maar een kleurgroepering voor de statusbadge — welk label groen is. `BILLED` komt in de koeriersweergave niet voor. Die lijst is dus niet omgezet.
 
 ## Bekende techniek-schuld
 

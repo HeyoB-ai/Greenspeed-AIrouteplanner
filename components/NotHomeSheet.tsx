@@ -73,7 +73,10 @@ const OPTIONS: Option[] = [
     sub: 'Typ een toelichting',
     icon: PenLine,
     iconBg: 'bg-[#f2f4f6]', iconColor: 'text-[#3d4945]',
-    status: PackageStatus.RETURN,
+    // NOT_HOME, niet RETURN: "in de schuur gelegd" is geen retour. De apotheek
+    // zag anders een pakket terugkomen dat gewoon bezorgd was, en de patiënt
+    // kreeg via Track & Trace te horen dat zijn medicijnen retour waren.
+    status: PackageStatus.NOT_HOME,
     doneLabel: 'Andere reden',
   },
 ];

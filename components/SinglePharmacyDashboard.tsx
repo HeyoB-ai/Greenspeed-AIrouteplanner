@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { isDelivered, NEEDS_FOLLOW_UP_STATUSES } from '../utils/packageStatus';
 import { Package as PackageType, PackageStatus, ChatConversation, Pharmacy } from '../types';
 import {
   Package, Truck, CheckCircle2, AlertTriangle, Download,
@@ -35,6 +36,7 @@ const getStatusIcon = (status: PackageStatus): string => {
     case PackageStatus.DELIVERED:      return '✅';
     case PackageStatus.MAILBOX:        return '📬';
     case PackageStatus.NEIGHBOUR:      return '🏠';
+    case PackageStatus.NOT_HOME:       return '🚪';
     case PackageStatus.RETURN:         return '🔙';
     case PackageStatus.MOVED:          return '🚛';
     case PackageStatus.OTHER_LOCATION: return '🏥';
@@ -51,6 +53,7 @@ const STATUS_CONFIG: Record<string, { className: string; label: string }> = {
   [PackageStatus.DELIVERED]:       { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Bezorgd'        },
   [PackageStatus.MAILBOX]:         { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Brievenbus'     },
   [PackageStatus.NEIGHBOUR]:       { className: 'bg-[#d7e2fe] text-[#101c30]',           label: 'Bij buren'      },
+  [PackageStatus.NOT_HOME]:        { className: 'bg-amber-100 text-amber-700',            label: 'Niet thuis'     },
   [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',            label: 'Retour'         },
   [PackageStatus.FAILED]:          { className: 'bg-red-50 text-red-600',                 label: 'Mislukt'        },
   [PackageStatus.BILLED]:          { className: 'bg-[#f2f4f6] text-[#3d4945]',           label: 'Gefactureerd'   },
@@ -179,7 +182,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
     {
       label: 'Afgeleverd',
       val:   statPackages.filter(p =>
-        [PackageStatus.DELIVERED, PackageStatus.MAILBOX, PackageStatus.NEIGHBOUR, PackageStatus.BILLED].includes(p.status)
+        isDelivered(p.status)
       ).length,
       icon: CheckCircle2,
     },
@@ -187,7 +190,7 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
       label: 'Terug naar de apotheek',
       // FAILED telt hier niet mee: dat is geen retour-uitkomst (zie PharmacyOverview)
       val:   statPackages.filter(p =>
-        [PackageStatus.RETURN, PackageStatus.MOVED, PackageStatus.OTHER_LOCATION].includes(p.status)
+        NEEDS_FOLLOW_UP_STATUSES.has(p.status)
       ).length,
       icon: AlertTriangle,
     },

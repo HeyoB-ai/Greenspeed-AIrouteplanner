@@ -1,12 +1,18 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { DELIVERED_STATUS_VALUES } from '../../utils/packageStatus';
 
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-const DELIVERED_STATUSES  = ['DELIVERED', 'MAILBOX', 'NEIGHBOUR', 'OTHER_LOCATION'];
+// Gedeelde definitie — zie utils/packageStatus.ts. OTHER_LOCATION stond hier
+// eerder bij bezorgd terwijl PharmacyOverview hem als retour telde; de app weet
+// in dat geval niet waar het pakket is, dus telt hij niet meer als bezorgd.
+const DELIVERED_STATUSES  = DELIVERED_STATUS_VALUES;
 const RETOUR_STATUSES     = ['RETURN', 'FAILED'];
 const VERTRAAGD_STATUSES  = ['MOVED'];
+// Onbekende bestemming: niet zeggen dat het bezorgd is en ook niet dat het retour is.
+const ONBEKEND_STATUSES   = ['NOT_HOME', 'OTHER_LOCATION'];
 
 const DAYS    = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
 const MONTHS  = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
@@ -80,7 +86,16 @@ function buildResultString(data: any): string {
     return `Uw zending is bezorgd${locatie}.`;
   }
 
-  // RETOUR / NIET THUIS
+  // NIET THUIS / ANDERE LOCATIE — bestemming staat in de toelichting van de koerier
+  if (ONBEKEND_STATUSES.some(d => status.includes(d))) {
+    const toelichting = evidence.deliveryNote ? ` De bezorger noteerde: "${evidence.deliveryNote}".` : '';
+    if (pogingTs) {
+      return `De koerier is op ${dutchDate(pogingTs)} om ${dutchTime(pogingTs)} bij u langs geweest, maar er was niemand thuis.${toelichting} Neem contact op met uw apotheek om te horen waar uw zending is.`;
+    }
+    return `De koerier is bij u langs geweest, maar er was niemand thuis.${toelichting} Neem contact op met uw apotheek om te horen waar uw zending is.`;
+  }
+
+  // RETOUR
   if (RETOUR_STATUSES.some(d => status.includes(d))) {
     if (pogingTs) {
       return `De koerier is op ${dutchDate(pogingTs)} om ${dutchTime(pogingTs)} bij u langs geweest, maar er was niemand thuis om de zending in ontvangst te nemen. De zending is daarop teruggebracht naar de apotheek. Een collega neemt contact met u op om een nieuwe bezorging in te plannen.`;

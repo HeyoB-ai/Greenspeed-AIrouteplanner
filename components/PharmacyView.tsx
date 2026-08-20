@@ -34,6 +34,7 @@ const getStatusIcon = (status: PackageStatus): string => {
     case PackageStatus.DELIVERED:      return '✅';
     case PackageStatus.MAILBOX:        return '📬';
     case PackageStatus.NEIGHBOUR:      return '🏠';
+    case PackageStatus.NOT_HOME:       return '🚪';
     case PackageStatus.RETURN:         return '🔙';
     case PackageStatus.MOVED:          return '🚛';
     case PackageStatus.OTHER_LOCATION: return '🏥';
@@ -50,6 +51,7 @@ const STATUS_CONFIG: Record<string, { className: string; label: string }> = {
   [PackageStatus.DELIVERED]:       { className: 'bg-emerald-100 text-emerald-700',        label: 'Bezorgd'        },
   [PackageStatus.MAILBOX]:         { className: 'bg-emerald-100 text-emerald-700',        label: 'Brievenbus'     },
   [PackageStatus.NEIGHBOUR]:       { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Bij buren'      },
+  [PackageStatus.NOT_HOME]:        { className: 'bg-amber-100 text-amber-700',            label: 'Niet thuis'     },
   [PackageStatus.RETURN]:          { className: 'bg-amber-100 text-amber-700',            label: 'Retour'         },
   [PackageStatus.FAILED]:          { className: 'bg-red-100 text-red-600',               label: 'Mislukt'        },
   [PackageStatus.BILLED]:          { className: 'bg-[#48c2a9]/15 text-[#006b5a]',        label: 'Gefactureerd'   },

@@ -4,17 +4,13 @@ import {
   Building2, Search, ChevronRight, Package,
   CheckCircle, CreditCard, X, Download, AlertCircle, Plus, Loader2, Pencil, Link,
 } from 'lucide-react';
+import { DELIVERED_STATUSES, NEEDS_FOLLOW_UP_STATUSES } from '../utils/packageStatus';
 import { getSession } from '../services/authService';
 import { db } from '../services/supabaseService';
 
 const PAGE_SIZE = 20;
 
-const DELIVERED_STATUSES = new Set([
-  PackageStatus.DELIVERED,
-  PackageStatus.MAILBOX,
-  PackageStatus.NEIGHBOUR,
-  PackageStatus.BILLED,
-]);
+// Bezorgd en opvolging-nodig komen uit utils/packageStatus — één definitie voor de hele app.
 
 const PENDING_STATUSES = new Set([
   PackageStatus.PENDING,
@@ -22,13 +18,8 @@ const PENDING_STATUSES = new Set([
   PackageStatus.PICKED_UP,
 ]);
 
-// Retour apotheek — alle "terug naar apotheek"-uitkomsten (niet thuis, verhuisd,
-// andere locatie). Nette uitkomsten, GEEN mislukking. Alleen FAILED telt als mislukt.
-const RETURNED_STATUSES = new Set([
-  PackageStatus.RETURN,
-  PackageStatus.MOVED,
-  PackageStatus.OTHER_LOCATION,
-]);
+// RETURNED_STATUSES heet nu NEEDS_FOLLOW_UP_STATUSES en staat in utils/packageStatus.
+// Nette uitkomsten, GEEN mislukking — alleen FAILED telt als mislukt.
 
 interface PharmacyStat {
   id:           string;
@@ -161,7 +152,7 @@ const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({
       s.total++;
       if (DELIVERED_STATUSES.has(p.status)) s.delivered++;
       else if (PENDING_STATUSES.has(p.status)) s.pending++;
-      else if (RETURNED_STATUSES.has(p.status)) s.returned++;
+      else if (NEEDS_FOLLOW_UP_STATUSES.has(p.status)) s.returned++;
       else s.failed++;
     });
 

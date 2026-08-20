@@ -13,6 +13,7 @@ const STATUS_STYLE: Record<string, string> = {
   [PackageStatus.DELIVERED]:       'bg-emerald-100 text-emerald-600',
   [PackageStatus.MAILBOX]:         'bg-emerald-100 text-emerald-600',
   [PackageStatus.NEIGHBOUR]:       'bg-[#48c2a9]/15 text-[#006b5a]',
+  [PackageStatus.NOT_HOME]:        'bg-amber-100 text-amber-700',
   [PackageStatus.RETURN]:          'bg-amber-100 text-amber-700',
   [PackageStatus.FAILED]:          'bg-red-100 text-red-600',
   [PackageStatus.BILLED]:          'bg-slate-100 text-slate-400',
