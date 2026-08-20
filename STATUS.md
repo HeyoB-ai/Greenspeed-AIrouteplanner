@@ -52,6 +52,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `?` |
 | 6 | Melding bij tweede scan van hetzelfde adres | in behandeling | `531e082` |
 | 7 | Huisnummer onzichtbaar bij lange straatnaam | open | `?` |
+| 8 | Navigatie vertrekt vanaf de apotheek in plaats van de huidige positie | gedaan | `?` |
 
 ### Kaart
 
@@ -80,6 +81,8 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 **6 — Melding bij tweede scan.** Gebouwd op de gedeelde helper `utils/addressKey.ts`: amber melding in het scankader, eigen attentietoon, en een amber label op de tegels. Blokkeert niets — het pakket wordt altijd toegevoegd. **Nog niet op een toestel bevestigd.** Bijbehorende openstaande melding: een tweede pakket op hetzelfde adres verdween in de praktijk; de tijdelijke `[DubbelAdres]`-logging uit `ad6f8dd` staat nog live om dat te herleiden. Mogelijk dezelfde oorzaak als de verlopen sessie (zie Openstaande diagnostiek).
 
 **7 — Huisnummer onzichtbaar.** Bevestigd in de code: `CourierView.tsx:678` zet `truncate` op de regel `{street} {houseNumber}`, dus bij een lange straatnaam valt juist het huisnummer weg — het deel dat de koerier nodig heeft. Geen commit gevonden. Mogelijke oplossingen: huisnummer in een apart element dat niet meekrimpt (`shrink-0`), of de straatnaam laten afbreken in plaats van de hele regel.
+
+**8 — Navigatie vertrekpunt.** `handleNavigate` bepaalde een `origin` op basis van de positie in de lijst: bij de eerste stop het apotheekadres, daarna het adres van de vorige stop. Omdat afgehandelde pakketten uit die lijst verdwijnen, is het doelpakket bijna altijd de eerste — dus kreeg de koerier telkens de route vanaf de apotheek. De hele `originParam`-berekening is verwijderd; zonder `origin` vertrekt Google Maps vanaf de GPS-positie van het toestel. `handleNavigateToInstitution` had deze constructie niet en is ongewijzigd.
 
 **K1 — Nummering op de kaart.** Geen commit gevonden, en het punt is nog niet eenduidig. In `RouteMapModal.tsx:128` worden de markers al genummerd met `i + 1` over de geoptimaliseerde volgorde — dat ís de bezorgvolgorde. De pakkettegels in de lijst tonen wél het scannummer (`CourierView.tsx:672`, `pkg.scanNumber`). Voordat hier iets aan verandert: navragen of de klacht over de kaartmarkers of over de tegels gaat. Let op dat `scanNumber` het nummer is dat de koerier fysiek op het pakje schrijft — dat mag niet zomaar de routepositie worden.
 
