@@ -39,7 +39,7 @@ Import van 67 apotheken. Koppelproces voor 50+ koeriers. Accounts opschonen. Dat
 
 Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij. Ruimte voor wat er dan blijkt.
 
-## Tabel 1 — Koeriersfeedback
+## Koeriersfeedback — eerste ronde
 
 ### App
 
@@ -49,10 +49,9 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | 2 | Laatst gescande adres bovenaan / lijst omgekeerd sorteren | gedaan | `f04ce75` |
 | 3 | Verwijderd pakket blijft in de lijst staan | open | `?` |
 | 4 | Opmerkingenveld per adres | vervallen | — |
-| 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `?` |
+| 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `c2d72b3` |
 | 6 | Melding bij tweede scan van hetzelfde adres | in behandeling | `531e082` |
 | 7 | Huisnummer onzichtbaar bij lange straatnaam | open | `?` |
-| 8 | Navigatie vertrekt vanaf de apotheek in plaats van de huidige positie | gedaan | `?` |
 
 ### Kaart
 
@@ -62,7 +61,22 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | K2 | Tijdsindicatie zonder bezorgtijd per pakje | gedaan | `268511c` |
 | K3 | Echte route tekenen | vervallen | — |
 
-## Toelichting per punt
+## Koeriersfeedback — tweede ronde
+
+| Punt | Omschrijving | Status | Commit |
+|:--|:--|:--|:--|
+| 1 | Kaart toont bezorgvolgorde in plaats van pakketnummers | open | `?` |
+| 2 | Doorklikken naar Google Maps vertrok vanaf de apotheek | gedaan | `39b74b8` |
+| 3 | Na een niet-thuis-melding niets meer kunnen wijzigen | in behandeling | zie punt 5 eerste ronde |
+| 4 | Scanteller begint opnieuw bij 1 na onderbreken | open | `?` |
+| 5 | Opmerking bij "andere reden" zet het pakket op retour terwijl het bezorgd is | open | `?` |
+| 6 | Geen duidelijke reactie na het aantikken van "bezorgd" | open | `?` |
+| 7 | Bij buren kan alleen een huisnummer worden ingevuld, geen naam | open | `?` |
+| 8 | Zelf het laatste adres van de rit kiezen | vervallen | — |
+| 9 | Handmatig invoeren vereist een volledige postcode | open | `?` |
+| 10 | Meerdere apotheken op één rit | vervallen | — |
+
+## Toelichting — eerste ronde
 
 **1 — Camera blijft live.** De foto was altijd al klaar op het moment van de flits; de camera bleef alleen zichtbaar tijdens de 6-7 seconden Gemini-verwerking. Opgelost met een banner "📸 Foto gemaakt — je kunt verder scannen", gekoppeld aan `pendingScans`.
 
@@ -82,13 +96,19 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 **7 — Huisnummer onzichtbaar.** Bevestigd in de code: `CourierView.tsx:678` zet `truncate` op de regel `{street} {houseNumber}`, dus bij een lange straatnaam valt juist het huisnummer weg — het deel dat de koerier nodig heeft. Geen commit gevonden. Mogelijke oplossingen: huisnummer in een apart element dat niet meekrimpt (`shrink-0`), of de straatnaam laten afbreken in plaats van de hele regel.
 
-**8 — Navigatie vertrekpunt.** `handleNavigate` bepaalde een `origin` op basis van de positie in de lijst: bij de eerste stop het apotheekadres, daarna het adres van de vorige stop. Omdat afgehandelde pakketten uit die lijst verdwijnen, is het doelpakket bijna altijd de eerste — dus kreeg de koerier telkens de route vanaf de apotheek. De hele `originParam`-berekening is verwijderd; zonder `origin` vertrekt Google Maps vanaf de GPS-positie van het toestel. `handleNavigateToInstitution` had deze constructie niet en is ongewijzigd.
-
 **K1 — Nummering op de kaart.** Geen commit gevonden, en het punt is nog niet eenduidig. In `RouteMapModal.tsx:128` worden de markers al genummerd met `i + 1` over de geoptimaliseerde volgorde — dat ís de bezorgvolgorde. De pakkettegels in de lijst tonen wél het scannummer (`CourierView.tsx:672`, `pkg.scanNumber`). Voordat hier iets aan verandert: navragen of de klacht over de kaartmarkers of over de tegels gaat. Let op dat `scanNumber` het nummer is dat de koerier fysiek op het pakje schrijft — dat mag niet zomaar de routepositie worden.
 
 **K2 — Tijdsindicatie.** De rijtijd kwam al van de Google Routes API, maar zonder stoptijd. Nu inclusief bezorgtijd per adres, getoond als "Totaal ~Z min (indicatie)" met de splitsing eronder.
 
 **K3 — Echte route tekenen.** Vervallen wegens API-kosten. De rechte lijnen tussen stops blijven.
+
+## Toelichting — tweede ronde
+
+**2 — Doorklikken naar Google Maps.** `handleNavigate` bepaalde een `origin` op basis van de positie in de lijst: bij de eerste stop het apotheekadres, daarna het adres van de vorige stop. Omdat afgehandelde pakketten uit die lijst verdwijnen, is het doelpakket bijna altijd de eerste — dus kreeg de koerier telkens de route vanaf de apotheek. De hele `originParam`-berekening is verwijderd; zonder `origin` vertrekt Google Maps vanaf de GPS-positie van het toestel. `handleNavigateToInstitution` had deze constructie niet en is ongewijzigd.
+
+**3 — Niets meer kunnen wijzigen na niet-thuis.** Zelfde onderwerp als punt 5 van de eerste ronde; daar staat het verloop en wat er nog te controleren is.
+
+**5 — "Andere reden" zet het pakket op retour.** Bevestigd in de code: `NotHomeSheet.tsx` heeft zes opties maar vijf statussen — de optie `custom` ("Andere reden") is gedefinieerd met `status: PackageStatus.RETURN`. Wie bij een geslaagde bezorging een opmerking typt, zet het pakket daarmee op retour. De apotheek krijgt dan verkeerde informatie over waar de medicijnen zijn. Staat in de fasering als eerste punt van week 2.
 
 ## Aannames en constanten
 
