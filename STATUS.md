@@ -96,7 +96,7 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 **7 — Huisnummer onzichtbaar.** Bevestigd in de code: `CourierView.tsx:678` zet `truncate` op de regel `{street} {houseNumber}`, dus bij een lange straatnaam valt juist het huisnummer weg — het deel dat de koerier nodig heeft. Geen commit gevonden. Mogelijke oplossingen: huisnummer in een apart element dat niet meekrimpt (`shrink-0`), of de straatnaam laten afbreken in plaats van de hele regel.
 
-**K1 — Nummering op de kaart.** Geen commit gevonden, en het punt is nog niet eenduidig. In `RouteMapModal.tsx:128` worden de markers al genummerd met `i + 1` over de geoptimaliseerde volgorde — dat ís de bezorgvolgorde. De pakkettegels in de lijst tonen wél het scannummer (`CourierView.tsx:672`, `pkg.scanNumber`). Voordat hier iets aan verandert: navragen of de klacht over de kaartmarkers of over de tegels gaat. Let op dat `scanNumber` het nummer is dat de koerier fysiek op het pakje schrijft — dat mag niet zomaar de routepositie worden.
+**K1 — Nummering op de kaart.** Zelfde onderwerp als punt 1 van de tweede ronde; de analyse staat daar. **Geblokkeerd:** de markers zijn met de huidige data niet betrouwbaar aan een scannummer te koppelen.
 
 **K2 — Tijdsindicatie.** De rijtijd kwam al van de Google Routes API, maar zonder stoptijd. Nu inclusief bezorgtijd per adres, getoond als "Totaal ~Z min (indicatie)" met de splitsing eronder.
 
@@ -104,9 +104,31 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 ## Toelichting — tweede ronde
 
+**1 — Kaart toont bezorgvolgorde in plaats van pakketnummers.** *(zelfde punt als K1 eerste ronde)* **Geblokkeerd op een datakwestie, niet op de weergave.**
+
+`RouteMapModal.tsx:126-129` nummert met `i + 1` over `coords`, en `coords` is niet de pakkettenlijst. Het komt uit `netlify/functions/maps.ts:117-121` als `[legs[0].startLocation, ...elke legs.endLocation]`, dus inclusief het vertrek- en eindpunt van de route. Staat de route ingesteld op "vanaf apotheek" en "terug naar apotheek" — de standaard in `handleRouteClick` — dan bevat `coords` twee elementen méér dan er pakketten zijn.
+
+Gevolgen die nu al zichtbaar zijn: marker **1 is de apotheek**, niet het eerste pakket, en de teller "{n} stops" bovenaan de modal telt het vertrek- en eindpunt mee. Bij meer dan 25 stops worden de coords van meerdere clusters achter elkaar geplakt, waardoor het verschil per rit varieert.
+
+Het scannummer is er dus niet zomaar op te plakken: `coords[i]` en `orderedIds[i]` verwijzen niet naar hetzelfde. Voorstel: de markers renderen uit de geordende pakketten (die hebben `lat`/`lng` uit PDOK/geocoding) en `coords` alleen nog gebruiken voor de `Polyline`. Dat lost de verschuiving en de stops-teller in één keer op. Vereist een beslissing, want het is meer dan alleen het getal in de marker vervangen.
+
 **2 — Doorklikken naar Google Maps.** `handleNavigate` bepaalde een `origin` op basis van de positie in de lijst: bij de eerste stop het apotheekadres, daarna het adres van de vorige stop. Omdat afgehandelde pakketten uit die lijst verdwijnen, is het doelpakket bijna altijd de eerste — dus kreeg de koerier telkens de route vanaf de apotheek. De hele `originParam`-berekening is verwijderd; zonder `origin` vertrekt Google Maps vanaf de GPS-positie van het toestel. `handleNavigateToInstitution` had deze constructie niet en is ongewijzigd.
 
 **3 — Niets meer kunnen wijzigen na niet-thuis.** Zelfde onderwerp als punt 5 van de eerste ronde; daar staat het verloop en wat er nog te controleren is.
+
+**4 — Scanteller begint opnieuw bij 1.** **Geblokkeerd: er is geen ritbegrip om de teller aan te hangen.**
+
+`nextScanNumberRef = useRef(1)` staat op 1 bij elke mount van `App` en wordt nergens hersteld. Commit `2b6e2bb` verwijderde de initialisatie die hem op `todayMax + 1` zette. Die berekening liep over álle opgehaalde pakketten van vandaag, dus over alle koeriers heen: koerier B die na koerier A begon, startte bij #41. Het weghalen was terecht; wat ontbreekt is een grens die wél klopt.
+
+`handleNewRit` is die grens niet. Het toont een bevestiging en verwijdert de pakketten van deze koerier uit de **lokale** state — er wordt niets weggeschreven en er is geen rit-id. Na een herlaad haalt `fetchPackages` alles terug en toont `visiblePackages` ze weer, want dat filtert op `courierId` plus datum. "Gearchiveerd" is dus niet wat er gebeurt.
+
+Los daarvan: `App.tsx:399-402` kent `scanNumber` retroactief toe met `pkg.scanNumber ?? index + 1`. Bestaande nummers worden niet overschreven, maar de `index` loopt over de volledige opgehaalde lijst, gesorteerd op `createdAt` — de comment erboven zegt "per apotheek", de code groepeert nergens op. Alleen in het geheugen, tenzij het pakket later wordt gesynct.
+
+Drie mogelijke afbakeningen, oplopend in ingrijpendheid — hier is een keuze nodig voordat er iets gebouwd wordt:
+
+1. **Teller uit de eigen pakketten van vandaag.** Bij het laden `max(scanNumber)` nemen over pakketten met de eigen `courierId` én van vandaag. Geen schemawijziging. Nadeel: twee ritten op één dag lopen door in plaats van opnieuw te beginnen.
+2. **Rit-id op het pakket.** Een `ritId`-kolom die `handleNewRit` roteert, teller uit `max(scanNumber)` binnen de huidige `ritId`. Klopt altijd, maar vraagt een kolom — past in het schema-werk van week 1.
+3. **Teller in localStorage naast `courierPharmacyIds`.** Snel, maar gaat verloren bij een ander toestel of gewiste opslag, en het scannummer staat fysiek op het pakje.
 
 **5 — "Andere reden" zet het pakket op retour.** Bevestigd in de code: `NotHomeSheet.tsx` heeft zes opties maar vijf statussen — de optie `custom` ("Andere reden") is gedefinieerd met `status: PackageStatus.RETURN`. Wie bij een geslaagde bezorging een opmerking typt, zet het pakket daarmee op retour. De apotheek krijgt dan verkeerde informatie over waar de medicijnen zijn. Staat in de fasering als eerste punt van week 2.
 
