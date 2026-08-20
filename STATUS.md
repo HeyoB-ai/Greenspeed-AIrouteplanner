@@ -142,6 +142,8 @@ Opgelost met een nieuwe status **`NOT_HOME`** — patiënt niet thuis, afgehande
 
 `NOT_HOME` is ontgrendelbaar via de Wijzigen-chip, net als de andere eindstatussen — dat volgt automatisch uit `isActionable`.
 
+**De bestaande rijen worden bewust niet gecorrigeerd.** Het opschoonbestand staat klaar in `supabase/cleanup_notHome.sql`, maar wordt niet uitgevoerd: bij de livegang gaat de data er toch uit, en tot die tijd kijkt niemand naar deze pakketten behalve de beheerder zelf. De bestanden blijven staan voor het geval dat verandert.
+
 ## Aannames en constanten
 
 Deze getallen zijn **schattingen, geen gemeten waarden**. Zodra er echte tijdregistratie per stop is, horen ze daaruit te komen.
