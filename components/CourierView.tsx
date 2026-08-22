@@ -43,7 +43,6 @@ interface Stop {
   addressKey: string;
   address: PackageType['address'];
   packages: PackageType[];
-  orderIndex: number;
 }
 
 const isActionable = (pkg: PackageType): boolean =>
@@ -193,10 +192,15 @@ const CourierView: React.FC<Props> = ({
       if (existing) {
         existing.packages.push(p);
       } else {
-        stopsMap.set(key, { addressKey: key, address: p.address, packages: [p], orderIndex: p.orderIndex ?? p.routeIndex ?? 999 });
+        stopsMap.set(key, { addressKey: key, address: p.address, packages: [p] });
       }
     });
-    const result = Array.from(stopsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+    // Geen eigen sortering: sortedPackages staat al in de juiste volgorde en een
+    // Map bewaart de invoegvolgorde. Zo geldt dezelfde regel als in de hoofdlijst
+    // — nog niet ingeplande scans bovenaan, daaronder de route — in plaats van een
+    // tweede variant die op orderIndex/routeIndex/999 terugviel en verse scans
+    // juist onderaan zette.
+    const result = Array.from(stopsMap.values());
 
     // TIJDELIJKE DIAGNOSTIEK [DubbelAdres] — verwijderen na de fix.
     // Onderscheidt "pakket weg uit state" van "pakket aanwezig maar samengevoegd
@@ -861,6 +865,12 @@ const CourierView: React.FC<Props> = ({
                       <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                         {stop.address.postalCode} · {stop.address.city}
                       </p>
+                      {/* Zelfde label als op de tegels in de hoofdlijst */}
+                      {hasOptimizedRoute && stop.packages.every(p => p.routeIndex == null) && (
+                        <span className="inline-block mt-1 text-[10px] font-black text-[#101c30] bg-[#d7e2fe] px-2 py-0.5 rounded-full whitespace-nowrap">
+                          nog niet in de route
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={() => { handleNavigate(stop.packages[0]); setShowOverview(false); }}

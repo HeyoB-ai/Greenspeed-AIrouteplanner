@@ -88,6 +88,8 @@ Een verse scan krijgt nu **geen** `routeIndex`. De comparator is teruggebracht t
 
 Bijgescande pakketten krijgen een blauw label "nog niet in de route", zodat zichtbaar is waarom ze los boven de route staan.
 
+Het stops-overzicht had daarna nog dezelfde klacht op een ander scherm: dat sorteerde op `p.orderIndex ?? p.routeIndex ?? 999`, waardoor een verse scan juist onderaan viel. Dat is geen tweede sorteervariant meer — de eigen sortering is eruit. `stops` wordt opgebouwd uit `sortedPackages`, dat al in de goede volgorde staat, en een `Map` bewaart de invoegvolgorde. Beide schermen volgen nu letterlijk dezelfde regel, met hetzelfde label.
+
 **3 — Verwijderd pakket blijft staan.** Bevestigd in de code: `CourierView.tsx:166` retourneert `[...sortedActionable, ...sortedDone, ...removed]`, dus `REMOVED`-pakketten staan onderaan de lijst met `opacity-60` in plaats van eruit te verdwijnen. Geen commit gevonden die dit adresseert. Te beslissen: helemaal verbergen, of achter een "toon verwijderde"-schakelaar.
 
 **4 — Opmerkingenveld.** Bewuste keuze om dit niet te bouwen.
