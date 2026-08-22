@@ -81,10 +81,20 @@ const OPTIONS: Option[] = [
   },
 ];
 
+// Huisnummer (14, 14a, 14 bis) of een naam? Bepaalt hoe de notitie leest.
+const looksLikeHouseNumber = (v: string): boolean => /^\d+\s*[a-zA-Z]?$/.test(v.trim());
+
 const getNoteForOption = (option: OptionKey, extra?: string): string => {
   switch (option) {
     case 'mailbox':        return 'Achtergelaten in brievenbus';
-    case 'neighbour':      return `Afgegeven bij buren${extra ? ` nr. ${extra}` : ''}`;
+    case 'neighbour': {
+      // "nr. mevr. Cornelissen" leest niet; een naam krijgt daarom een andere vorm
+      const v = extra?.trim();
+      if (!v) return 'Afgegeven bij buren';
+      return looksLikeHouseNumber(v)
+        ? `Afgegeven bij buren op nummer ${v}`
+        : `Afgegeven bij buren — ${v}`;
+    }
     case 'return':         return 'Retour naar apotheek';
     case 'moved':          return 'Patiënt verhuisd — retour apotheek';
     case 'other_location': return 'Patiënt verblijft op andere locatie — retour apotheek';
@@ -206,14 +216,14 @@ const NotHomeSheet: React.FC<NotHomeSheetProps> = ({ pkg, onComplete, onCancel }
                   {opt.key === 'neighbour' && selected === 'neighbour' && (
                     <div className="mt-2 px-1 animate-in slide-in-from-top-2 duration-200">
                       <p className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 mb-1.5 ml-1">
-                        Bij welk huisnummer?
+                        Bij wie of welk huisnummer?
                       </p>
                       <div className="flex gap-2">
                         <input
                           ref={inputRef}
                           type="text"
-                          inputMode="numeric"
-                          placeholder="bijv. 14"
+                          inputMode="text"
+                          placeholder="bijv. 14 of mevr. Cornelissen"
                           value={neighbourNr}
                           onChange={e => setNeighbourNr(e.target.value)}
                           className="flex-1 bg-white rounded-xl px-4 h-12 font-body font-bold text-[#191c1e] text-sm outline-none transition-all"

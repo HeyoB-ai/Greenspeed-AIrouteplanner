@@ -71,7 +71,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | 4 | Scanteller begint opnieuw bij 1 na onderbreken | open | `?` |
 | 5 | Opmerking bij "andere reden" zet het pakket op retour terwijl het bezorgd is | gedaan | `?` |
 | 6 | Geen duidelijke reactie na het aantikken van "bezorgd" | open | `?` |
-| 7 | Bij buren kan alleen een huisnummer worden ingevuld, geen naam | open | `?` |
+| 7 | Bij buren kan alleen een huisnummer worden ingevuld, geen naam | gedaan | `?` |
 | 8 | Zelf het laatste adres van de rit kiezen | vervallen | — |
 | 9 | Handmatig invoeren vereist een volledige postcode | open | `?` |
 | 10 | Meerdere apotheken op één rit | vervallen | — |
@@ -141,6 +141,10 @@ Drie mogelijke afbakeningen, oplopend in ingrijpendheid — hier is een keuze no
 1. **Teller uit de eigen pakketten van vandaag.** Bij het laden `max(scanNumber)` nemen over pakketten met de eigen `courierId` én van vandaag. Geen schemawijziging. Nadeel: twee ritten op één dag lopen door in plaats van opnieuw te beginnen.
 2. **Rit-id op het pakket.** Een `ritId`-kolom die `handleNewRit` roteert, teller uit `max(scanNumber)` binnen de huidige `ritId`. Klopt altijd, maar vraagt een kolom — past in het schema-werk van week 1.
 3. **Teller in localStorage naast `courierPharmacyIds`.** Snel, maar gaat verloren bij een ander toestel of gewiste opslag, en het scannummer staat fysiek op het pakje.
+
+**7 — Bij buren alleen een huisnummer.** Het veld stond op `inputMode="numeric"`, dus op een telefoon opende een cijfertoetsenbord; label en placeholder vroegen alleen om een huisnummer. Nu `inputMode="text"`, label "Bij wie of welk huisnummer?" en placeholder "bijv. 14 of mevr. Cornelissen".
+
+Er zat geen validatie op de waarde — die ging ongefilterd naar `getNoteForOption`. Dáár stond wel een aanname: `` `Afgegeven bij buren${extra ? ` nr. ${extra}` : ''}` ``, wat bij een naam "Afgegeven bij buren nr. mevr. Cornelissen" opleverde. De notitie kiest nu zijn vorm op basis van de invoer: een huisnummer (`14`, `14a`) wordt "op nummer 14", al het andere "— mevr. Cornelissen", en leeg blijft "Afgegeven bij buren".
 
 **5 — "Andere reden" zet het pakket op retour.** `NotHomeSheet.tsx` had zes opties maar vijf statussen: `custom` mapte op `RETURN`. Wie "in de schuur gelegd" typte, zag de apotheek als retour, en de patiënt kreeg via Track & Trace te horen dat zijn medicijnen waren teruggebracht.
 
