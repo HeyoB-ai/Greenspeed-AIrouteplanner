@@ -47,7 +47,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 |:--|:--|:--|:--|
 | 1 | Camera blijft live in plaats van foto maken bij scan | gedaan | `8f80b93` |
 | 2 | Laatst gescande adres bovenaan / lijst omgekeerd sorteren | gedaan | `f04ce75` → `?` |
-| 3 | Verwijderd pakket blijft in de lijst staan | open | `?` |
+| 3 | Verwijderd pakket blijft in de lijst staan | vervallen | — |
 | 4 | Opmerkingenveld per adres | vervallen | — |
 | 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `c2d72b3` |
 | 6 | Melding bij tweede scan van hetzelfde adres | in behandeling | `531e082` |
@@ -90,7 +90,9 @@ Bijgescande pakketten krijgen een blauw label "nog niet in de route", zodat zich
 
 Het stops-overzicht had daarna nog dezelfde klacht op een ander scherm: dat sorteerde op `p.orderIndex ?? p.routeIndex ?? 999`, waardoor een verse scan juist onderaan viel. Dat is geen tweede sorteervariant meer — de eigen sortering is eruit. `stops` wordt opgebouwd uit `sortedPackages`, dat al in de goede volgorde staat, en een `Map` bewaart de invoegvolgorde. Beide schermen volgen nu letterlijk dezelfde regel, met hetzelfde label.
 
-**3 — Verwijderd pakket blijft staan.** Bevestigd in de code: `CourierView.tsx:166` retourneert `[...sortedActionable, ...sortedDone, ...removed]`, dus `REMOVED`-pakketten staan onderaan de lijst met `opacity-60` in plaats van eruit te verdwijnen. Geen commit gevonden die dit adresseert. Te beslissen: helemaal verbergen, of achter een "toon verwijderde"-schakelaar.
+**3 — Verwijderd pakket blijft staan.** Bewuste keuze: de koerier wil kunnen zien welke pakketten hij heeft verwijderd. Sinds de Wijzigen-chip is een misklik bovendien terug te draaien — `REMOVED` vraagt "Dit pakket terugzetten in de rit?" en zet het pakket daarna weer op `ASSIGNED`.
+
+Het gedrag blijft dus zoals het is: `CourierView` retourneert `[...sortedActionable, ...sortedDone, ...removed]`, waarbij verwijderde pakketten onderaan staan met een gedimde infosectie.
 
 **4 — Opmerkingenveld.** Bewuste keuze om dit niet te bouwen.
 
