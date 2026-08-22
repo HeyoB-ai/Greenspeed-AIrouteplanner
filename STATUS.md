@@ -46,7 +46,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | Punt | Omschrijving | Status | Commit |
 |:--|:--|:--|:--|
 | 1 | Camera blijft live in plaats van foto maken bij scan | gedaan | `8f80b93` |
-| 2 | Laatst gescande adres bovenaan / lijst omgekeerd sorteren | gedaan | `f04ce75` |
+| 2 | Laatst gescande adres bovenaan / lijst omgekeerd sorteren | gedaan | `f04ce75` → `?` |
 | 3 | Verwijderd pakket blijft in de lijst staan | open | `?` |
 | 4 | Opmerkingenveld per adres | vervallen | — |
 | 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `c2d72b3` |
@@ -80,7 +80,13 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 
 **1 — Camera blijft live.** De foto was altijd al klaar op het moment van de flits; de camera bleef alleen zichtbaar tijdens de 6-7 seconden Gemini-verwerking. Opgelost met een banner "📸 Foto gemaakt — je kunt verder scannen", gekoppeld aan `pendingScans`.
 
-**2 — Omgekeerd sorteren.** Vóór routeoptimalisatie aflopend op `scanNumber` (nieuwste bovenaan), erna oplopend op `routeIndex` (eerste stop bovenaan). De modus wordt één keer voor de hele lijst bepaald.
+**2 — Omgekeerd sorteren.** Vóór routeoptimalisatie aflopend op `scanNumber` (nieuwste bovenaan), erna oplopend op `routeIndex` (eerste stop bovenaan).
+
+`f04ce75` deed dat op zich correct, maar **werkte niet in het geval dat de koerier meldde**: bijscannen nadat er al geoptimaliseerd was. De oorzaak zat niet in de sortering maar in `handleNewScan`, dat een verse scan een verzonnen `routeIndex` van `max + 1` gaf. De sorteermodus zag daardoor een geoptimaliseerd pakket en zette het achteraan de route — precies onderaan de actieve groep, terwijl het bovenaan hoorde. De toast bevestigde dat nog: "toegevoegd als stop 41 in de bestaande route", een positie die nergens op sloeg omdat er geen optimalisatie aan te pas was gekomen.
+
+Een verse scan krijgt nu **geen** `routeIndex`. De comparator is teruggebracht tot één regel zonder modusvlag: pakketten zonder `routeIndex` staan bovenaan met de nieuwste eerst, daaronder de geoptimaliseerde route op volgorde. Vóór de eerste optimalisatie heeft niets een `routeIndex`, dus dan is de hele lijst vanzelf nieuwste-eerst — dezelfde regel dekt beide gevallen.
+
+Bijgescande pakketten krijgen een blauw label "nog niet in de route", zodat zichtbaar is waarom ze los boven de route staan.
 
 **3 — Verwijderd pakket blijft staan.** Bevestigd in de code: `CourierView.tsx:166` retourneert `[...sortedActionable, ...sortedDone, ...removed]`, dus `REMOVED`-pakketten staan onderaan de lijst met `opacity-60` in plaats van eruit te verdwijnen. Geen commit gevonden die dit adresseert. Te beslissen: helemaal verbergen, of achter een "toon verwijderde"-schakelaar.
 

@@ -772,10 +772,12 @@ const App: React.FC = () => {
 
     // Lees actuele packages via ref — niet via stale closure
     const currentPackages = packagesRef.current;
+    // Een verse scan krijgt bewust GEEN routeIndex. Hij is niet geoptimaliseerd,
+    // dus hij heeft geen plek in de route. Met een verzonnen positie (max + 1)
+    // belandde hij onderaan de lijst, terwijl de koerier juist moet kunnen
+    // controleren dat de scan gelukt is. CourierView zet pakketten zonder
+    // routeIndex bovenaan, nieuwste eerst.
     const hasRoute = currentPackages.some(p => p.routeIndex !== undefined);
-    const routeIndex = hasRoute
-      ? Math.max(0, ...currentPackages.filter(p => p.routeIndex !== undefined).map(p => p.routeIndex!)) + 1
-      : undefined;
 
     const normalizedAddress: Address = {
       ...address,
@@ -793,7 +795,6 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString(),
       priority: 3,
       scanNumber,
-      routeIndex,
       statusHistory: [{
         status:    isKoerier ? PackageStatus.PICKED_UP : PackageStatus.PENDING,
         timestamp: new Date().toISOString(),
@@ -830,8 +831,8 @@ const App: React.FC = () => {
       '| berekend uit packagesRef met', currentPackages.length, 'pakketten',
       '| open op deze key:', currentPackages.filter(p => OPEN_STATUSES.includes(p.status) && addressKey(p.address) === key).map(p => p.id));
 
-    if (hasRoute && routeIndex !== undefined) {
-      setToast(`Pakket #${scanNumber} toegevoegd als stop ${routeIndex} in de bestaande route.`);
+    if (hasRoute) {
+      setToast(`Pakket #${scanNumber} staat bovenaan je lijst — nog niet in de route. Optimaliseer opnieuw om het in te plannen.`);
       setTimeout(() => setToast(null), 4000);
     }
 

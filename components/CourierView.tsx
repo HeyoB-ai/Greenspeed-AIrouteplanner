@@ -159,21 +159,21 @@ const CourierView: React.FC<Props> = ({
     const done       = visible.filter(p => !isActionable(p) && p.status !== PackageStatus.REMOVED);
     const removed    = visible.filter(p => p.status === PackageStatus.REMOVED);
 
-    // Vóór routeoptimalisatie: nieuwste scan bovenaan, zodat de koerier zijn laatste
-    // scan direct ziet en kan controleren. Zodra er een route is: eerste stop bovenaan.
-    // De modus wordt één keer voor de hele lijst bepaald — een per-paar keuze levert
-    // een inconsistente comparator op zodra maar een deel een routeIndex heeft.
-    const hasRoute = actionable.some(p => p.routeIndex != null);
-
+    // Eén regel voor beide gevallen, geen modusvlag meer:
+    //  - pakketten zonder routeIndex zijn nog niet geoptimaliseerd en staan
+    //    bovenaan, nieuwste scan eerst — de koerier moet zien wat er net binnenkwam
+    //  - daaronder de geoptimaliseerde route op volgorde, eerste stop eerst
+    // Vóór de eerste optimalisatie heeft niets een routeIndex, dus dan is de hele
+    // lijst vanzelf nieuwste-eerst. Dat was de bedoeling van f04ce75; die kwam
+    // alleen niet uit omdat een verse scan een verzonnen routeIndex kreeg.
     const sortedActionable = [...actionable].sort((a, b) => {
-      if (hasRoute) {
-        // Pakjes zonder routeIndex (gescand na de optimalisatie) achteraan
-        const ai = a.routeIndex ?? Infinity;
-        const bi = b.routeIndex ?? Infinity;
-        if (ai !== bi) return ai - bi;
-        return (a.scanNumber ?? 0) - (b.scanNumber ?? 0);
-      }
-      return (b.scanNumber ?? 0) - (a.scanNumber ?? 0);
+      const ai = a.routeIndex;
+      const bi = b.routeIndex;
+      if (ai == null && bi == null) return (b.scanNumber ?? 0) - (a.scanNumber ?? 0);
+      if (ai == null) return -1;
+      if (bi == null) return 1;
+      if (ai !== bi) return ai - bi;
+      return (a.scanNumber ?? 0) - (b.scanNumber ?? 0);
     });
 
     const sortedDone = [...done].sort((a, b) =>
@@ -232,6 +232,13 @@ const CourierView: React.FC<Props> = ({
       .filter((p): p is PackageType => !!p)
       .map(p => ({ id: p.id, scanNumber: p.scanNumber, address: p.address }));
   }, [routeGeometry, packages]);
+
+  // Is er überhaupt een route? Alleen dan zegt "nog niet in de route" iets;
+  // vóór de eerste optimalisatie heeft geen enkel pakket een routeIndex.
+  const hasOptimizedRoute = useMemo(
+    () => packages.some(p => p.routeIndex != null),
+    [packages]
+  );
 
   const actionableCount = sortedPackages.filter(isActionable).length;
   const doneCount       = sortedPackages.filter(p => !isActionable(p)).length;
@@ -695,6 +702,14 @@ const CourierView: React.FC<Props> = ({
                     {isActionable(pkg) && (countPerAddress.get(addressKey(pkg.address)) ?? 0) > 1 && (
                       <span className="inline-block mt-1 text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
                         {countPerAddress.get(addressKey(pkg.address))} pakketten dit adres
+                      </span>
+                    )}
+                    {/* Gescand ná de optimalisatie: staat bovenaan maar heeft nog
+                        geen plek in de route. Zonder dit label is niet te zien
+                        waarom dit pakket los boven de route staat. */}
+                    {isActionable(pkg) && pkg.routeIndex == null && hasOptimizedRoute && (
+                      <span className="inline-block mt-1 text-[10px] font-black text-[#101c30] bg-[#d7e2fe] px-2 py-0.5 rounded-full whitespace-nowrap">
+                        nog niet in de route
                       </span>
                     )}
                   </div>
