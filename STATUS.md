@@ -51,7 +51,7 @@ Op echte toestellen met echte koeriers. Ritcontrole en Gemini-healthcheck erbij.
 | 4 | Opmerkingenveld per adres | vervallen | — |
 | 5 | Status afgeleverd/niet-thuis niet terug te draaien | in behandeling | `6edf051` → `fa6f9c5` → `c2d72b3` |
 | 6 | Melding bij tweede scan van hetzelfde adres | in behandeling | `531e082` |
-| 7 | Huisnummer onzichtbaar bij lange straatnaam | open | `?` |
+| 7 | Huisnummer onzichtbaar bij lange straatnaam | gedaan | `?` |
 
 ### Kaart
 
@@ -102,7 +102,13 @@ Verloop: `6edf051` gaf alleen `DELIVERED` een tekstknop op ~1,9:1 contrast. `fa6
 
 **6 — Melding bij tweede scan.** Gebouwd op de gedeelde helper `utils/addressKey.ts`: amber melding in het scankader, eigen attentietoon, en een amber label op de tegels. Blokkeert niets — het pakket wordt altijd toegevoegd. **Nog niet op een toestel bevestigd.** Bijbehorende openstaande melding: een tweede pakket op hetzelfde adres verdween in de praktijk; de tijdelijke `[DubbelAdres]`-logging uit `ad6f8dd` staat nog live om dat te herleiden. Mogelijk dezelfde oorzaak als de verlopen sessie (zie Openstaande diagnostiek).
 
-**7 — Huisnummer onzichtbaar.** Bevestigd in de code: `CourierView.tsx:678` zet `truncate` op de regel `{street} {houseNumber}`, dus bij een lange straatnaam valt juist het huisnummer weg — het deel dat de koerier nodig heeft. Geen commit gevonden. Mogelijke oplossingen: huisnummer in een apart element dat niet meekrimpt (`shrink-0`), of de straatnaam laten afbreken in plaats van de hele regel.
+**7 — Huisnummer onzichtbaar.** `truncate` stond op de gecombineerde regel `{street} {houseNumber}`, dus er werd aan het eind afgekapt — precies waar het huisnummer staat. "Arthur van Schendelstraat 113" werd "Arthur van Schendelstraat".
+
+Straatnaam en huisnummer zijn nu aparte elementen in een flexregel: de straat krijgt `truncate min-w-0` en mag inkorten, het huisnummer `shrink-0` en blijft altijd volledig staan. Resultaat: "Arthur van Schendelst… 113".
+
+Op zes plekken gelijkgetrokken — `CourierView` (pending-lijst, hoofdlijst, stops-overzicht), `PharmacyView`, `SinglePharmacyDashboard` en `ArchiveView`. Bij `ArchiveView` staat de plaatsnaam ook op die regel; daar zit `{houseNumber}, {city}` in het niet-krimpende deel.
+
+Vijf andere schermen tonen straat plus huisnummer zonder `truncate` (`NotHomeSheet`, `PatientView`, `SupervisorView`, en de statushistorie in `PharmacyView` en `SinglePharmacyDashboard`). Die laten de regel afbreken in plaats van afkappen en hoefden niet aangepast.
 
 **K1 — Nummering op de kaart.** Zelfde onderwerp als punt 1 van de tweede ronde; wat er is gebeurd staat daar.
 

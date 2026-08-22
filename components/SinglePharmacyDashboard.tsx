@@ -430,8 +430,9 @@ const SinglePharmacyDashboard: React.FC<Props> = ({
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <p className="font-display font-black text-[#191c1e] text-sm truncate">
-                                    {p.address.street} {p.address.houseNumber}
+                                  <p className="font-display font-black text-[#191c1e] text-sm flex items-baseline gap-1 min-w-0">
+                                    <span className="truncate min-w-0">{p.address.street}</span>
+                                    <span className="shrink-0">{p.address.houseNumber}</span>
                                   </p>
                                 </div>
                                 <p className="text-xs font-body text-[#3d4945]/60 mt-0.5">

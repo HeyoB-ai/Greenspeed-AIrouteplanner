@@ -239,8 +239,9 @@ const ArchiveView: React.FC<Props> = ({ packages, pharmacyId, pharmacies }) => {
                     {p.status === PackageStatus.FAILED         && <XCircle size={14} className="text-red-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-display font-black text-[#191c1e] leading-tight truncate">
-                      {p.address.street} {p.address.houseNumber}, {p.address.city}
+                    <p className="text-sm font-display font-black text-[#191c1e] leading-tight flex items-baseline gap-1">
+                      <span className="truncate min-w-0">{p.address.street}</span>
+                      <span className="shrink-0">{p.address.houseNumber}, {p.address.city}</span>
                     </p>
                     {p.deliveryEvidence?.deliveryNote && (
                       <p className="text-xs font-body text-[#3d4945]/60 mt-0.5 leading-snug">

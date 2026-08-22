@@ -621,8 +621,9 @@ const CourierView: React.FC<Props> = ({
                   {selectedPendingIds.includes(p.id) && <CheckCircle2 size={11} className="text-white" />}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-display font-black text-[#191c1e] truncate">
-                    {p.address.street} {p.address.houseNumber}
+                  <p className="text-sm font-display font-black text-[#191c1e] flex items-baseline gap-1">
+                    <span className="truncate min-w-0">{p.address.street}</span>
+                    <span className="shrink-0">{p.address.houseNumber}</span>
                   </p>
                   <p className="text-[10px] font-body font-bold text-[#3d4945]/60 uppercase tracking-widest">
                     {p.address.postalCode} {p.address.city}
@@ -691,8 +692,11 @@ const CourierView: React.FC<Props> = ({
 
                 {/* Adres */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-display font-black text-[#191c1e] text-base leading-tight truncate">
-                    {pkg.address.street} {pkg.address.houseNumber}
+                  {/* Huisnummer nooit afkappen: dat is het stuk dat de koerier
+                      voor de deur nodig heeft. De straatnaam mag inkorten. */}
+                  <p className="font-display font-black text-[#191c1e] text-base leading-tight flex items-baseline gap-1">
+                    <span className="truncate min-w-0">{pkg.address.street}</span>
+                    <span className="shrink-0">{pkg.address.houseNumber}</span>
                   </p>
                   <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                     {pkg.address.postalCode} · {pkg.address.city}
@@ -859,8 +863,9 @@ const CourierView: React.FC<Props> = ({
                       ))}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-display font-black text-[#191c1e] text-sm leading-tight truncate">
-                        {stop.address.street} {stop.address.houseNumber}
+                      <p className="font-display font-black text-[#191c1e] text-sm leading-tight flex items-baseline gap-1">
+                        <span className="truncate min-w-0">{stop.address.street}</span>
+                        <span className="shrink-0">{stop.address.houseNumber}</span>
                       </p>
                       <p className="text-xs text-[#3d4945]/60 font-body font-bold mt-0.5">
                         {stop.address.postalCode} · {stop.address.city}
