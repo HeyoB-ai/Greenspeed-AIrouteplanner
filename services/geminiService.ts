@@ -1,5 +1,6 @@
 import { Address, ChatMessage } from "../types";
 import { getAuthHeaders } from "./supabaseService";
+import { addressKey } from "../utils/addressKey";
 
 export interface ScanResult {
   address: Address;
@@ -253,24 +254,68 @@ export async function optimizeRouteDetailed(
   if (addresses.length === 0) {
     return { orderedIds: [], coords: [], totalDistanceM: 0, totalDurationS: 0 };
   }
-  if (addresses.length === 1) {
-    const a = addresses[0];
-    const coords = a.lat != null && a.lng != null ? [{ lat: a.lat, lng: a.lng }] : [];
-    return { orderedIds: [a.id], coords, totalDistanceM: 0, totalDurationS: 0 };
+
+  // Groepeer op adres vóór de optimalisatie: zeven pakketten voor één deur zijn
+  // één stop, want de koerier stapt één keer af. Zonder dit ging elk pakket als
+  // eigen waypoint de Routes API in — dat vult de limiet van 25 per aanroep, en
+  // de optimalisatie kon ze uit elkaar trekken.
+  const groups = new Map<string, (Address & { id: string })[]>();
+  for (const a of addresses) {
+    const key = addressKey(a);
+    const existing = groups.get(key);
+    if (existing) existing.push(a);
+    else groups.set(key, [a]);
   }
+
+  // Het eerste pakket van een groep vertegenwoordigt het adres in de route.
+  const representatives = [...groups.values()].map(g => g[0]);
+  const groupByRepresentative = new Map<string, (Address & { id: string })[]>();
+  for (const g of groups.values()) groupByRepresentative.set(g[0].id, g);
+
+  /**
+   * Zet de volgorde van vertegenwoordigers terug om naar pakket-ids, met de
+   * leden van een groep aaneengesloten. Het vangnet achteraan garandeert dat er
+   * nooit een pakket uit de route verdwijnt, wat er ook misgaat.
+   */
+  const expand = (orderedRepIds: string[]): string[] => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const repId of orderedRepIds) {
+      const group = groupByRepresentative.get(repId);
+      for (const p of group ?? []) {
+        if (!seen.has(p.id)) { out.push(p.id); seen.add(p.id); }
+      }
+      if (!group && !seen.has(repId)) { out.push(repId); seen.add(repId); }
+    }
+    for (const a of addresses) {
+      if (!seen.has(a.id)) { out.push(a.id); seen.add(a.id); }
+    }
+    return out;
+  };
+
+  console.log(`[Route] ${addresses.length} pakketten op ${representatives.length} adressen`);
+
+  if (representatives.length === 1) {
+    const a = representatives[0];
+    const coords = a.lat != null && a.lng != null ? [{ lat: a.lat, lng: a.lng }] : [];
+    return { orderedIds: expand([a.id]), coords, totalDistanceM: 0, totalDurationS: 0 };
+  }
+
   try {
-    const result = await optimizeBatch(addresses, startAddress, endAddress);
+    const result = await optimizeBatch(representatives, startAddress, endAddress);
+    const orderedIds = expand(result.ids);
     console.log('[Route] Geoptimaliseerde volgorde (fiets):');
     result.ids.forEach((id, i) => {
       const addr = addresses.find(a => a.id === id);
-      console.log(`  Stop ${i + 1}: ${addr?.street} ${addr?.houseNumber}, ${addr?.postalCode}`);
+      const aantal = groupByRepresentative.get(id)?.length ?? 1;
+      console.log(`  Stop ${i + 1}: ${addr?.street} ${addr?.houseNumber}, ${addr?.postalCode}${aantal > 1 ? ` (${aantal} pakketten)` : ''}`);
     });
     console.log(`[Route] Totaal: ${(result.distanceM / 1000).toFixed(1)} km · ${Math.round(result.durationS / 60)} min`);
-    return { orderedIds: result.ids, coords: result.coords, totalDistanceM: result.distanceM, totalDurationS: result.durationS };
+    return { orderedIds, coords: result.coords, totalDistanceM: result.distanceM, totalDurationS: result.durationS };
   } catch (err) {
     console.error('[Route] Routes API mislukt, fallback op originele volgorde:', err);
-    const coords = addresses.filter(a => a.lat != null && a.lng != null).map(a => ({ lat: a.lat!, lng: a.lng! }));
-    return { orderedIds: addresses.map(a => a.id), coords, totalDistanceM: 0, totalDurationS: 0 };
+    const coords = representatives.filter(a => a.lat != null && a.lng != null).map(a => ({ lat: a.lat!, lng: a.lng! }));
+    return { orderedIds: expand(representatives.map(r => r.id)), coords, totalDistanceM: 0, totalDurationS: 0 };
   }
 }
 

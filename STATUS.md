@@ -206,6 +206,20 @@ Geen daarvan blokkeert of waarschuwt. "Nieuwe rit starten" (`handleNewRit`) vraa
 
 Te beslissen: waarschuwing bij het starten van een nieuwe rit met openstaande pakketten, en of er een dagafsluiting hoort te zijn die de apotheek meldt wat er is blijven liggen.
 
+## Route: pakketten per adres groeperen
+
+Meerdere pakketten voor hetzelfde adres kwamen na optimalisatie verspreid door de route te staan — een koerier met zeven pakketten voor één deur moest daar zeven losse plekken voor langs.
+
+Oorzaak: `handleOptimizeRoute` bouwde één stop per **pakket**, en `optimizeSingleBatch` gaf die allemaal als eigen waypoint aan de Routes API. Zeven pakketten vulden dus zeven van de 25 waypointplekken, en er was niets dat ze bij elkaar hield. Drie mechanismen konden ze uit elkaar trekken: het laatste adres wordt als `destination` vastgepind terwijl de rest geoptimaliseerd wordt, adressen zonder coördinaten belanden via `missingIds` achteraan, en bij meer dan 25 stops loopt de clustering per pakket.
+
+`optimizeRouteDetailed` groepeert nu op `addressKey` vóór de optimalisatie. Eén vertegenwoordiger per adres gaat de route in; na afloop worden de groepsleden aaneengesloten teruggezet. `expand()` heeft een vangnet dat elk pakket dat niet in de API-uitkomst voorkomt alsnog achteraan toevoegt — er mag nooit een pakket uit de route verdwijnen.
+
+Gevolgen: de waypointlimiet van 25 telt nu **adressen** in plaats van pakketten, clustering over meerdere clusters kan per definitie niet meer voorkomen omdat een groep één entry is, en er wordt één geocode-aanroep per adres gedaan in plaats van één per pakket.
+
+De bezorgtijd in `RouteMapModal` blijft kloppen: die groepeert zelf op `addressKey` over de pakketlijst, niet over de API-uitkomst. Zeven pakketten op één adres blijven 90 + 6 × 15 = 180 seconden.
+
+**Nog niet gerepareerd:** `handleOptimizeRoute` geeft `lat`/`lng` niet mee in de stops, dus elk adres wordt opnieuw gegeocodeerd ook al staan de PDOK-coördinaten al op het pakket.
+
 ## Eén definitie van bezorgd
 
 Er stonden **vier** verschillende definities in de code:
