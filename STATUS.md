@@ -220,6 +220,26 @@ De bezorgtijd in `RouteMapModal` blijft kloppen: die groepeert zelf op `addressK
 
 **Nog niet gerepareerd:** `handleOptimizeRoute` geeft `lat`/`lng` niet mee in de stops, dus elk adres wordt opnieuw gegeocodeerd ook al staan de PDOK-coördinaten al op het pakket.
 
+## Clustering bij meer dan 25 adressen
+
+De Google Routes API accepteert maximaal 25 punten per aanroep. Boven de 23 stops knipt `clusterByGeography` de rit op in geografische clusters die elk apart geoptimaliseerd worden en daarna achter elkaar geplakt. Eén `computeRoutes`-aanroep per cluster, plus één geocode-aanroep voor de hele rit.
+
+**Geketend sinds `0753c4d`.** Cluster N+1 start op de coördinaat van de laatste stop van cluster N; cluster 1 houdt het gekozen startpunt (apotheek of GPS) en het laatste cluster het echte eindpunt. Het startadres van een volgend cluster belandt niet als extra stop in de route: het gaat als coördinaat mee als `origin` en komt niet in `reordered`.
+
+**De clusteruitgang was willekeurig — opgelost.** Bij een extern startpunt zonder eindpunt pinde `optimizeSingleBatch` `addresses[addresses.length - 1]` vast als bestemming: het adres dat k-means toevallig als laatste had neergezet. De ketening klopte daardoor technisch maar half inhoudelijk — cluster N+1 begon waar cluster N eindigde, maar cluster N eindigde op een willekeurige hoek. Tussenliggende clusters krijgen nu de **centroïde van het volgende cluster** als bestemming mee. Bijkomend: met een externe bestemming gaan álle stops van het cluster als waypoint mee in plaats van op één na.
+
+Omdat de rit naar die centroïde niet echt gemaakt wordt, geeft `maps.ts` nu ook de afstand en duur per leg terug en trekt `optimizeBatch` de laatste leg van een tussenliggend cluster af. Datzelfde geldt voor de coördinaten: het kunstmatige eindpunt en het dubbele beginpunt worden uit de polyline gehaald, anders maakt de lijn op de kaart een sprong naar het midden van het volgende cluster en weer terug.
+
+### Openstaande punten in de clustering
+
+**De clusterbalans is ongecontroleerd.** De k-means-stap kent geen maximum; de grens van 23 wordt pas achteraf afgedwongen door te recursen op te grote clusters. Een indeling van 22/1 is mogelijk, en dan is de winst van clusteren weg.
+
+**De indeling hangt mede af van de scanvolgorde.** De startcentroïden worden per index gekozen (`stops.filter((_, i) => i % Math.floor(stops.length / k) === 0)`) uit een lijst die in scanvolgorde staat. Met vijf iteraties en zonder herseeding kunnen dezelfde adressen in een andere scanvolgorde een andere indeling opleveren.
+
+**`clusterByGeography` kan oneindig recursen.** Vallen meer dan 23 adressen op exact dezelfde coördinaat, dan wijst elke k-means-stap ze allemaal aan dezelfde centroïde toe, blijft het cluster te groot en recurset de functie op zichzelf met identieke invoer. Sinds de adresgroepering onwaarschijnlijk — identieke adressen zijn één entry — maar niet onmogelijk bij een groot complex waar meerdere adressen naar dezelfde geocode-coördinaat afronden. Dat is een stack overflow, geen verkeerde route.
+
+**Hoe vaak een adres in het verkeerde cluster belandt is niet gemeten.** Te bepalen met een logregel per stop: de afstand tot de eigen centroïde versus die tot de dichtstbijzijnde andere. Staat een stop dichter bij een ander cluster, dan zit hij verkeerd.
+
 ## Eén definitie van bezorgd
 
 Er stonden **vier** verschillende definities in de code:

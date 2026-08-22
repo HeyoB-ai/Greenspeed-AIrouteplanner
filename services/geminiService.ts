@@ -244,6 +244,10 @@ interface BatchResult {
   coords:    LatLng[];
   distanceM: number;
   durationS: number;
+  /** Laatste leg apart, zodat een geketend cluster de rit naar de kunstmatige
+   *  bestemming (de centroïde van het volgende cluster) kan aftrekken. */
+  lastLegDistanceM: number;
+  lastLegDurationS: number;
 }
 
 export async function optimizeRouteDetailed(
@@ -385,6 +389,15 @@ function parseLatLng(value?: string | null): LatLng | null {
   return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
 }
 
+/** Zwaartepunt van een cluster — gebruikt als bestemming voor het vorige cluster. */
+function centroidOf(cluster: GeoStop[]): LatLng | null {
+  if (cluster.length === 0) return null;
+  return {
+    lat: cluster.reduce((s, p) => s + p.lat, 0) / cluster.length,
+    lng: cluster.reduce((s, p) => s + p.lng, 0) / cluster.length,
+  };
+}
+
 function orderClusters(clusters: GeoStop[][], startCoord?: { lat: number; lng: number }): GeoStop[][] {
   if (clusters.length <= 1) return clusters;
 
@@ -465,7 +478,7 @@ async function optimizeBatch(
     .filter((x): x is GeoStop => x !== null && x !== undefined);
   const missingIds = addresses.filter(a => !withCoords.find(w => w.id === a.id)).map(a => a.id);
 
-  if (geoStops.length === 0) return { ids: addresses.map(a => a.id), coords: [], distanceM: 0, durationS: 0 };
+  if (geoStops.length === 0) return { ids: addresses.map(a => a.id), coords: [], distanceM: 0, durationS: 0, lastLegDistanceM: 0, lastLegDurationS: 0 };
 
   // Clustervolgorde vanaf de GPS-positie van de koerier als die bekend is; bij een
   // tekstadres (apotheek) of geen startpunt terug naar het eerste adres in de lijst.
@@ -485,25 +498,53 @@ async function optimizeBatch(
   // GPS-startlocatie, anders fietst de koerier tussen clusters heen en weer.
   let prevEndCoord: LatLng | null = null;
   for (let i = 0; i < orderedClusters.length; i++) {
+    const isLast = i === orderedClusters.length - 1;
+
     const batchStart = i === 0
       ? startAddress
       : (prevEndCoord ? `${prevEndCoord.lat},${prevEndCoord.lng}` : null);
 
-    const batch = await optimizeSingleBatch(
-      orderedClusters[i],
-      batchStart,
-      i === orderedClusters.length - 1 ? endAddress : null,
-    );
+    // Tussenliggende clusters krijgen de centroïde van het VOLGENDE cluster als
+    // bestemming. Zonder dat pinde optimizeSingleBatch het laatste adres uit de
+    // k-means-volgorde vast als destination — een willekeurige plek, waardoor de
+    // ketening technisch klopte maar de koerier op de verkeerde hoek uitkwam.
+    // Bijkomend voordeel: met een externe bestemming gaan álle stops van het
+    // cluster als waypoint mee in plaats van op één na.
+    const nextCentroid = isLast ? null : centroidOf(orderedClusters[i + 1]);
+    const batchEnd = isLast
+      ? endAddress
+      : (nextCentroid ? `${nextCentroid.lat},${nextCentroid.lng}` : null);
+
+    const batch = await optimizeSingleBatch(orderedClusters[i], batchStart, batchEnd);
     allIds.push(...batch.ids);
-    allCoords.push(...batch.coords);
-    distanceM += batch.distanceM;
-    durationS += batch.durationS;
+
+    // Coords opschonen. Het eerste punt van een volgend cluster is de eindstop
+    // van het vorige — die staat er al. Het laatste punt van een tussenliggend
+    // cluster is de kunstmatige centroïde, geen stop; zonder dit maakt de lijn
+    // op de kaart een sprong naar het midden van het volgende cluster en terug.
+    let clusterCoords = batch.coords;
+    if (i > 0 && clusterCoords.length > 0) clusterCoords = clusterCoords.slice(1);
+    if (!isLast && clusterCoords.length > 0) clusterCoords = clusterCoords.slice(0, -1);
+    allCoords.push(...clusterCoords);
+
+    // Idem voor afstand en tijd: de rit naar de centroïde maakt de koerier niet.
+    // Het echte stuk tussen twee clusters wordt geteld door de eerste leg van het
+    // volgende cluster, dat immers op de eindstop van dit cluster begint.
+    distanceM += batch.distanceM - (isLast ? 0 : batch.lastLegDistanceM);
+    durationS += batch.durationS - (isLast ? 0 : batch.lastLegDurationS);
 
     // Eindpunt van dit cluster = laatste stop in de geoptimaliseerde volgorde
     const lastStop = orderedClusters[i].find(s => s.id === batch.ids[batch.ids.length - 1]);
     if (lastStop) prevEndCoord = { lat: lastStop.lat, lng: lastStop.lng };
   }
-  return { ids: [...new Set([...allIds, ...missingIds])], coords: allCoords, distanceM, durationS };
+  return {
+    ids: [...new Set([...allIds, ...missingIds])],
+    coords: allCoords,
+    distanceM: Math.max(0, distanceM),
+    durationS: Math.max(0, durationS),
+    lastLegDistanceM: 0,
+    lastLegDurationS: 0,
+  };
 }
 
 async function optimizeSingleBatch(
@@ -514,7 +555,7 @@ async function optimizeSingleBatch(
   if (addresses.length <= 1) {
     const a = addresses[0];
     const coords = a?.lat != null && a?.lng != null ? [{ lat: a.lat, lng: a.lng }] : [];
-    return { ids: addresses.map(x => x.id), coords, distanceM: 0, durationS: 0 };
+    return { ids: addresses.map(x => x.id), coords, distanceM: 0, durationS: 0, lastLegDistanceM: 0, lastLegDurationS: 0 };
   }
 
   const formatAddress = (a: Address) =>
@@ -569,11 +610,16 @@ async function optimizeSingleBatch(
 
   const coords: LatLng[] = (data.coords ?? []).map((p: any) => ({ lat: p.lat, lng: p.lng }));
 
+  const legDistances: number[] = data.legDistancesM ?? [];
+  const legDurations: number[] = data.legDurationsS ?? [];
+
   return {
     ids:       [...new Set(reordered)],
     coords,
     distanceM: data.distanceMeters  ?? 0,
     durationS: data.durationSeconds ?? 0,
+    lastLegDistanceM: legDistances[legDistances.length - 1] ?? 0,
+    lastLegDurationS: legDurations[legDurations.length - 1] ?? 0,
   };
 }
 

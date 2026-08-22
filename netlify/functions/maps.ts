@@ -93,6 +93,11 @@ export const handler: Handler = async (event) => {
           'routes.duration',
           'routes.legs.startLocation',
           'routes.legs.endLocation',
+          // Per leg, zodat de client een kunstmatige laatste leg kan aftrekken:
+          // bij een geketend cluster is de bestemming de centroïde van het
+          // volgende cluster, en die rit maakt de koerier niet.
+          'routes.legs.distanceMeters',
+          'routes.legs.duration',
         ].join(','),
       },
       body: JSON.stringify(routesBody),
@@ -130,6 +135,8 @@ export const handler: Handler = async (event) => {
         order:           route.optimizedIntermediateWaypointIndex ?? [],
         distanceMeters:  route.distanceMeters ?? 0,
         durationSeconds: parseInt(String(route.duration ?? '0'), 10),
+        legDistancesM:   legs.map((l: any) => l.distanceMeters ?? 0),
+        legDurationsS:   legs.map((l: any) => parseInt(String(l.duration ?? '0'), 10)),
         coords,
       }),
     };
