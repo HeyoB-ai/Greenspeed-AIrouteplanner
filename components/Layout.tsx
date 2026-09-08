@@ -55,7 +55,10 @@ const Layout: React.FC<LayoutProps> = ({
 
         {/* Branding */}
         <div className="px-6 py-6">
-          <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-10 w-auto" />
+          <img src="/gobob-logo-horizontal.png" alt="GoBob" className="h-10 w-auto" />
+          <p className="text-[10px] font-body text-[#3d4945] uppercase tracking-widest mt-2">
+            Apotheek bezorgservice
+          </p>
         </div>
 
         {/* Nav items */}
@@ -99,7 +102,7 @@ const Layout: React.FC<LayoutProps> = ({
 
           {/* Logo: mobile only */}
           <div className="flex items-center lg:hidden shrink-0">
-            <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-8 w-auto" />
+            <img src="/gobob-logo-horizontal.png" alt="GoBob" className="h-8 w-auto" />
           </div>
 
           {/* Extra content */}
@@ -134,7 +137,7 @@ const Layout: React.FC<LayoutProps> = ({
             <Shield size={13} className="text-[#006b5a]" />
             <span>AVG-Compliant &amp; Real-time Cloud Persistence</span>
           </div>
-          <p>© 2025 Greenspeed. Alle data is E2E geëncrypteerd.</p>
+          <p>© 2025 GoBob. Alle data is E2E geëncrypteerd.</p>
         </footer>
       </div>
 

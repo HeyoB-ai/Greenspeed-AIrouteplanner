@@ -100,7 +100,7 @@ const describeCameraError = (err: any): CameraFault => {
     return isStandaloneMode()
       ? {
           title: 'Geen toegang tot de camera',
-          text: "Houd het Greenspeed-icoon op je beginscherm ingedrukt, kies 'App verwijderen', " +
+          text: "Houd het GoBob-icoon op je beginscherm ingedrukt, kies 'App verwijderen', " +
                 'open greenspeed.netlify.app opnieuw in Safari en zet hem via het deel-icoon weer ' +
                 'op je beginscherm. Daarna vraagt de app opnieuw om cameratoegang.',
         }

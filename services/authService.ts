@@ -20,7 +20,7 @@ const ROLE_TO_DB: Record<UserRole, string> = {
 };
 
 // ── Demo-accounts (actief als Supabase niet geconfigureerd is) ────────
-const SESSION_KEY = 'greenspeed_session';
+const SESSION_KEY = 'gobob_session';
 
 export const DEMO_USERS: (AuthUser & { email: string; passwordHash: string })[] = [
   {

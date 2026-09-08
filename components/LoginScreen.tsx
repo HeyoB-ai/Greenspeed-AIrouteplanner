@@ -148,7 +148,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
 
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src="/greenspeed-logo.svg" alt="Greenspeed" className="h-16 w-auto mx-auto mb-8" />
+          <img src="/gobob-logo-stacked-white.png" alt="GoBob" className="h-16 w-auto mx-auto mb-8" />
         </div>
 
         {/* Card */}

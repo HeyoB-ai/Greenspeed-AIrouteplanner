@@ -181,14 +181,14 @@ export const exportPerCourier = (opts: ExportOptions) => {
   byCourier.forEach(({ name, packages: pkgs }) => {
     const csv      = generateCourierCSV(pkgs, name);
     const safeName = name.replace(/[^a-z0-9]/gi, '_');
-    downloadCSV(csv, `greenspeed_${safeName}_${startStr}_${endStr}.csv`);
+    downloadCSV(csv, `gobob_${safeName}_${startStr}_${endStr}.csv`);
   });
 
   // Pakketjes zonder koerier
   const noCourier = filtered.filter(p => !p.courierId);
   if (noCourier.length > 0) {
     const csv = generateCourierCSV(noCourier, 'Niet toegewezen');
-    downloadCSV(csv, `greenspeed_niet_toegewezen_${startStr}_${endStr}.csv`);
+    downloadCSV(csv, `gobob_niet_toegewezen_${startStr}_${endStr}.csv`);
   }
 };
 
@@ -207,5 +207,5 @@ export const exportAllInOne = (opts: ExportOptions) => {
   const endStr   = opts.endDate.toISOString().split('T')[0];
 
   const csv = generateCourierCSV(sorted, 'Alle koeriers');
-  downloadCSV(csv, `greenspeed_totaal_${startStr}_${endStr}.csv`);
+  downloadCSV(csv, `gobob_totaal_${startStr}_${endStr}.csv`);
 };

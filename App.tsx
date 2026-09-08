@@ -260,7 +260,7 @@ const EditPharmacyModal: React.FC<{
             )}
           </div>
 
-          {/* Uurtarief — wat Greenspeed deze apotheek factureert */}
+          {/* Uurtarief — wat GoBob deze apotheek factureert */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
               Uurtarief (€/uur)

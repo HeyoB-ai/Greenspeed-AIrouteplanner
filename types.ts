@@ -112,7 +112,7 @@ export interface Pharmacy {
   groupId?:     string;  // groep/regio (verwijst naar groups.id)
   code?:        string;  // optionele interne code / shortcode (vrije tekst)
   courierCode?: string;  // permanente koppelcode voor koeriers, bijv. 'KR-4821'
-  hourlyRate?:  number;  // uurtarief dat Greenspeed factureert (€/uur)
+  hourlyRate?:  number;  // uurtarief dat GoBob factureert (€/uur)
 }
 
 // ── Financiële module ───────────────────────────────────────────────
