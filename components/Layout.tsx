@@ -55,7 +55,7 @@ const Layout: React.FC<LayoutProps> = ({
 
         {/* Branding */}
         <div className="px-6 py-6">
-          <img src="/gobob-logo-horizontal.png" alt="GoBob" className="h-10 w-auto" />
+          <img src="/gobob-logo-horizontal.png" alt="GoBob" className="max-w-full h-auto" />
           <p className="text-[10px] font-body text-[#3d4945] uppercase tracking-widest mt-2">
             Apotheek bezorgservice
           </p>
