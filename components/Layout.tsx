@@ -55,10 +55,18 @@ const Layout: React.FC<LayoutProps> = ({
 
         {/* Branding */}
         <div className="px-6 py-6">
-          <img src="/gobob-logo-horizontal.png" alt="GoBob" className="max-w-full h-auto" />
-          <p className="text-[10px] font-body text-[#3d4945] uppercase tracking-widest mt-2">
-            Apotheek bezorgservice
-          </p>
+          {/* Logo en subtitel vullen samen exact de beschikbare breedte. De
+              subtitel is van zichzelf smaller dan het logo; text-align-last
+              met inter-character spreidt hem uit tot dezelfde breedte. De
+              tracking van 0.2em is de terugval voor browsers die text-justify
+              negeren: dan blijft er 12 px over in de woordspatie in plaats
+              van 33 px. */}
+          <div className="w-full">
+            <img src="/gobob-logo-horizontal.png" alt="GoBob" className="max-w-full h-auto" />
+            <p className="block w-full mt-2 text-[10px] font-body text-[#3d4945] uppercase tracking-[0.2em] -mr-[0.2em] text-justify [text-align-last:justify] [text-justify:inter-character]">
+              Apotheek bezorgservice
+            </p>
+          </div>
         </div>
 
         {/* Nav items */}
