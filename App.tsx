@@ -21,7 +21,7 @@ import { getSession, logout, saveSession, getCourierPharmacies } from './service
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { addressKey } from './utils/addressKey';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2, Truck, Calendar } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
@@ -1368,6 +1368,16 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
       onLogout={handleLogout}
       hideMobileNav={showScanner}
       extraHeaderContent={extraHeader}
+      {...(role === UserRole.COURIER && dienstCheckOk ? {
+        mobileNav: {
+          items: [
+            { id: 'bezorgen', icon: Truck,    label: 'Mijn Rit' },
+            { id: 'rooster',  icon: Calendar, label: 'Rooster'  },
+          ],
+          activeId: courierTab,
+          onSelect: (id: string) => setCourierTab(id as 'bezorgen' | 'rooster'),
+        },
+      } : {})}
     >
       {/* Toast notificatie */}
       {toast && (
@@ -1484,9 +1494,10 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           />
         )}
 
-        {/* COURIER — schakelen tussen de rit en het eigen rooster */}
+        {/* COURIER — schakelen tussen de rit en het eigen rooster (desktop;
+            op mobiel gaat dit via de onderbalk) */}
         {role === UserRole.COURIER && dienstCheckOk && (
-          <div className="flex border-b border-slate-200 bg-white">
+          <div className="hidden lg:flex border-b border-slate-200 bg-white">
             <button
               onClick={() => setCourierTab('bezorgen')}
               className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${

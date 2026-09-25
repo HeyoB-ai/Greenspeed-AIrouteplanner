@@ -3,6 +3,13 @@ import {
   LogOut, Shield, Package, Truck, LayoutDashboard, Search
 } from 'lucide-react';
 
+/** Eén knop in de mobiele onderbalk, aangestuurd vanuit de pagina zelf. */
+export interface MobileNavItem {
+  id:    string;
+  icon:  React.ElementType;
+  label: string;
+}
+
 interface LayoutProps {
   children: React.ReactNode;
   userName: string;
@@ -10,6 +17,12 @@ interface LayoutProps {
   onLogout: () => void;
   hideMobileNav?: boolean;
   extraHeaderContent?: React.ReactNode;
+  /** Maakt de onderbalk klikbaar; zonder deze prop blijft hij louter indicatief. */
+  mobileNav?: {
+    items:    MobileNavItem[];
+    activeId: string;
+    onSelect: (id: string) => void;
+  };
 }
 
 const NAV_ITEMS: Record<string, { icon: React.ElementType; label: string }[]> = {
@@ -37,6 +50,7 @@ const Layout: React.FC<LayoutProps> = ({
   onLogout,
   hideMobileNav = false,
   extraHeaderContent,
+  mobileNav,
 }) => {
   const navItems = NAV_ITEMS[userRole] ?? [];
   const roleLabel = ROLE_LABELS[userRole] ?? userRole;
@@ -152,17 +166,30 @@ const Layout: React.FC<LayoutProps> = ({
       {/* ── Bottom nav (mobile) ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 pb-safe flex items-stretch"
         style={{ background: 'rgba(247,249,251,0.80)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 -4px 24px rgba(25,28,30,0.04)' }}>
-        {navItems.slice(0, 3).map((item, i) => (
-          <div
-            key={item.label}
-            className={`flex-1 flex flex-col items-center justify-center py-3 gap-0.5 ${
-              i === 0 ? 'text-[#006b5a]' : 'text-[#3d4945]/60'
-            }`}
-          >
-            <item.icon size={22} />
-            <span className="text-[10px] font-display font-bold leading-none">{item.label}</span>
-          </div>
-        ))}
+        {mobileNav
+          ? mobileNav.items.slice(0, 3).map(item => (
+              <button
+                key={item.id}
+                onClick={() => mobileNav.onSelect(item.id)}
+                className={`flex-1 flex flex-col items-center justify-center py-3 gap-0.5 transition-colors ${
+                  mobileNav.activeId === item.id ? 'text-[#006b5a]' : 'text-[#3d4945]/60'
+                }`}
+              >
+                <item.icon size={22} />
+                <span className="text-[10px] font-display font-bold leading-none">{item.label}</span>
+              </button>
+            ))
+          : navItems.slice(0, 3).map((item, i) => (
+              <div
+                key={item.label}
+                className={`flex-1 flex flex-col items-center justify-center py-3 gap-0.5 ${
+                  i === 0 ? 'text-[#006b5a]' : 'text-[#3d4945]/60'
+                }`}
+              >
+                <item.icon size={22} />
+                <span className="text-[10px] font-display font-bold leading-none">{item.label}</span>
+              </div>
+            ))}
         <button
           onClick={onLogout}
           className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5 text-[#3d4945]/60 hover:text-red-500 active:text-red-600 transition-colors"
