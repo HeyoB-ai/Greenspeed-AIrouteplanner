@@ -17,12 +17,42 @@ function shortTime(t: string): string {
 }
 
 /**
+ * Fout met een eigen code, zodat het rooster kan uitleggen *waarom* er niets
+ * te zien is in plaats van stilzwijgend "Geen dienst" te tonen.
+ */
+export class RosterError extends Error {
+  constructor(message: string, public code: 'no-cloud' | 'no-auth' | 'query-failed') {
+    super(message);
+    this.name = 'RosterError';
+  }
+}
+
+/**
  * Haalt de diensten van de ingelogde koerier op binnen [fromISO, toISO].
  * De RLS op `shifts` filtert automatisch op courier_id = auth.uid(), dus hier
  * is geen extra filter op de koerier nodig.
+ *
+ * Let op: die RLS is meteen ook de valkuil. Zonder échte Supabase-sessie is
+ * auth.uid() NULL, en dan geeft de query gewoon nul rijen terug — géén fout.
+ * Daarom controleren we de sessie vooraf en loggen we wat er terugkomt.
  */
 export async function getMyShifts(fromISO: string, toISO: string): Promise<RosterShift[]> {
-  if (!supabase) return [];
+  if (!supabase) {
+    console.warn('[rooster] Supabase is niet geconfigureerd (VITE_SUPABASE_URL/ANON_KEY ontbreken).');
+    throw new RosterError('Geen verbinding met de database.', 'no-cloud');
+  }
+
+  // auth.uid() moet bestaan, anders filtert de RLS alles weg. Een demo-account
+  // of een verlopen token heeft wél een lokale sessie maar geen Supabase-sessie.
+  const { data: { session: authSession } } = await supabase.auth.getSession();
+  const uid = authSession?.user?.id ?? null;
+  console.debug('[rooster] auth.uid():', uid, '| bereik:', fromISO, '→', toISO);
+  if (!uid) {
+    throw new RosterError(
+      'Je bent niet met een Supabase-account ingelogd, dus je rooster kan niet worden opgehaald. Log opnieuw in met je e-mailadres en wachtwoord.',
+      'no-auth',
+    );
+  }
 
   const { data: shifts, error } = await supabase
     .from('shifts')
@@ -32,26 +62,35 @@ export async function getMyShifts(fromISO: string, toISO: string): Promise<Roste
     .order('shift_date', { ascending: true })
     .order('start_time', { ascending: true });
 
-  if (error) throw error;
+  console.debug('[rooster] shifts-respons:', { rows: shifts?.length ?? 0, error, data: shifts });
+  if (error) {
+    throw new RosterError(`Rooster ophalen mislukt: ${error.message}`, 'query-failed');
+  }
   const rows = shifts ?? [];
-  if (rows.length === 0) return [];
+  if (rows.length === 0) {
+    console.debug('[rooster] Geen rijen in dit bereik. Als de planner hier wel een dienst toont, ' +
+      'staat courier_id van die dienst niet op', uid, 'of laat de RLS-policy op shifts deze rij niet door.');
+    return [];
+  }
 
   const ids = rows.map((s: any) => s.id);
 
   // Apotheek-koppelingen van deze diensten
-  const { data: sp } = await supabase
+  const { data: sp, error: spError } = await supabase
     .from('shift_pharmacies')
     .select('shift_id, pharmacy_id')
     .in('shift_id', ids);
+  if (spError) console.warn('[rooster] shift_pharmacies ophalen mislukt:', spError.message);
 
   // Namen bij de gekoppelde apotheken zoeken
   const pharmacyIds = [...new Set((sp ?? []).map((r: any) => r.pharmacy_id))];
   let pharmacies: any[] = [];
   if (pharmacyIds.length > 0) {
-    const { data } = await supabase
+    const { data, error: phError } = await supabase
       .from('pharmacies')
       .select('id, name')
       .in('id', pharmacyIds);
+    if (phError) console.warn('[rooster] pharmacies ophalen mislukt:', phError.message);
     pharmacies = data ?? [];
   }
 
