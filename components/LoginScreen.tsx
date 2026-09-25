@@ -81,19 +81,30 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
       } else {
         onLogin(user);
       }
+    } catch (err: any) {
+      // login() gooit een LoginError met een melding die de gebruiker mag zien;
+      // stil terugvallen op demo-modus verbergt juist wat er mis is.
+      console.error('[login] mislukt:', err);
+      setLoginError(err?.message ?? 'Inloggen mislukt. Probeer het opnieuw.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const quickLogin = async (demoEmail: string, demoPw: string) => {
-    const user = await login(demoEmail, demoPw);
-    if (!user) return;
-    saveSession(user);
-    if (user.role === UserRole.COURIER) {
-      await enterCourierPharmacyStep(user);
-    } else {
-      onLogin(user);
+    setLoginError('');
+    try {
+      const user = await login(demoEmail, demoPw);
+      if (!user) { setLoginError('E-mailadres of wachtwoord onjuist.'); return; }
+      saveSession(user);
+      if (user.role === UserRole.COURIER) {
+        await enterCourierPharmacyStep(user);
+      } else {
+        onLogin(user);
+      }
+    } catch (err: any) {
+      console.error('[login] demo-login mislukt:', err);
+      setLoginError(err?.message ?? 'Inloggen mislukt. Probeer het opnieuw.');
     }
   };
 

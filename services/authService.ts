@@ -80,27 +80,49 @@ function saveLocalSession(user: AuthUser): void {
 
 // ── Login ─────────────────────────────────────────────────────────────
 
-export async function login(email: string, password: string): Promise<AuthUser | null> {
-  // Supabase Auth (als geconfigureerd)
-  if (supabase) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error && data.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-      if (!profileError && profile) {
-        const user = profileToAuthUser(data.user.id, profile);
-        saveLocalSession(user);
-        return user;
-      }
-    }
-    // Supabase login mislukt — probeer alsnog demo-accounts
-    // (zodat demo-accounts werken naast echte Supabase accounts)
+/** Inlogfout die de UI letterlijk aan de gebruiker mag tonen. */
+export class LoginError extends Error {
+  constructor(
+    message: string,
+    public code: 'invalid-credentials' | 'email-unconfirmed' | 'rate-limited' | 'profile-missing' | 'auth-failed',
+  ) {
+    super(message);
+    this.name = 'LoginError';
   }
+}
 
-  // Demo-fallback: werkt altijd, ook als Supabase geconfigureerd is
+/** Vertaalt een Supabase auth-fout naar een begrijpelijke Nederlandse melding. */
+function toLoginError(error: { message: string; status?: number }): LoginError {
+  const msg = error.message.toLowerCase();
+  if (msg.includes('invalid login credentials')) {
+    return new LoginError('E-mailadres of wachtwoord onjuist.', 'invalid-credentials');
+  }
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return new LoginError(
+      'Je account is nog niet bevestigd. Klik eerst op de link in de bevestigingsmail.',
+      'email-unconfirmed',
+    );
+  }
+  if (error.status === 429 || msg.includes('too many requests') || msg.includes('rate limit')) {
+    return new LoginError('Te veel inlogpogingen. Probeer het over een paar minuten opnieuw.', 'rate-limited');
+  }
+  return new LoginError(`Inloggen mislukt: ${error.message}`, 'auth-failed');
+}
+
+/**
+ * Logt in — bij voorkeur via Supabase Auth, met de vaste demo-accounts als
+ * apart spoor.
+ *
+ * Belangrijk: een mislukte Supabase-login valt hier NIET stilletjes terug op
+ * een lokale sessie. Dat maskeerde het echte probleem en leverde een gebruiker
+ * op zonder auth.uid(), waardoor elke RLS-query (rooster, koppelcode) leeg
+ * terugkwam zonder foutmelding. Echte fouten gaan nu als LoginError naar de UI.
+ *
+ * @throws {LoginError} bij een mislukte Supabase-login of ontbrekend profiel.
+ */
+export async function login(email: string, password: string): Promise<AuthUser | null> {
+  // Demo-accounts eerst: vaste, niet-bestaande adressen (@demo.greenspeed.nl).
+  // Zo blijven ze werken zonder dat een demo-poging als "echte" fout eindigt.
   const demo = DEMO_USERS.find(u =>
     (u.email === email.toLowerCase() || u.name.toLowerCase() === email.toLowerCase()) &&
     u.passwordHash === password
@@ -111,7 +133,32 @@ export async function login(email: string, password: string): Promise<AuthUser |
     return user;
   }
 
-  return null;
+  // Zonder Supabase blijft alleen het demo-spoor over
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw toLoginError(error);
+  if (!data.user) throw new LoginError('Inloggen mislukt: geen gebruiker ontvangen.', 'auth-failed');
+
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+
+  if (profileError || !profile) {
+    // Een sessie zonder profiel is onbruikbaar (geen rol, geen apotheken);
+    // opruimen zodat er geen half-ingelogde staat achterblijft.
+    await supabase.auth.signOut().catch(() => {});
+    throw new LoginError(
+      'Je account heeft nog geen profiel in de database. Vraag de beheerder om je account te koppelen.',
+      'profile-missing',
+    );
+  }
+
+  const user = profileToAuthUser(data.user.id, profile);
+  saveLocalSession(user);
+  return user;
 }
 
 // ── Uitloggen ─────────────────────────────────────────────────────────
