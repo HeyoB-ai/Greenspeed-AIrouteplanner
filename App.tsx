@@ -7,6 +7,7 @@ import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
 import CourierPharmacyLink from './components/CourierPharmacyLink';
 import DienstCheck from './components/DienstCheck';
+import CourierRooster from './components/CourierRooster';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
@@ -379,6 +380,9 @@ const App: React.FC = () => {
   const [dienstCheckOk, setDienstCheckOk] = useState(() => {
     try { return sessionStorage.getItem('gs_dienstcheck_ok') === '1'; } catch { return false; }
   });
+
+  // Koerier: actief tabblad — bezorgen (de rit) of het eigen rooster.
+  const [courierTab, setCourierTab] = useState<'bezorgen' | 'rooster'>('bezorgen');
 
   // Restore session on mount
   useEffect(() => {
@@ -1480,8 +1484,34 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
           />
         )}
 
+        {/* COURIER — schakelen tussen de rit en het eigen rooster */}
+        {role === UserRole.COURIER && dienstCheckOk && (
+          <div className="flex border-b border-slate-200 bg-white">
+            <button
+              onClick={() => setCourierTab('bezorgen')}
+              className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                courierTab === 'bezorgen'
+                  ? 'border-[#006b5a] text-[#006b5a]'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Bezorgen
+            </button>
+            <button
+              onClick={() => setCourierTab('rooster')}
+              className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                courierTab === 'rooster'
+                  ? 'border-[#006b5a] text-[#006b5a]'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Mijn rooster
+            </button>
+          </div>
+        )}
+
         {/* COURIER — kies/koppel eerst de apotheek waarvoor je vandaag scant */}
-        {role === UserRole.COURIER && dienstCheckOk && (activeScanPharmacyId === null || showPharmacyPicker) && (
+        {role === UserRole.COURIER && dienstCheckOk && courierTab === 'bezorgen' && (activeScanPharmacyId === null || showPharmacyPicker) && (
           <CourierPharmacyLink
             pharmacies={pharmacies}
             linkedIds={courierPharmacyIds}
@@ -1496,7 +1526,7 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
         )}
 
         {/* COURIER — eigen rit, scannen en route plannen */}
-        {role === UserRole.COURIER && dienstCheckOk && activeScanPharmacyId !== null && !showPharmacyPicker && (
+        {role === UserRole.COURIER && dienstCheckOk && courierTab === 'bezorgen' && activeScanPharmacyId !== null && !showPharmacyPicker && (
           <CourierView
             packages={visiblePackages}
             onUpdate={() => {}}
@@ -1527,6 +1557,11 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             onOptimizeInstitutions={handleInstitutionRoute}
             routeGeometry={routeGeometry}
           />
+        )}
+
+        {/* COURIER — eigen rooster, alleen lezen */}
+        {role === UserRole.COURIER && dienstCheckOk && courierTab === 'rooster' && (
+          <CourierRooster />
         )}
 
         {/* SUPERVISOR — zelfde overzicht als superuser, gefilterd op eigen apotheken */}
