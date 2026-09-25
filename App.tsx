@@ -826,11 +826,11 @@ const App: React.FC = () => {
     // dit pakket? Puur informatief — er wordt niets geblokkeerd, twee patiënten
     // kunnen prima hetzelfde afleveradres hebben.
     // Alleen pakketten van vandaag — routes van gisteren mogen niet triggeren.
-    const todayStr = new Date().toLocaleDateString('sv'); // YYYY-MM-DD
+    const todayStr = new Date().toLocaleDateString('sv'); // YYYY-MM-DD lokale tijd
     const sameAddressCount = currentPackages.filter(p =>
       OPEN_STATUSES.includes(p.status) &&
       addressKey(p.address) === key &&
-      (p.createdAt ?? '').startsWith(todayStr)
+      new Date(p.createdAt ?? 0).toLocaleDateString('sv') === todayStr
     ).length + 1;
 
     // Let op: dit telt uit packagesRef (stand vóór deze scan) + 1, dus los van
