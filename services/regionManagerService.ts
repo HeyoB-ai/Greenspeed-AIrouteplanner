@@ -214,12 +214,25 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
     throw new Error(`Onbekende rol: ${role}`);
   }
 
-  const { error } = await supabase
+  // .select() erachter is geen opsmuk maar de kern van de zaak: een UPDATE die
+  // door RLS wordt weggefilterd raakt nul rijen en geeft GEEN error. Zonder de
+  // teruggegeven rijen lijkt zo'n mislukte schrijfactie geslaagd.
+  const { data, error } = await supabase
     .from('user_profiles')
     .update({ role })
-    .eq('id', userId);
+    .eq('id', userId)
+    .select('id, role');
+
+  console.log('[setUserRole]', { userId, role, data, error });
 
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(
+      'De rol is niet opgeslagen: de database gaf geen enkele bijgewerkte rij terug. '
+      + 'Meestal betekent dat dat je account geen rechten heeft om andere profielen te wijzigen '
+      + '(RLS), of dat je met een demo-account bent ingelogd.',
+    );
+  }
 }
 
 /**
@@ -233,10 +246,33 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
 export async function setIsPlanner(userId: string, value: boolean): Promise<void> {
   if (!supabase) throw new Error('Geen verbinding met de database.');
 
-  const { error } = await supabase
+  // Zelfde reden als bij setUserRole: zonder .select() is een door RLS
+  // geblokkeerde update niet te onderscheiden van een geslaagde.
+  const { data, error, status } = await supabase
     .from('user_profiles')
     .update({ is_planner: value })
-    .eq('id', userId);
+    .eq('id', userId)
+    .select('id, is_planner');
 
-  if (error) throw error;
+  console.log('[setIsPlanner] respons:', { userId, value, status, data, error });
+
+  if (error) {
+    console.error('[setIsPlanner] mislukt:', error.message, '| code:', (error as any).code);
+    throw error;
+  }
+  if (!data || data.length === 0) {
+    throw new Error(
+      'De planner-vlag is niet opgeslagen: de database gaf geen enkele bijgewerkte rij terug. '
+      + 'Meestal betekent dat dat je account geen rechten heeft om andere profielen te wijzigen '
+      + '(RLS), of dat je met een demo-account bent ingelogd.',
+    );
+  }
+
+  const written = (data[0] as any)?.is_planner;
+  if (written !== value) {
+    // Kan gebeuren als een trigger de waarde terugzet; de trigger uit migratie
+    // 016 doet dat alleen bij een rolwijziging, maar dan wil je het wél weten.
+    console.warn('[setIsPlanner] database schreef', written, 'in plaats van', value);
+    throw new Error(`De database zette de planner-vlag op ${written} in plaats van ${value}.`);
+  }
 }

@@ -36,6 +36,9 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  // Fout per rij: in een tabel van dertig gebruikers staat één melding bovenaan
+  // buiten beeld, en dan lijkt Opslaan niets te doen.
+  const [rowError, setRowError] = useState<Record<string, string>>({});
 
   // Apotheek-koppeling van de opengeklapte regiomanager.
   const [openId, setOpenId] = useState<string | null>(null);
@@ -67,29 +70,49 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
 
   const setDraft = (id: string, patch: Partial<Draft>) => {
     setSavedId(null);
+    setRowError((m) => ({ ...m, [id]: '' }));
     setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
   };
 
+  // De exacte conditie waarop Opslaan aan gaat. Rol EN vinkje tellen los mee,
+  // met || ertussen: alleen het vinkje omzetten maakt de rij dus al gewijzigd.
+  // `u.role ?? ''` omdat een account zonder profielrol null heeft en de <select>
+  // een lege string, en null !== '' zou de knop anders meteen aanzetten.
   const isDirty = (u: ProfileWithEmail) => {
     const d = drafts[u.id];
     if (!d) return false;
-    return d.role !== (u.role ?? '') || d.isPlanner !== u.isPlanner;
+    const roleChanged = d.role !== (u.role ?? '');
+    const plannerChanged = d.isPlanner !== u.isPlanner;
+    return roleChanged || plannerChanged;
   };
 
   const save = async (u: ProfileWithEmail) => {
     const d = drafts[u.id];
     if (!d) return;
     setSavingId(u.id); setError(''); setSavedId(null);
+    setRowError((m) => ({ ...m, [u.id]: '' }));
+
+    const roleChanged = d.role !== (u.role ?? '');
+    const plannerChanged = d.isPlanner !== u.isPlanner;
+    console.log('[regiobeheer] opslaan', {
+      user: u.id, naam: u.name,
+      rol: roleChanged ? `${u.role ?? '(geen)'} → ${d.role}` : 'ongewijzigd',
+      planner: plannerChanged ? `${u.isPlanner} → ${d.isPlanner}` : 'ongewijzigd',
+    });
+
     try {
       // Rol eerst: de trigger uit migratie 016 schrijft is_planner mee zodra de
       // rol naar of van 'planner' gaat. Door de vlag daarna te zetten heeft de
       // expliciete keuze van de beheerder het laatste woord.
-      if (d.role !== (u.role ?? '')) await setUserRole(u.id, d.role);
-      if (d.isPlanner !== u.isPlanner) await setIsPlanner(u.id, d.isPlanner);
+      if (roleChanged) await setUserRole(u.id, d.role);
+      if (plannerChanged) await setIsPlanner(u.id, d.isPlanner);
       await load();
       setSavedId(u.id);
     } catch (e: any) {
-      setError(e?.message ?? 'Opslaan mislukt.');
+      const msg = e?.message ?? 'Opslaan mislukt.';
+      console.error('[regiobeheer] opslaan mislukt voor', u.id, e);
+      setRowError((m) => ({ ...m, [u.id]: msg }));
+      setError(msg);
     } finally {
       setSavingId(null);
     }
@@ -247,6 +270,14 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
                         )}
                       </td>
                     </tr>
+
+                    {rowError[u.id] && (
+                      <tr className="border-b border-[#f2f4f6] bg-red-50">
+                        <td colSpan={5} className="px-4 py-2 text-xs font-bold text-red-700">
+                          {rowError[u.id]}
+                        </td>
+                      </tr>
+                    )}
 
                     {/* Apotheken van deze regiomanager */}
                     {open && isManager && (
