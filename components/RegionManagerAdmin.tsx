@@ -74,14 +74,18 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
     setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
   };
 
+  // Rollen zijn overal de database-schrijfwijze (kleine letters): de <option>s
+  // komen uit DB_ROLES en user_profiles.role slaat ze zo op. Toch aan beide
+  // kanten normaliseren, zodat een rij met afwijkende schrijfwijze niet
+  // eeuwig als "gewijzigd" blijft gelden.
+  const normRole = (r: string | null | undefined) => (r ?? '').toLowerCase();
+
   // De exacte conditie waarop Opslaan aan gaat. Rol EN vinkje tellen los mee,
   // met || ertussen: alleen het vinkje omzetten maakt de rij dus al gewijzigd.
-  // `u.role ?? ''` omdat een account zonder profielrol null heeft en de <select>
-  // een lege string, en null !== '' zou de knop anders meteen aanzetten.
   const isDirty = (u: ProfileWithEmail) => {
     const d = drafts[u.id];
     if (!d) return false;
-    const roleChanged = d.role !== (u.role ?? '');
+    const roleChanged = normRole(d.role) !== normRole(u.role);
     const plannerChanged = d.isPlanner !== u.isPlanner;
     return roleChanged || plannerChanged;
   };
@@ -92,7 +96,7 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
     setSavingId(u.id); setError(''); setSavedId(null);
     setRowError((m) => ({ ...m, [u.id]: '' }));
 
-    const roleChanged = d.role !== (u.role ?? '');
+    const roleChanged = normRole(d.role) !== normRole(u.role);
     const plannerChanged = d.isPlanner !== u.isPlanner;
     console.log('[regiobeheer] opslaan', {
       user: u.id, naam: u.name,
@@ -104,7 +108,7 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
       // Rol eerst: de trigger uit migratie 016 schrijft is_planner mee zodra de
       // rol naar of van 'planner' gaat. Door de vlag daarna te zetten heeft de
       // expliciete keuze van de beheerder het laatste woord.
-      if (roleChanged) await setUserRole(u.id, d.role);
+      if (roleChanged) await setUserRole(u.id, normRole(d.role));
       if (plannerChanged) await setIsPlanner(u.id, d.isPlanner);
       await load();
       setSavedId(u.id);

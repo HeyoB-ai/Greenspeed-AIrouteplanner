@@ -214,6 +214,9 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
     throw new Error(`Onbekende rol: ${role}`);
   }
 
+  const session = await supabase.auth.getSession();
+  console.log('[setUserRole] sessie:', session.data.session?.access_token ? 'aanwezig' : 'ontbreekt');
+
   // .select() erachter is geen opsmuk maar de kern van de zaak: een UPDATE die
   // door RLS wordt weggefilterd raakt nul rijen en geeft GEEN error. Zonder de
   // teruggegeven rijen lijkt zo'n mislukte schrijfactie geslaagd.
