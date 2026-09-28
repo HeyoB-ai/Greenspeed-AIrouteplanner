@@ -2,7 +2,7 @@ import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -28,7 +28,7 @@ export const handler: Handler = async (event) => {
     .eq('id', user.id)
     .single();
 
-  const privilegedRoles = ['superuser', 'supervisor', 'admin', 'region_manager'];
+  const privilegedRoles = ['superuser', 'supervisor', 'admin'];
   if (!callerProfile || !privilegedRoles.includes((callerProfile.role ?? '').toLowerCase())) {
     return { statusCode: 403, body: JSON.stringify({ error: 'Insufficient permissions' }) };
   }
