@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Package as PackageType, PackageStatus, Pharmacy, UserRole } from '../types';
-import { ChevronLeft, Building2, Users, Activity, Euro } from 'lucide-react';
+import { ChevronLeft, Building2, Users, Activity, Euro, UserCog } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import PharmacyOverview from './PharmacyOverview';
 import SinglePharmacyDashboard from './SinglePharmacyDashboard';
@@ -12,6 +12,7 @@ import CourierWagePanel from './CourierWagePanel';
 import UsersOverviewPanel from './UsersOverviewPanel';
 import GroupManagementPanel from './GroupManagementPanel';
 import UnassignedPackagesPanel from './UnassignedPackagesPanel';
+import RegionManagerAdmin from './RegionManagerAdmin';
 
 interface Props {
   packages:        PackageType[];
@@ -26,7 +27,7 @@ interface Props {
   onPharmacyCodeChange?: (pharmacyId: string, code: string) => void;
 }
 
-type Tab = 'apotheken' | 'gebruikers' | 'financieel' | 'monitor';
+type Tab = 'apotheken' | 'gebruikers' | 'regiobeheer' | 'financieel' | 'monitor';
 
 const SuperuserView: React.FC<Props> = ({
   packages, pharmacies, userRole, onUpdateStatus,
@@ -89,6 +90,8 @@ const SuperuserView: React.FC<Props> = ({
       <div className="flex flex-wrap gap-2">
         {tabButton('apotheken',  'Apotheken',  Building2)}
         {tabButton('gebruikers', 'Gebruikers', Users)}
+        {(effectiveRole === UserRole.SUPERUSER || effectiveRole === UserRole.SUPERVISOR)
+          && tabButton('regiobeheer', 'Regiobeheer', UserCog)}
         {tabButton('financieel', 'Financieel', Euro)}
         {tabButton('monitor',    'Monitor',    Activity)}
       </div>
@@ -118,6 +121,11 @@ const SuperuserView: React.FC<Props> = ({
           <CourierWagePanel />
           {effectiveRole === UserRole.SUPERUSER && <GroupManagementPanel />}
         </div>
+      )}
+
+      {activeTab === 'regiobeheer'
+        && (effectiveRole === UserRole.SUPERUSER || effectiveRole === UserRole.SUPERVISOR) && (
+        <RegionManagerAdmin pharmacies={pharmacies} />
       )}
 
       {activeTab === 'financieel' && <FinancialDashboard />}
