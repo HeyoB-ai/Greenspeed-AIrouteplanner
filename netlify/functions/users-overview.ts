@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions';
 import { verifyPrivileged } from '../lib/verifyPrivileged';
+import { emailById } from '../lib/emails';
 
 const EMPLOYER_MARKUP_PCT = 40; // loondienst werkgeverslasten (zelfde constante als elders)
 
@@ -41,6 +42,16 @@ export const handler: Handler = async (event) => {
     .lte('createdAt', dateTo + 'T23:59:59')
     .in('status', ['DELIVERED', 'MAILBOX', 'NEIGHBOUR'])
     .not('courierId', 'is', null);
+
+  // Adressen erbij: ze staan in auth.users, niet in user_profiles. Mislukt dat,
+  // dan blijft het overzicht bruikbaar met een leeg adres in plaats van een
+  // foutpagina — de P&L is waar dit paneel om gaat.
+  let emails = new Map<string, string>();
+  try {
+    emails = await emailById(admin);
+  } catch (e) {
+    console.warn('[users-overview] adressen ophalen mislukt:', e instanceof Error ? e.message : e);
+  }
 
   const { data: pharmacies } = await admin
     .from('pharmacies')
@@ -85,7 +96,7 @@ export const handler: Handler = async (event) => {
   });
 
   const users = (profiles ?? []).map((prof: any) => {
-    const base = { id: prof.id, name: prof.name, role: prof.role };
+    const base = { id: prof.id, name: prof.name, role: prof.role, email: emails.get(prof.id) ?? null };
     if (prof.role !== 'courier') return { ...base, pnl: null };
 
     const wage = prof.hourlyWage ?? 0;

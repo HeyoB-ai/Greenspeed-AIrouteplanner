@@ -12,7 +12,7 @@ interface Pnl {
   revenue: number; cost: number; margin: number; marginPct: number;
   perPharmacy: PerPharmacy[];
 }
-interface UserRow { id: string; name: string; role: string; pnl: Pnl | null; }
+interface UserRow { id: string; name: string; role: string; email: string | null; pnl: Pnl | null; }
 
 async function authHeader(): Promise<Record<string, string>> {
   if (!supabase) return {};
@@ -80,8 +80,9 @@ const UsersOverviewPanel: React.FC = () => {
               <div key={u.id} className="bg-white rounded-2xl border border-[#f2f4f6] overflow-hidden">
                 <button onClick={() => setOpen(open === u.id ? null : u.id)}
                   className="w-full flex items-center justify-between px-4 py-3 text-left">
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-bold text-[#191c1e]">{u.name}</div>
+                    <div className="text-xs text-[#3d4945]/70 truncate">{u.email ?? 'geen e-mailadres'}</div>
                     <div className="text-xs text-[#3d4945]/70">
                       {p.employmentType} · {eur(p.hourlyWage)}/uur · {p.pharmacies.join(', ') || 'geen apotheken'}
                     </div>
@@ -124,9 +125,12 @@ const UsersOverviewPanel: React.FC = () => {
         <h3 className="text-sm font-black text-[#191c1e] mb-3 flex items-center gap-2"><Users size={16} className="text-[#006b5a]" /> Overige gebruikers</h3>
         <div className="space-y-2">
           {others.map(u => (
-            <div key={u.id} className="flex items-center justify-between bg-white rounded-xl border border-[#f2f4f6] px-4 py-2.5">
-              <span className="font-bold text-[#191c1e]">{u.name}</span>
-              <span className="text-xs font-bold text-[#3d4945]/70 uppercase">{u.role}</span>
+            <div key={u.id} className="flex items-center justify-between gap-3 bg-white rounded-xl border border-[#f2f4f6] px-4 py-2.5">
+              <div className="min-w-0">
+                <div className="font-bold text-[#191c1e] truncate">{u.name}</div>
+                <div className="text-xs text-[#3d4945]/70 truncate">{u.email ?? 'geen e-mailadres'}</div>
+              </div>
+              <span className="text-xs font-bold text-[#3d4945]/70 uppercase shrink-0">{u.role}</span>
             </div>
           ))}
           {others.length === 0 && !loading && <p className="text-sm text-[#3d4945]/60">Geen overige gebruikers.</p>}

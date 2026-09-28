@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Building2, Check, ChevronDown, ChevronUp, Loader2, Plus, Search, Trash2, UserCog,
+  Building2, Check, ChevronDown, ChevronUp, Loader2, Plus, Trash2, UserCog, Users,
 } from 'lucide-react';
 import { Pharmacy } from '../types';
 import {
   DB_ROLES, ROLE_LABELS,
-  getUsersWithRole, findUserByEmail, getPharmacyAccessForUser,
+  getUsersWithRole, getAllUsers, getPharmacyAccessForUser,
   grantPharmacyAccess, revokePharmacyAccess, setUserRole,
   type PharmacyAccessRow, type ProfileWithEmail,
 } from '../services/regionManagerService';
@@ -37,13 +37,16 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
   const [pickId, setPickId] = useState('');
 
   // ── Rol toewijzen ───────────────────────────────────────────────────────
-  const [email, setEmail] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [found, setFound] = useState<ProfileWithEmail | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  // Een lijst en geen zoekveld: het e-mailadres van een collega ken je niet uit
+  // je hoofd, en dan is een veld dat een exacte match eist onbruikbaar.
+  const [allUsers, setAllUsers] = useState<ProfileWithEmail[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [pickedId, setPickedId] = useState('');
   const [newRole, setNewRole] = useState('region_manager');
   const [roleSaved, setRoleSaved] = useState(false);
   const [roleError, setRoleError] = useState('');
+
+  const picked = allUsers.find((u) => u.id === pickedId) ?? null;
 
   const loadManagers = useCallback(async () => {
     setLoading(true); setError('');
@@ -63,7 +66,19 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
     }
   }, []);
 
+  const loadAllUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      setAllUsers(await getAllUsers());
+    } catch (e: any) {
+      setRoleError(e?.message ?? 'Gebruikers laden mislukt. Log in met een echt account.');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
   useEffect(() => { loadManagers(); }, [loadManagers]);
+  useEffect(() => { loadAllUsers(); }, [loadAllUsers]);
 
   const openManager = async (id: string) => {
     if (openId === id) { setOpenId(null); return; }
@@ -106,26 +121,21 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
     } finally { setBusy(false); }
   };
 
-  const search = async () => {
-    const addr = email.trim();
-    if (!addr) return;
-    setSearching(true); setRoleError(''); setRoleSaved(false); setFound(null); setNotFound(false);
-    try {
-      const user = await findUserByEmail(addr);
-      if (!user) { setNotFound(true); return; }
-      setFound(user);
-      setNewRole(user.role ?? 'region_manager');
-    } catch (e: any) {
-      setRoleError(e?.message ?? 'Zoeken mislukt.');
-    } finally { setSearching(false); }
+  const pick = (id: string) => {
+    setPickedId(id);
+    setRoleSaved(false);
+    setRoleError('');
+    // Standaard de huidige rol, zodat Opslaan uit staat tot je echt iets wijzigt.
+    const user = allUsers.find((u) => u.id === id);
+    setNewRole(user?.role ?? 'region_manager');
   };
 
   const saveRole = async () => {
-    if (!found) return;
+    if (!picked) return;
     setBusy(true); setRoleError(''); setRoleSaved(false);
     try {
-      await setUserRole(found.id, newRole);
-      setFound({ ...found, role: newRole });
+      await setUserRole(picked.id, newRole);
+      setAllUsers((list) => list.map((u) => (u.id === picked.id ? { ...u, role: newRole } : u)));
       setRoleSaved(true);
       // De lijst bovenaan verandert mee: iemand komt erbij of valt eruit.
       await loadManagers();
@@ -257,45 +267,42 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
       {/* ══ Rol toewijzen ══════════════════════════════════════════════ */}
       <div>
         <h3 className="text-sm font-black text-[#191c1e] mb-3 flex items-center gap-2">
-          <Search size={16} className="text-[#006b5a]" /> Rol toewijzen
+          <Users size={16} className="text-[#006b5a]" /> Rol toewijzen
         </h3>
 
-        <div className="flex gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => { setEmail(e.target.value); setFound(null); setNotFound(false); setRoleSaved(false); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') search(); }}
-            placeholder="E-mailadres van de gebruiker"
-            className="flex-1 h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
-          />
-          <button
-            onClick={search}
-            disabled={searching || !email.trim()}
-            className="h-10 px-4 rounded-xl bg-[#006b5a] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
-          >
-            {searching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Zoeken
-          </button>
-        </div>
+        {roleError && <p className="text-sm font-bold text-red-600 mb-3">{roleError}</p>}
+        {usersLoading && <p className="text-sm font-bold text-[#3d4945]/60">Gebruikers laden…</p>}
 
-        {roleError && <p className="text-sm font-bold text-red-600 mt-3">{roleError}</p>}
-
-        {notFound && (
-          <p className="text-sm text-[#3d4945]/70 mt-3">
-            Geen account met dat e-mailadres. De gebruiker moet zich eerst registreren of
-            uitgenodigd worden.
-          </p>
+        {!usersLoading && allUsers.length === 0 && !roleError && (
+          <p className="text-sm text-[#3d4945]/60">Geen gebruikers gevonden.</p>
         )}
 
-        {found && (
+        {!usersLoading && allUsers.length > 0 && (
+          <select
+            value={pickedId}
+            onChange={(e) => pick(e.target.value)}
+            className="w-full h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
+          >
+            <option value="">— Kies een gebruiker —</option>
+            {allUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name ?? '(naam onbekend)'}
+                {u.email ? ` — ${u.email}` : ''}
+                {u.role ? ` (${ROLE_LABELS[u.role] ?? u.role})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {picked && (
           <div className="mt-3 bg-white rounded-xl border border-[#f2f4f6] px-4 py-3 space-y-3">
             <div>
-              <p className="font-bold text-[#191c1e]">{found.name ?? '(nog geen profiel)'}</p>
-              <p className="text-xs text-[#3d4945]/70">{found.email}</p>
+              <p className="font-bold text-[#191c1e]">{picked.name ?? '(nog geen profiel)'}</p>
+              <p className="text-xs text-[#3d4945]/70">{picked.email ?? 'geen e-mailadres bekend'}</p>
               <p className="text-xs text-[#3d4945]/70 mt-1">
                 Huidige rol:{' '}
                 <span className="font-bold text-[#3d4945]">
-                  {found.role ? (ROLE_LABELS[found.role] ?? found.role) : 'geen rol ingesteld'}
+                  {picked.role ? (ROLE_LABELS[picked.role] ?? picked.role) : 'geen rol ingesteld'}
                 </span>
               </p>
             </div>
@@ -312,7 +319,7 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
               </select>
               <button
                 onClick={saveRole}
-                disabled={busy || newRole === found.role}
+                disabled={busy || newRole === picked.role}
                 className="h-10 px-4 rounded-xl bg-[#006b5a] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
               >
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Opslaan
@@ -322,13 +329,6 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
             {roleSaved && (
               <p className="text-sm font-bold text-[#006b5a]">
                 Rol opgeslagen. {newRole === 'region_manager' && 'Koppel hierboven zijn apotheken.'}
-              </p>
-            )}
-
-            {found.role === null && (
-              <p className="text-xs text-amber-600">
-                Deze gebruiker heeft nog geen profielrij. Een rol opslaan werkt pas nadat hij
-                één keer is ingelogd.
               </p>
             )}
           </div>

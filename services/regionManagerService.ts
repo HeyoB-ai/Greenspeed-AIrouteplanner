@@ -88,13 +88,19 @@ export async function getUsersWithRole(role: string): Promise<ProfileWithEmail[]
   return (body?.users ?? []) as ProfileWithEmail[];
 }
 
-/** Eén gebruiker op e-mailadres, met zijn huidige rol. null = niet gevonden. */
-export async function findUserByEmail(email: string): Promise<ProfileWithEmail | null> {
+/**
+ * Alle profielen, met e-mailadres, op naam gesorteerd door de server.
+ *
+ * Dit vervangt het zoeken op e-mailadres: een beheerder kent het adres van een
+ * collega meestal niet, en een lijst van deze omvang is zo overzichtelijk dat
+ * zoeken niets toevoegde.
+ */
+export async function getAllUsers(): Promise<ProfileWithEmail[]> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`/.netlify/functions/users-lookup?email=${encodeURIComponent(email)}`, { headers });
+  const res = await fetch('/.netlify/functions/users-lookup', { headers });
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error ?? 'Zoeken mislukt.');
-  return (body?.user ?? null) as ProfileWithEmail | null;
+  if (!res.ok) throw new Error(body?.error ?? 'Gebruikers ophalen mislukt.');
+  return (body?.users ?? []) as ProfileWithEmail[];
 }
 
 /**
