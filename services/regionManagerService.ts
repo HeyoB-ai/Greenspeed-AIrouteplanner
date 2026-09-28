@@ -204,38 +204,55 @@ export async function revokePharmacyAccess(userId: string, pharmacyId: string): 
 }
 
 /**
+ * Eén schrijfweg voor rol en planner-vlag: de Netlify-function
+ * admin-update-user, die met de service-role key werkt.
+ *
+ * Waarom niet rechtstreeks vanuit de browser: een UPDATE op user_profiles die
+ * door RLS wordt weggefilterd raakt nul rijen en geeft GEEN error terug — de
+ * schrijfactie leek dan te slagen terwijl er niets gebeurde. De function
+ * controleert zelf of de aanroeper privileged is en schrijft daarna buiten RLS
+ * om, zodat een mislukking altijd een status en een melding oplevert.
+ */
+async function adminUpdateUser(
+  payload: { userId: string; role?: string; isPlanner?: boolean },
+): Promise<void> {
+  if (!supabase) throw new Error('Geen verbinding met de database.');
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  console.log('[admin-update-user] sessie:', token ? 'aanwezig' : 'ontbreekt', payload);
+
+  if (!token) {
+    throw new Error(
+      'Je bent niet met een Supabase-account ingelogd, dus deze wijziging kan niet worden '
+      + 'opgeslagen. Log opnieuw in met je e-mailadres en wachtwoord.',
+    );
+  }
+
+  const res = await fetch('/.netlify/functions/admin-update-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await res.json().catch(() => null);
+  console.log('[admin-update-user] respons:', res.status, body);
+
+  if (res.status !== 200) {
+    throw new Error(body?.error ?? `Opslaan mislukt (status ${res.status}).`);
+  }
+}
+
+/**
  * Zet de rol van een gebruiker. `role` is de database-schrijfwijze; een waarde
  * buiten DB_ROLES wordt door de CHECK-constraint geweigerd, dus we vangen hem
  * hier al af met een leesbare melding.
  */
 export async function setUserRole(userId: string, role: string): Promise<void> {
-  if (!supabase) throw new Error('Geen verbinding met de database.');
   if (!(DB_ROLES as readonly string[]).includes(role)) {
     throw new Error(`Onbekende rol: ${role}`);
   }
-
-  const session = await supabase.auth.getSession();
-  console.log('[setUserRole] sessie:', session.data.session?.access_token ? 'aanwezig' : 'ontbreekt');
-
-  // .select() erachter is geen opsmuk maar de kern van de zaak: een UPDATE die
-  // door RLS wordt weggefilterd raakt nul rijen en geeft GEEN error. Zonder de
-  // teruggegeven rijen lijkt zo'n mislukte schrijfactie geslaagd.
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .update({ role })
-    .eq('id', userId)
-    .select('id, role');
-
-  console.log('[setUserRole]', { userId, role, data, error });
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error(
-      'De rol is niet opgeslagen: de database gaf geen enkele bijgewerkte rij terug. '
-      + 'Meestal betekent dat dat je account geen rechten heeft om andere profielen te wijzigen '
-      + '(RLS), of dat je met een demo-account bent ingelogd.',
-    );
-  }
+  await adminUpdateUser({ userId, role });
 }
 
 /**
@@ -247,42 +264,5 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
  * heeft.
  */
 export async function setIsPlanner(userId: string, value: boolean): Promise<void> {
-  if (!supabase) throw new Error('Geen verbinding met de database.');
-
-  // Wie is de database op dit moment? Deze client is dezelfde instantie die
-  // authService gebruikt om in te loggen (één createClient in het hele
-  // front-end, in supabaseService.ts), dus de JWT gaat automatisch mee. Staat
-  // hier `user: null`, dan is er geen Supabase-sessie — een demo-account of een
-  // verlopen token — en dan is auth.uid() NULL en filtert de RLS alles weg.
-  console.log('[auth check]', await supabase.auth.getUser());
-
-  // Zelfde reden als bij setUserRole: zonder .select() is een door RLS
-  // geblokkeerde update niet te onderscheiden van een geslaagde.
-  const { data, error, status } = await supabase
-    .from('user_profiles')
-    .update({ is_planner: value })
-    .eq('id', userId)
-    .select('id, is_planner');
-
-  console.log('[setIsPlanner] respons:', { userId, value, status, data, error });
-
-  if (error) {
-    console.error('[setIsPlanner] mislukt:', error.message, '| code:', (error as any).code);
-    throw error;
-  }
-  if (!data || data.length === 0) {
-    throw new Error(
-      'De planner-vlag is niet opgeslagen: de database gaf geen enkele bijgewerkte rij terug. '
-      + 'Meestal betekent dat dat je account geen rechten heeft om andere profielen te wijzigen '
-      + '(RLS), of dat je met een demo-account bent ingelogd.',
-    );
-  }
-
-  const written = (data[0] as any)?.is_planner;
-  if (written !== value) {
-    // Kan gebeuren als een trigger de waarde terugzet; de trigger uit migratie
-    // 016 doet dat alleen bij een rolwijziging, maar dan wil je het wél weten.
-    console.warn('[setIsPlanner] database schreef', written, 'in plaats van', value);
-    throw new Error(`De database zette de planner-vlag op ${written} in plaats van ${value}.`);
-  }
+  await adminUpdateUser({ userId, isPlanner: value });
 }
