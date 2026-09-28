@@ -246,6 +246,13 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
 export async function setIsPlanner(userId: string, value: boolean): Promise<void> {
   if (!supabase) throw new Error('Geen verbinding met de database.');
 
+  // Wie is de database op dit moment? Deze client is dezelfde instantie die
+  // authService gebruikt om in te loggen (één createClient in het hele
+  // front-end, in supabaseService.ts), dus de JWT gaat automatisch mee. Staat
+  // hier `user: null`, dan is er geen Supabase-sessie — een demo-account of een
+  // verlopen token — en dan is auth.uid() NULL en filtert de RLS alles weg.
+  console.log('[auth check]', await supabase.auth.getUser());
+
   // Zelfde reden als bij setUserRole: zonder .select() is een door RLS
   // geblokkeerde update niet te onderscheiden van een geslaagde.
   const { data, error, status } = await supabase
