@@ -23,6 +23,20 @@ export interface ProfileWithEmail {
   name: string | null;
   role: string | null;
   email: string | null;
+  /** Toegang tot de planner-app, los van de rol (migratie 016). */
+  isPlanner: boolean;
+}
+
+// De function levert de database-schrijfwijze; hier één keer omzetten in plaats
+// van in elke component.
+function toProfile(r: any): ProfileWithEmail {
+  return {
+    id:        r.id,
+    name:      r.name ?? null,
+    role:      r.role ?? null,
+    email:     r.email ?? null,
+    isPlanner: r.is_planner === true,
+  };
 }
 
 export interface MyPharmacy {
@@ -85,7 +99,7 @@ export async function getUsersWithRole(role: string): Promise<ProfileWithEmail[]
   const res = await fetch(`/.netlify/functions/users-lookup?role=${encodeURIComponent(role)}`, { headers });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new Error(body?.error ?? 'Gebruikers ophalen mislukt.');
-  return (body?.users ?? []) as ProfileWithEmail[];
+  return ((body?.users ?? []) as any[]).map(toProfile);
 }
 
 /**
@@ -100,7 +114,7 @@ export async function getAllUsers(): Promise<ProfileWithEmail[]> {
   const res = await fetch('/.netlify/functions/users-lookup', { headers });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new Error(body?.error ?? 'Gebruikers ophalen mislukt.');
-  return (body?.users ?? []) as ProfileWithEmail[];
+  return ((body?.users ?? []) as any[]).map(toProfile);
 }
 
 /**
@@ -203,6 +217,25 @@ export async function setUserRole(userId: string, role: string): Promise<void> {
   const { error } = await supabase
     .from('user_profiles')
     .update({ role })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/**
+ * Zet de planner-toegang los van de rol (migratie 016).
+ *
+ * Let op de trigger uit die migratie: wordt de rol in dezelfde handeling naar
+ * of van 'planner' gezet, dan schrijft die trigger is_planner ook. Zet daarom
+ * eerst de rol en dan deze vlag, zodat de expliciete keuze het laatste woord
+ * heeft.
+ */
+export async function setIsPlanner(userId: string, value: boolean): Promise<void> {
+  if (!supabase) throw new Error('Geen verbinding met de database.');
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ is_planner: value })
     .eq('id', userId);
 
   if (error) throw error;

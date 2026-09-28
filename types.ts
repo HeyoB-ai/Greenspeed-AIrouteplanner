@@ -23,6 +23,10 @@ export interface AuthUser {
   groupId?:      string;    // groep/regio waar een supervisor bij hoort
   courierId?:    string;
   passwordHash?: string;
+  // Toegang tot de planner-app, los van de primaire rol (migratie 016). Een
+  // sessie die vóór die migratie is opgeslagen heeft het veld niet, dus lees
+  // hem altijd als `=== true`.
+  isPlanner:     boolean;
 }
 
 export interface AuthSession {

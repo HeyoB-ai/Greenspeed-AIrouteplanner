@@ -1,90 +1,108 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Building2, Check, ChevronDown, ChevronUp, Loader2, Plus, Trash2, UserCog, Users,
+  Building2, Check, ChevronDown, ChevronUp, Loader2, Plus, Trash2, Users,
 } from 'lucide-react';
 import { Pharmacy } from '../types';
 import {
   DB_ROLES, ROLE_LABELS,
-  getUsersWithRole, getAllUsers, getPharmacyAccessForUser,
-  grantPharmacyAccess, revokePharmacyAccess, setUserRole,
+  getAllUsers, getPharmacyAccessForUser,
+  grantPharmacyAccess, revokePharmacyAccess, setUserRole, setIsPlanner,
   type PharmacyAccessRow, type ProfileWithEmail,
 } from '../services/regionManagerService';
 
 // ── Regiobeheer ───────────────────────────────────────────────────────────
-// Twee dingen op één scherm, omdat ze in de praktijk één handeling zijn: je
-// maakt iemand regiomanager en koppelt hem meteen aan zijn apotheken. Los van
-// elkaar zou de eerste helft een gebruiker achterlaten die nog niets ziet.
+// Eén tabel met alle gebruikers: rol en planner-toegang staan per rij naast
+// elkaar, want in de praktijk zet je ze in één handeling. Een aparte lijst per
+// rol zou dezelfde mensen twee keer tonen.
 //
-// De koppelingen worden per manager pas geladen als het blok openklapt: met
-// vijftien apotheken en een handvol managers is dat geen optimalisatie maar het
-// verschil tussen één query en een query per manager bij elk bezoek.
+// De apotheek-koppeling hangt onder de rij van een regiomanager en wordt pas
+// geladen bij het openklappen — dat is één query in plaats van één per
+// gebruiker bij elk bezoek.
 
 interface Props {
   pharmacies: Pharmacy[];
 }
 
+/** De niet-opgeslagen keuzes van één rij. */
+interface Draft {
+  role: string;
+  isPlanner: boolean;
+}
+
 const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
-  const [managers, setManagers] = useState<ProfileWithEmail[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [users, setUsers] = useState<ProfileWithEmail[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
+  // Apotheek-koppeling van de opengeklapte regiomanager.
   const [openId, setOpenId] = useState<string | null>(null);
   const [access, setAccess] = useState<PharmacyAccessRow[]>([]);
   const [accessLoading, setAccessLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [picking, setPicking] = useState(false);
   const [pickId, setPickId] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  // ── Rol toewijzen ───────────────────────────────────────────────────────
-  // Een lijst en geen zoekveld: het e-mailadres van een collega ken je niet uit
-  // je hoofd, en dan is een veld dat een exacte match eist onbruikbaar.
-  const [allUsers, setAllUsers] = useState<ProfileWithEmail[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [pickedId, setPickedId] = useState('');
-  const [newRole, setNewRole] = useState('region_manager');
-  const [roleSaved, setRoleSaved] = useState(false);
-  const [roleError, setRoleError] = useState('');
-
-  const picked = allUsers.find((u) => u.id === pickedId) ?? null;
-
-  const loadManagers = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const rows = await getUsersWithRole('region_manager');
-      setManagers(rows);
-      // Aantallen in één keer: één query per manager, maar alleen bij het laden
-      // van de lijst en niet bij elke render.
-      const pairs = await Promise.all(
-        rows.map(async (m) => [m.id, (await getPharmacyAccessForUser(m.id)).length] as const),
-      );
-      setCounts(Object.fromEntries(pairs));
+      const rows = await getAllUsers();
+      setUsers(rows);
+      // Concepten gelijkzetten met wat er in de database staat: daarna is
+      // "gewijzigd" simpelweg het verschil tussen draft en rij.
+      setDrafts(Object.fromEntries(
+        rows.map((u) => [u.id, { role: u.role ?? '', isPlanner: u.isPlanner }]),
+      ));
     } catch (e: any) {
-      setError(e?.message ?? 'Regiomanagers laden mislukt. Log in met een echt account.');
+      setError(e?.message ?? 'Gebruikers laden mislukt. Log in met een echt account.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loadAllUsers = useCallback(async () => {
-    setUsersLoading(true);
+  useEffect(() => { load(); }, [load]);
+
+  const setDraft = (id: string, patch: Partial<Draft>) => {
+    setSavedId(null);
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
+  };
+
+  const isDirty = (u: ProfileWithEmail) => {
+    const d = drafts[u.id];
+    if (!d) return false;
+    return d.role !== (u.role ?? '') || d.isPlanner !== u.isPlanner;
+  };
+
+  const save = async (u: ProfileWithEmail) => {
+    const d = drafts[u.id];
+    if (!d) return;
+    setSavingId(u.id); setError(''); setSavedId(null);
     try {
-      setAllUsers(await getAllUsers());
+      // Rol eerst: de trigger uit migratie 016 schrijft is_planner mee zodra de
+      // rol naar of van 'planner' gaat. Door de vlag daarna te zetten heeft de
+      // expliciete keuze van de beheerder het laatste woord.
+      if (d.role !== (u.role ?? '')) await setUserRole(u.id, d.role);
+      if (d.isPlanner !== u.isPlanner) await setIsPlanner(u.id, d.isPlanner);
+      await load();
+      setSavedId(u.id);
     } catch (e: any) {
-      setRoleError(e?.message ?? 'Gebruikers laden mislukt. Log in met een echt account.');
+      setError(e?.message ?? 'Opslaan mislukt.');
     } finally {
-      setUsersLoading(false);
+      setSavingId(null);
     }
-  }, []);
+  };
 
-  useEffect(() => { loadManagers(); }, [loadManagers]);
-  useEffect(() => { loadAllUsers(); }, [loadAllUsers]);
-
-  const openManager = async (id: string) => {
+  // ── Apotheken van één regiomanager ──────────────────────────────────────
+  const openPharmacies = async (id: string) => {
     if (openId === id) { setOpenId(null); return; }
     setOpenId(id); setPicking(false); setPickId(''); setAccessLoading(true); setError('');
     try {
-      setAccess(await getPharmacyAccessForUser(id));
+      const rows = await getPharmacyAccessForUser(id);
+      setAccess(rows);
+      setCounts((c) => ({ ...c, [id]: rows.length }));
     } catch (e: any) {
       setError(e?.message ?? 'Koppelingen laden mislukt.');
       setAccess([]);
@@ -121,219 +139,187 @@ const RegionManagerAdmin: React.FC<Props> = ({ pharmacies }) => {
     } finally { setBusy(false); }
   };
 
-  const pick = (id: string) => {
-    setPickedId(id);
-    setRoleSaved(false);
-    setRoleError('');
-    // Standaard de huidige rol, zodat Opslaan uit staat tot je echt iets wijzigt.
-    const user = allUsers.find((u) => u.id === id);
-    setNewRole(user?.role ?? 'region_manager');
-  };
-
-  const saveRole = async () => {
-    if (!picked) return;
-    setBusy(true); setRoleError(''); setRoleSaved(false);
-    try {
-      await setUserRole(picked.id, newRole);
-      setAllUsers((list) => list.map((u) => (u.id === picked.id ? { ...u, role: newRole } : u)));
-      setRoleSaved(true);
-      // De lijst bovenaan verandert mee: iemand komt erbij of valt eruit.
-      await loadManagers();
-    } catch (e: any) {
-      setRoleError(e?.message ?? 'Rol opslaan mislukt.');
-    } finally { setBusy(false); }
-  };
-
-  // Alleen apotheken die nog niet gekoppeld zijn aan de open manager.
   const linkedIds = new Set(access.map((a) => a.pharmacyId));
   const available = pharmacies
     .filter((p) => !linkedIds.has(p.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
 
   return (
-    <div className="space-y-8">
-
-      {/* ══ Regiomanagers ══════════════════════════════════════════════ */}
+    <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-black text-[#191c1e] mb-3 flex items-center gap-2">
-          <UserCog size={16} className="text-[#006b5a]" /> Regiomanagers
+        <h3 className="text-sm font-black text-[#191c1e] flex items-center gap-2">
+          <Users size={16} className="text-[#006b5a]" /> Gebruikers, rollen en planner-toegang
         </h3>
+        <p className="text-xs text-[#3d4945]/70 mt-0.5">
+          Planner-toegang staat los van de rol: iemand kan koerier zijn én in de Planner werken.
+        </p>
+      </div>
 
-        {error && <p className="text-sm font-bold text-red-600 mb-3">{error}</p>}
-        {loading && <p className="text-sm font-bold text-[#3d4945]/60">Laden…</p>}
+      {error && <p className="text-sm font-bold text-red-600">{error}</p>}
+      {loading && <p className="text-sm font-bold text-[#3d4945]/60">Laden…</p>}
 
-        {!loading && managers.length === 0 && (
-          <p className="text-sm text-[#3d4945]/60">
-            Nog geen regiomanagers. Wijs hieronder een gebruiker de rol toe.
-          </p>
-        )}
+      {!loading && users.length === 0 && !error && (
+        <p className="text-sm text-[#3d4945]/60">Geen gebruikers gevonden.</p>
+      )}
 
-        <div className="space-y-2">
-          {managers.map((m) => {
-            const open = openId === m.id;
-            return (
-              <div key={m.id} className="bg-white rounded-xl border border-[#f2f4f6] overflow-hidden">
+      {users.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#f2f4f6] overflow-x-auto">
+          <table className="w-full min-w-[46rem] text-sm">
+            <thead>
+              <tr className="text-left text-xs font-black text-[#3d4945]/70 uppercase border-b border-[#f2f4f6]">
+                <th className="px-4 py-2.5">Naam</th>
+                <th className="px-4 py-2.5">E-mail</th>
+                <th className="px-4 py-2.5">Rol</th>
+                <th className="px-4 py-2.5 text-center">Planner</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const d = drafts[u.id] ?? { role: u.role ?? '', isPlanner: u.isPlanner };
+                const dirty = isDirty(u);
+                const saving = savingId === u.id;
+                const isManager = u.role === 'region_manager';
+                const open = openId === u.id;
 
-                {/* Rij */}
-                <button
-                  onClick={() => openManager(m.id)}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-[#f7f9fb] transition-colors"
-                >
-                  <span className="font-bold text-[#191c1e] min-w-0 flex-1 truncate">
-                    {m.name ?? '(naam onbekend)'}
-                  </span>
-                  <span className="text-sm text-[#3d4945]/70 min-w-0 hidden sm:block truncate max-w-[16rem]">
-                    {m.email ?? '—'}
-                  </span>
-                  <span className="text-xs font-bold text-[#3d4945] bg-[#f2f4f6] rounded-full px-2.5 py-1 shrink-0">
-                    {counts[m.id] ?? 0} {(counts[m.id] ?? 0) === 1 ? 'apotheek' : 'apotheken'}
-                  </span>
-                  {open
-                    ? <ChevronUp size={16} className="text-[#3d4945]/60 shrink-0" />
-                    : <ChevronDown size={16} className="text-[#3d4945]/60 shrink-0" />}
-                </button>
+                return (
+                  <React.Fragment key={u.id}>
+                    <tr className="border-b border-[#f2f4f6] last:border-0 align-middle">
+                      <td className="px-4 py-2.5 font-bold text-[#191c1e]">
+                        <div className="flex items-center gap-2">
+                          {u.name ?? '(naam onbekend)'}
+                          {isManager && (
+                            <button
+                              onClick={() => openPharmacies(u.id)}
+                              className="h-7 px-2 rounded-full bg-[#f2f4f6] text-[11px] font-bold text-[#3d4945] hover:bg-[#e8eaec] flex items-center gap-1 shrink-0"
+                              title="Gekoppelde apotheken"
+                            >
+                              <Building2 size={12} />
+                              {counts[u.id] ?? '—'}
+                              {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            </button>
+                          )}
+                        </div>
+                      </td>
 
-                {/* Uitklap: gekoppelde apotheken */}
-                {open && (
-                  <div className="border-t border-[#f2f4f6] px-4 py-3 space-y-2">
-                    {/* Op mobiel staat het adres niet in de rij; hier wel. */}
-                    <p className="text-xs text-[#3d4945]/60 sm:hidden">{m.email ?? 'geen e-mailadres'}</p>
+                      <td className="px-4 py-2.5 text-[#3d4945]/80">{u.email ?? '—'}</td>
 
-                    {accessLoading && <p className="text-sm text-[#3d4945]/60">Laden…</p>}
-
-                    {!accessLoading && access.length === 0 && (
-                      <p className="text-sm text-[#3d4945]/60">Nog geen apotheken gekoppeld.</p>
-                    )}
-
-                    {!accessLoading && access.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-3 bg-[#f7f9fb] rounded-lg px-3 py-2">
-                        <span className="text-sm font-bold text-[#191c1e] min-w-0 truncate flex items-center gap-2">
-                          <Building2 size={14} className="text-[#3d4945]/50 shrink-0" />
-                          {a.pharmacyName}
-                        </span>
-                        <button
-                          onClick={() => revoke(m.id, a.pharmacyId)}
-                          disabled={busy}
-                          className="h-8 px-2.5 rounded-full bg-white border border-[#f2f4f6] text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 flex items-center gap-1 shrink-0"
-                        >
-                          <Trash2 size={13} /> Ontkoppelen
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Toevoegen */}
-                    {picking ? (
-                      <div className="flex gap-2 pt-1">
+                      <td className="px-4 py-2.5">
                         <select
-                          value={pickId}
-                          onChange={(e) => setPickId(e.target.value)}
-                          className="flex-1 h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
+                          value={d.role}
+                          disabled={saving}
+                          onChange={(e) => setDraft(u.id, { role: e.target.value })}
+                          className="h-9 px-2 rounded-lg bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none disabled:opacity-60"
                         >
-                          <option value="">— Kies een apotheek —</option>
-                          {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          {/* Een account zonder profielrol: laat zien dát er niets staat
+                              in plaats van stil de eerste rol voor te stellen. */}
+                          {!u.role && <option value="">— geen rol —</option>}
+                          {DB_ROLES.map((r) => (
+                            <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                          ))}
                         </select>
-                        <button
-                          onClick={() => grant(m.id, pickId)}
-                          disabled={busy || !pickId}
-                          className="h-10 px-4 rounded-xl bg-[#006b5a] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
-                        >
-                          {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Koppelen
-                        </button>
-                        <button
-                          onClick={() => { setPicking(false); setPickId(''); }}
-                          className="h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#3d4945]"
-                        >
-                          Annuleren
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setPicking(true)}
-                        disabled={available.length === 0}
-                        className="h-9 px-3 rounded-full bg-[#f2f4f6] text-xs font-bold text-[#3d4945] hover:bg-[#e8eaec] disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <Plus size={14} />
-                        {available.length === 0 ? 'Alle apotheken al gekoppeld' : 'Apotheek toevoegen'}
-                      </button>
+                      </td>
+
+                      <td className="px-4 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={d.isPlanner}
+                          disabled={saving}
+                          onChange={(e) => setDraft(u.id, { isPlanner: e.target.checked })}
+                          className="rounded border-slate-300 text-[#006b5a] focus:ring-[#006b5a] disabled:opacity-60"
+                        />
+                      </td>
+
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        {savedId === u.id && !dirty ? (
+                          <span className="text-xs font-bold text-[#006b5a] inline-flex items-center gap-1">
+                            <Check size={14} /> Opgeslagen
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => save(u)}
+                            disabled={!dirty || saving}
+                            className="h-9 px-3 rounded-xl bg-[#006b5a] text-white text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-40"
+                          >
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            Opslaan
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Apotheken van deze regiomanager */}
+                    {open && isManager && (
+                      <tr className="border-b border-[#f2f4f6] bg-[#f7f9fb]">
+                        <td colSpan={5} className="px-4 py-3">
+                          {accessLoading && <p className="text-sm text-[#3d4945]/60">Laden…</p>}
+
+                          {!accessLoading && access.length === 0 && (
+                            <p className="text-sm text-[#3d4945]/60 mb-2">Nog geen apotheken gekoppeld.</p>
+                          )}
+
+                          <div className="space-y-2">
+                            {!accessLoading && access.map((a) => (
+                              <div key={a.id} className="flex items-center justify-between gap-3 bg-white rounded-lg px-3 py-2">
+                                <span className="text-sm font-bold text-[#191c1e] min-w-0 truncate flex items-center gap-2">
+                                  <Building2 size={14} className="text-[#3d4945]/50 shrink-0" />
+                                  {a.pharmacyName}
+                                </span>
+                                <button
+                                  onClick={() => revoke(u.id, a.pharmacyId)}
+                                  disabled={busy}
+                                  className="h-8 px-2.5 rounded-full bg-white border border-[#f2f4f6] text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 flex items-center gap-1 shrink-0"
+                                >
+                                  <Trash2 size={13} /> Ontkoppelen
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {picking ? (
+                            <div className="flex gap-2 mt-2">
+                              <select
+                                value={pickId}
+                                onChange={(e) => setPickId(e.target.value)}
+                                className="flex-1 h-10 px-3 rounded-xl bg-white border border-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
+                              >
+                                <option value="">— Kies een apotheek —</option>
+                                {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </select>
+                              <button
+                                onClick={() => grant(u.id, pickId)}
+                                disabled={busy || !pickId}
+                                className="h-10 px-4 rounded-xl bg-[#006b5a] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+                              >
+                                {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Koppelen
+                              </button>
+                              <button
+                                onClick={() => { setPicking(false); setPickId(''); }}
+                                className="h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#3d4945]"
+                              >
+                                Annuleren
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setPicking(true)}
+                              disabled={available.length === 0}
+                              className="mt-2 h-9 px-3 rounded-full bg-[#f2f4f6] text-xs font-bold text-[#3d4945] hover:bg-[#e8eaec] disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <Plus size={14} />
+                              {available.length === 0 ? 'Alle apotheken al gekoppeld' : 'Apotheek toevoegen'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      {/* ══ Rol toewijzen ══════════════════════════════════════════════ */}
-      <div>
-        <h3 className="text-sm font-black text-[#191c1e] mb-3 flex items-center gap-2">
-          <Users size={16} className="text-[#006b5a]" /> Rol toewijzen
-        </h3>
-
-        {roleError && <p className="text-sm font-bold text-red-600 mb-3">{roleError}</p>}
-        {usersLoading && <p className="text-sm font-bold text-[#3d4945]/60">Gebruikers laden…</p>}
-
-        {!usersLoading && allUsers.length === 0 && !roleError && (
-          <p className="text-sm text-[#3d4945]/60">Geen gebruikers gevonden.</p>
-        )}
-
-        {!usersLoading && allUsers.length > 0 && (
-          <select
-            value={pickedId}
-            onChange={(e) => pick(e.target.value)}
-            className="w-full h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
-          >
-            <option value="">— Kies een gebruiker —</option>
-            {allUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name ?? '(naam onbekend)'}
-                {u.email ? ` — ${u.email}` : ''}
-                {u.role ? ` (${ROLE_LABELS[u.role] ?? u.role})` : ''}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {picked && (
-          <div className="mt-3 bg-white rounded-xl border border-[#f2f4f6] px-4 py-3 space-y-3">
-            <div>
-              <p className="font-bold text-[#191c1e]">{picked.name ?? '(nog geen profiel)'}</p>
-              <p className="text-xs text-[#3d4945]/70">{picked.email ?? 'geen e-mailadres bekend'}</p>
-              <p className="text-xs text-[#3d4945]/70 mt-1">
-                Huidige rol:{' '}
-                <span className="font-bold text-[#3d4945]">
-                  {picked.role ? (ROLE_LABELS[picked.role] ?? picked.role) : 'geen rol ingesteld'}
-                </span>
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <select
-                value={newRole}
-                onChange={(e) => { setNewRole(e.target.value); setRoleSaved(false); }}
-                className="flex-1 h-10 px-3 rounded-xl bg-[#f2f4f6] text-sm font-bold text-[#191c1e] outline-none"
-              >
-                {DB_ROLES.map((r) => (
-                  <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                ))}
-              </select>
-              <button
-                onClick={saveRole}
-                disabled={busy || newRole === picked.role}
-                className="h-10 px-4 rounded-xl bg-[#006b5a] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
-              >
-                {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Opslaan
-              </button>
-            </div>
-
-            {roleSaved && (
-              <p className="text-sm font-bold text-[#006b5a]">
-                Rol opgeslagen. {newRole === 'region_manager' && 'Koppel hierboven zijn apotheken.'}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

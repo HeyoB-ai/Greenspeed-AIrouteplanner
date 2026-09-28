@@ -41,7 +41,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  let query = admin.from('user_profiles').select('id, name, role').order('name');
+  let query = admin.from('user_profiles').select('id, name, role, is_planner').order('name');
   if (role) query = query.eq('role', role);
 
   const { data: profiles, error } = await query;
@@ -54,6 +54,9 @@ export const handler: Handler = async (event) => {
     name: p.name,
     role: p.role,
     email: emails.get(p.id) ?? null,
+    // Kolom uit migratie 016. Ontbreekt hij nog, dan is dit undefined en leest
+    // de client hem als false.
+    is_planner: p.is_planner === true,
   }));
 
   return {

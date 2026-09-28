@@ -23,7 +23,7 @@ import { getSession, logout, saveSession, getCourierPharmacies } from './service
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { addressKey } from './utils/addressKey';
-import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2, Truck, Calendar } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2, Truck, Calendar, CalendarDays, ArrowUpRight } from 'lucide-react';
 
 const COURIER_NAMES: Record<string, string> = {
   'k1': 'Marco Koerier',
@@ -379,6 +379,9 @@ const App: React.FC = () => {
 
   const hasCloudConfig = !!supabase;
   const role = session?.user.role ?? null;
+  // Planner-toegang staat los van de rol (migratie 016). `=== true` omdat een
+  // sessie die vóór die migratie in localStorage is gezet het veld niet heeft.
+  const hasPlannerAccess = session?.user.isPlanner === true;
   const [dienstCheckOk, setDienstCheckOk] = useState(() => {
     try { return sessionStorage.getItem('gs_dienstcheck_ok') === '1'; } catch { return false; }
   });
@@ -1443,6 +1446,27 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
             >
               <X size={16} />
             </button>
+          </div>
+        )}
+
+        {/* PLANNER-TOEGANG naast een andere rol — de rol zelf houdt zijn eigen
+            scherm; deze balk is de enige toevoeging. Bij role === PLANNER staat
+            er hieronder al een hele doorverwijspagina, dus dan geen balk. */}
+        {hasPlannerAccess && role !== UserRole.PLANNER && (
+          <div className="mb-4 bg-[#006b5a]/5 border border-[#006b5a]/20 rounded-3xl p-4 flex items-center gap-3">
+            <CalendarDays size={18} className="text-[#006b5a] shrink-0" />
+            <p className="flex-1 text-sm font-black text-[#006b5a] min-w-0">
+              Je hebt toegang tot de GoBob Planner
+            </p>
+            <a
+              href="https://planner.go-bob.nl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-9 px-3 rounded-xl bg-[#006b5a] hover:bg-[#00594b] transition-colors text-white text-sm font-bold flex items-center gap-1.5 shrink-0"
+            >
+              Openen
+              <ArrowUpRight size={15} />
+            </a>
           </div>
         )}
 

@@ -30,35 +30,42 @@ export const DEMO_USERS: (AuthUser & { email: string; passwordHash: string })[] 
   {
     id: 'u1', name: 'Greenspeed HQ', role: UserRole.SUPERUSER,
     email: 'superuser@demo.greenspeed.nl', passwordHash: 'superuser123',
+    isPlanner: false,
   },
   {
     id: 'u2', name: 'Beheerder Apotheek de Kroon', role: UserRole.ADMIN,
     pharmacyId: 'ph-1', pharmacyIds: ['ph-1'],
     email: 'admin@demo.greenspeed.nl', passwordHash: 'admin123',
+    isPlanner: false,
   },
   {
     id: 'u6', name: 'Regio Beheerder', role: UserRole.ADMIN,
     pharmacyIds: ['ph-1', 'ph-1779784742417'],
     email: 'regio@demo.greenspeed.nl', passwordHash: 'regio123',
+    isPlanner: false,
   },
   {
     id: 'u3', name: 'Assistente Apotheek de Kroon', role: UserRole.PHARMACY,
     pharmacyId: 'ph-1',
     email: 'apotheek@demo.greenspeed.nl', passwordHash: 'apotheek123',
+    isPlanner: false,
   },
   {
     id: 'u4', name: 'Marco Koerier', role: UserRole.COURIER,
     pharmacyId: 'ph-1', courierId: 'k1',
     email: 'marco@demo.greenspeed.nl', passwordHash: 'koerier123',
+    isPlanner: false,
   },
   {
     id: 'u5', name: 'Sanne Bezorgd', role: UserRole.COURIER,
     pharmacyId: 'ph-1', courierId: 'k2',
     email: 'sanne@demo.greenspeed.nl', passwordHash: 'koerier456',
+    isPlanner: false,
   },
   {
     id: 'u7', name: 'Lisa Supervisor', role: UserRole.SUPERVISOR,
     email: 'supervisor@demo.greenspeed.nl', passwordHash: 'supervisor123',
+    isPlanner: false,
   },
 ];
 
@@ -74,6 +81,10 @@ function profileToAuthUser(userId: string, profile: Record<string, any>): AuthUs
     pharmacyId:  pharmacyIds[0],
     groupId:     profile.group_id ?? undefined,
     courierId:   profile.role === 'courier' ? userId : undefined,
+    // De login-query doet select('*'), dus is_planner komt al mee; hier alleen
+    // de naamgeving. `=== true` omdat de kolom op een database zonder migratie
+    // 016 ontbreekt en dan undefined is.
+    isPlanner:   profile.is_planner === true,
   };
 }
 
@@ -208,6 +219,7 @@ export async function registerCourier(
     name,
     role:      UserRole.COURIER,
     courierId: data.user.id,
+    isPlanner: false,
   };
   saveLocalSession(user);
   return user;
@@ -248,6 +260,7 @@ export async function acceptInvitation(
     role:        DB_ROLE_MAP[invite.role] ?? UserRole.PHARMACY,
     pharmacyIds: pharmacyIds.length > 0 ? pharmacyIds : undefined,
     pharmacyId:  pharmacyIds[0],
+    isPlanner:   false,
   };
   saveLocalSession(user);
   return user;
