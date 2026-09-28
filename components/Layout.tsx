@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  LogOut, Shield, Package, Truck, LayoutDashboard, Search
+  LogOut, Shield, Package, Truck, LayoutDashboard, Search, Building2, CalendarDays
 } from 'lucide-react';
 
 /** Eén knop in de mobiele onderbalk, aangestuurd vanuit de pagina zelf. */
@@ -32,6 +32,10 @@ const NAV_ITEMS: Record<string, { icon: React.ElementType; label: string }[]> = 
   KOERIER:    [{ icon: Truck,           label: 'Mijn Rit'  }],
   SUPERVISOR: [{ icon: LayoutDashboard, label: 'Logboek'   }],
   PATIENT:    [{ icon: Search,          label: 'Traceren'  }],
+  // De sleutels zijn de UserRole-waarden; die van deze twee zijn de
+  // database-schrijfwijze (zie de enum in types.ts).
+  region_manager: [{ icon: Building2,    label: 'Mijn apotheken' }],
+  planner:        [{ icon: CalendarDays, label: 'Planner'        }],
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -41,6 +45,8 @@ const ROLE_LABELS: Record<string, string> = {
   KOERIER:    'Koerier',
   SUPERVISOR: 'Supervisor',
   PATIENT:    'Patiënt',
+  region_manager: 'Regiomanager',
+  planner:        'Planner',
 };
 
 const Layout: React.FC<LayoutProps> = ({

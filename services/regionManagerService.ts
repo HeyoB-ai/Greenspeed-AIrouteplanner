@@ -1,5 +1,10 @@
 import { supabase, getAuthHeaders } from './supabaseService';
 
+// ══════════════════════════════════════════════════════════════════════════
+// PLANNER-ROL: deze service is alleen voor de hoofdapp. De planner-rol krijgt
+// zijn eigen service in de greenspeedplanner-repo.
+// ══════════════════════════════════════════════════════════════════════════
+
 // ── Regiomanagers en hun apotheken ────────────────────────────────────────
 // Twee bronnen, en dat is geen toeval:
 //
@@ -20,6 +25,29 @@ export interface ProfileWithEmail {
   email: string | null;
 }
 
+export interface MyPharmacy {
+  id: string;
+  name: string;
+  /** Samengesteld weergave-adres; null als er niets is ingevuld. */
+  address: string | null;
+}
+
+/**
+ * Losse velden naar één regel. De oudere apotheken hebben alleen `address`
+ * gevuld (alles in één regel), de nieuwere de losse velden — dus beide vormen
+ * moeten eruit komen, met de losse velden als voorkeur want die zijn recenter.
+ */
+function formatAddress(p: {
+  address?: string | null; street?: string | null; houseNumber?: string | null;
+  postalCode?: string | null; city?: string | null;
+}): string | null {
+  const straat = [p.street, p.houseNumber].filter(Boolean).join(' ').trim();
+  const plaats = [p.postalCode, p.city].filter(Boolean).join(' ').trim();
+  const samen = [straat, plaats].filter(Boolean).join(', ');
+  if (samen) return samen;
+  return p.address?.trim() || null;
+}
+
 export interface PharmacyAccessRow {
   id: string;
   pharmacyId: string;
@@ -27,7 +55,7 @@ export interface PharmacyAccessRow {
   createdAt: string | null;
 }
 
-/** Alle rollen die in user_profiles.role mogen staan (migratie 014). */
+/** Alle rollen die in user_profiles.role mogen staan (migratie 014 en 015). */
 export const DB_ROLES = [
   'superuser',
   'supervisor',
@@ -35,6 +63,7 @@ export const DB_ROLES = [
   'pharmacy',
   'courier',
   'region_manager',
+  'planner',
 ] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
@@ -44,6 +73,7 @@ export const ROLE_LABELS: Record<string, string> = {
   pharmacy:       'Apotheek',
   courier:        'Koerier',
   region_manager: 'Regiomanager',
+  planner:        'Planner (planner.go-bob.nl)',
 };
 
 /**
@@ -90,6 +120,39 @@ export async function getPharmacyAccessForUser(userId: string): Promise<Pharmacy
       createdAt: r.created_at ?? null,
     }))
     .sort((a, b) => a.pharmacyName.localeCompare(b.pharmacyName, 'nl'));
+}
+
+/**
+ * De apotheken van de ingelogde gebruiker zelf, voor het regiomanager-overzicht.
+ *
+ * Geen user_id-filter nodig: de RLS uit migratie 014 laat een niet-privileged
+ * gebruiker alleen zijn eigen rijen zien. Voor een superuser zou deze query
+ * daarentegen álles teruggeven, dus hij is bedoeld voor de regiomanager-view en
+ * niet als algemene "wat mag ik zien"-vraag.
+ */
+export async function getMyPharmacies(): Promise<MyPharmacy[]> {
+  if (!supabase) return [];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('user_pharmacy_access')
+    .select('pharmacy_id, pharmacies(name, address, street, houseNumber, postalCode, city)')
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((r: any): MyPharmacy => {
+      const p = r.pharmacies ?? {};
+      return {
+        id:      r.pharmacy_id,
+        name:    p.name ?? r.pharmacy_id,
+        address: formatAddress(p),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
 }
 
 /** Koppelt een apotheek aan een gebruiker. Bestaat de koppeling al, dan is dit een no-op. */

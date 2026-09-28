@@ -4,7 +4,13 @@ export enum UserRole {
   PHARMACY = 'APOTHEEK',
   COURIER = 'KOERIER',
   SUPERVISOR = 'SUPERVISOR',
-  PATIENT = 'PATIENT'
+  PATIENT = 'PATIENT',
+  // Deze twee dragen bewust de database-schrijfwijze als waarde, in plaats van
+  // de hoofdletterstijl hierboven. Ze zijn later toegevoegd (migratie 014 en
+  // 015) en de bestaande waarden veranderen kon niet: ze staan als sleutel in
+  // Layout.NAV_ITEMS/ROLE_LABELS en in opgeslagen sessies in localStorage.
+  REGION_MANAGER = 'region_manager',
+  PLANNER = 'planner'
 }
 
 export interface AuthUser {

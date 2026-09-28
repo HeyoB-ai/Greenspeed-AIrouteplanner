@@ -8,6 +8,8 @@ import CourierView from './components/CourierView';
 import CourierPharmacyLink from './components/CourierPharmacyLink';
 import DienstCheck from './components/DienstCheck';
 import CourierRooster from './components/CourierRooster';
+import RegionManagerView from './components/RegionManagerView';
+import PlannerRedirectView from './components/PlannerRedirectView';
 import SupervisorView from './components/SupervisorView';
 import SuperuserView from './components/SuperuserView';
 import PatientView from './components/PatientView';
@@ -1578,6 +1580,12 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
         {role === UserRole.COURIER && dienstCheckOk && courierTab === 'rooster' && (
           <CourierRooster />
         )}
+
+        {/* REGIOMANAGER — alleen de eigen toegewezen apotheken, read-only */}
+        {role === UserRole.REGION_MANAGER && <RegionManagerView />}
+
+        {/* PLANNER — hoort in de planner-app; hier alleen een doorverwijzing */}
+        {role === UserRole.PLANNER && <PlannerRedirectView />}
 
         {/* SUPERVISOR — zelfde overzicht als superuser, gefilterd op eigen apotheken */}
         {role === UserRole.SUPERVISOR && (

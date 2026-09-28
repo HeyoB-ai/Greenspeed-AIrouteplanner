@@ -8,6 +8,8 @@ const DB_ROLE_MAP: Record<string, UserRole> = {
   admin:      UserRole.ADMIN,
   pharmacy:   UserRole.PHARMACY,
   courier:    UserRole.COURIER,
+  region_manager: UserRole.REGION_MANAGER,
+  planner:        UserRole.PLANNER,
 };
 
 const ROLE_TO_DB: Record<UserRole, string> = {
@@ -17,6 +19,8 @@ const ROLE_TO_DB: Record<UserRole, string> = {
   [UserRole.PHARMACY]:   'pharmacy',
   [UserRole.COURIER]:    'courier',
   [UserRole.PATIENT]:    'pharmacy', // niet gebruikt voor auth
+  [UserRole.REGION_MANAGER]: 'region_manager',
+  [UserRole.PLANNER]:        'planner',
 };
 
 // ── Demo-accounts (actief als Supabase niet geconfigureerd is) ────────
