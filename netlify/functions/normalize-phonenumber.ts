@@ -1,4 +1,5 @@
 import type { Handler } from '@netlify/functions';
+import { toE164 } from '../lib/phone';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,9 +10,9 @@ const CORS_HEADERS = {
 
 function vapiResponse(toolCallId: string | null, result: string) {
   if (toolCallId) {
-    return JSON.stringify({ results: [{ toolCallId, result }] });
+    return { results: [{ toolCallId, result }] };
   }
-  return JSON.stringify({ result });
+  return { result };
 }
 
 export const handler: Handler = async (event) => {
@@ -39,9 +40,25 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ result: 'Ongeldige invoer' }) };
   }
 
-  const normalized = nummer.replace(/[\s\-().+]/g, '');
-  console.log('[normalize-phonenumber]', { input: nummer, output: normalized, toolCallId });
+  // `result` blijft letterlijk wat het was: de kale cijfers. De Vapi-assistent
+  // die dit leest is buiten deze repo geconfigureerd, dus wat er ná het antwoord
+  // met die string gebeurt is hiervandaan niet te overzien — dan maar niets
+  // veranderen aan wat hij krijgt.
+  const kaal = nummer.replace(/[\s\-().+]/g, '');
 
-  const body = vapiResponse(toolCallId, normalized);
-  return { statusCode: 200, headers: CORS_HEADERS, body };
+  // De velden ernaast zijn voor de app: die heeft E.164 nodig (de CHECK op
+  // courier_contacts) en moet "klaar" van "afgekeurd" kunnen onderscheiden
+  // zonder de tekst te hoeven interpreteren.
+  const normalized = toE164(nummer);
+  console.log('[normalize-phonenumber]', {
+    input: nummer, result: kaal, toolCallId,
+    ...(normalized.ok ? { e164: normalized.e164 } : { afgekeurd: normalized.reason }),
+  });
+
+  const payload = {
+    ...vapiResponse(toolCallId, kaal),
+    ...(normalized.ok ? { ok: true, e164: normalized.e164 } : { ok: false, reason: normalized.reason }),
+  };
+
+  return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(payload) };
 };

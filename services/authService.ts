@@ -1,5 +1,6 @@
 import { AuthUser, AuthSession, UserRole } from '../types';
 import { supabase } from './supabaseService';
+import { saveMyPhone, stashPendingPhone } from './courierContactService';
 
 // ── Rol-mapping: database (lowercase) ↔ TypeScript enum ──────────────
 const DB_ROLE_MAP: Record<string, UserRole> = {
@@ -202,7 +203,8 @@ export function getSession(): AuthSession | null {
 export async function registerCourier(
   name: string,
   email: string,
-  password: string
+  password: string,
+  phoneE164: string,
 ): Promise<AuthUser | null> {
   if (!supabase) return null;
 
@@ -213,6 +215,21 @@ export async function registerCourier(
     options: { data: { name, role: 'courier' } },
   });
   if (error || !data.user) return null;
+
+  // Het nummer gaat via de courier-contact-functie naar courier_contacts en niet
+  // mee in de metadata: handle_new_user() woont in de planner-repo en wordt daar
+  // smal gehouden. Is er nog geen sessie (account moet per mail bevestigd worden),
+  // dan kan de functie het nummer aan niemand hangen; het wacht dan lokaal tot het
+  // slot na de eerste login het oppakt.
+  if (data.session) {
+    const saved = await saveMyPhone(phoneE164);
+    if (!saved.ok) {
+      console.warn('[registerCourier] telefoonnummer opslaan mislukt:', saved.reason);
+      stashPendingPhone(phoneE164);
+    }
+  } else {
+    stashPendingPhone(phoneE164);
+  }
 
   const user: AuthUser = {
     id:        data.user.id,

@@ -3,8 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
-/** `reason` is bedoeld voor de serverlog, niet voor de client. */
-export interface AuthResult { ok: boolean; statusCode?: number; body?: string; reason?: string; }
+/**
+ * `reason` is bedoeld voor de serverlog, niet voor de client.
+ *
+ * `userId` komt uit het geverifieerde token. Een function die namens de
+ * ingelogde gebruiker schrijft moet die id hiervandaan halen en niet uit de
+ * body van het verzoek — anders bepaalt de afzender zelf wiens rij hij raakt.
+ */
+export interface AuthResult { ok: boolean; statusCode?: number; body?: string; reason?: string; userId?: string; }
 
 export async function verifyAuth(
   headers: Record<string, string | undefined>
@@ -25,5 +31,5 @@ export async function verifyAuth(
     return { ok: false, statusCode: 401, reason: `token afgewezen door Supabase: ${error?.message ?? 'geen user in respons'}`, body: JSON.stringify({
       error: { message: 'Ongeldige of verlopen sessie', code: 'UNAUTHENTICATED' } }) };
   }
-  return { ok: true };
+  return { ok: true, userId: data.user.id };
 }

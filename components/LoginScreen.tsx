@@ -6,6 +6,7 @@ import {
 import { AuthUser, UserRole } from '../types';
 import { login, registerCourier, saveSession, getCourierPharmacies, linkPharmacyCode, linkCodeErrorMessage, DEMO_USERS } from '../services/authService';
 import { supabase } from '../services/supabaseService';
+import PhoneNumberField, { usePhoneField } from './PhoneNumberField';
 
 interface Props {
   onLogin:       (user: AuthUser, activePharmacyId?: string) => void;
@@ -38,6 +39,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
   const [showRegPw, setShowRegPw]     = useState(false);
   const [regError, setRegError]       = useState('');
   const [regSuccess, setRegSuccess]   = useState(false);
+  const regPhone                      = usePhoneField();
 
   const [loggedInUser, setLoggedInUser]         = useState<AuthUser | null>(null);
   const [courierPharmacies, setCourierPharmacies] = useState<PharmacyOption[]>([]);
@@ -113,9 +115,21 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
     setRegError('');
     if (regPassword.length < 8) { setRegError('Wachtwoord moet minimaal 8 tekens zijn.'); return; }
     if (regPassword !== regConfirm) { setRegError('Wachtwoorden komen niet overeen.'); return; }
+
+    // Het telefoonnummer is verplicht en moet bevestigd zijn: de koerier hoort de
+    // genormaliseerde vorm te hebben gezien voordat het account bestaat. Is dat
+    // nog niet gebeurd, dan controleren we hier en stopt de registratie één ronde.
+    if (!regPhone.e164) {
+      const gecontroleerd = await regPhone.check();
+      setRegError(gecontroleerd
+        ? 'Controleer of je telefoonnummer klopt en tik dan opnieuw op "Account aanmaken".'
+        : 'Vul een geldig telefoonnummer in.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const user = await registerCourier(regName.trim(), regEmail.trim(), regPassword);
+      const user = await registerCourier(regName.trim(), regEmail.trim(), regPassword, regPhone.e164);
       if (user) {
         saveSession(user);
         await enterCourierPharmacyStep(user);
@@ -342,6 +356,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin, onGuestAccess }) => {
                         onFocus={e => e.currentTarget.style.boxShadow = '0 0 0 2px #006b5a40'}
                         onBlur={e => e.currentTarget.style.boxShadow = '0 0 0 1px rgba(188,202,196,0.25)'} />
                     </div>
+                    <PhoneNumberField field={regPhone} />
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-display font-black uppercase tracking-widest text-[#3d4945]/60 ml-1">
                         Wachtwoord <span className="normal-case font-body font-bold text-[#3d4945]/40">(min. 8 tekens)</span>

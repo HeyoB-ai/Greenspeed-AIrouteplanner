@@ -7,6 +7,7 @@ import AdminView from './components/AdminView';
 import CourierView from './components/CourierView';
 import CourierPharmacyLink from './components/CourierPharmacyLink';
 import DienstCheck from './components/DienstCheck';
+import PhoneNumberGate from './components/PhoneNumberGate';
 import CourierRooster from './components/CourierRooster';
 import RegionManagerView from './components/RegionManagerView';
 import PlannerRedirectView from './components/PlannerRedirectView';
@@ -21,6 +22,7 @@ import { optimizeRoute, optimizeRouteDetailed, type RouteGeometry } from './serv
 import RouteMapModal from './components/RouteMapModal';
 import { getSession, logout, saveSession, getCourierPharmacies } from './services/authService';
 import { db, supabase, getAuthHeaders } from './services/supabaseService';
+import { getMyPhoneStatus } from './services/courierContactService';
 import { filterPharmacies, filterPackagesByAccess } from './utils/pharmacyAccess';
 import { addressKey } from './utils/addressKey';
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Copy, Check, Info, X, Building2, Trash2, Plus, Loader2, Truck, Calendar, CalendarDays, ArrowUpRight } from 'lucide-react';
@@ -389,6 +391,10 @@ const App: React.FC = () => {
   // Koerier: actief tabblad — bezorgen (de rit) of het eigen rooster.
   const [courierTab, setCourierTab] = useState<'bezorgen' | 'rooster'>('bezorgen');
 
+  // Koerier: staat er al een telefoonnummer in courier_contacts? null betekent
+  // "nog niet gecontroleerd", en dat is expliciet iets anders dan "nee".
+  const [courierPhoneOk, setCourierPhoneOk] = useState<boolean | null>(null);
+
   // Restore session on mount
   useEffect(() => {
     const existing = getSession();
@@ -610,6 +616,23 @@ const App: React.FC = () => {
         localStorage.setItem('courierPharmacyIds', JSON.stringify(allIds));
       }
       // Geen data uit Supabase → laat bestaande localStorage-state intact
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
+
+  // Bij iedere COURIER-login: controleer of hij een nummer heeft in
+  // courier_contacts. Zonder rij valt hij zonder logregel uit sms_due_shifts()
+  // van de planner, dus vragen we het alsnog voordat hij de app in mag.
+  useEffect(() => {
+    if (!session || session.user.role !== UserRole.COURIER) { setCourierPhoneOk(null); return; }
+    let cancelled = false;
+    (async () => {
+      const status = await getMyPhoneStatus();
+      if (cancelled) return;
+      // Bij een onbekende uitkomst (demo-account zonder JWT, netwerkhik) laten we
+      // hem door. Een koerier die door een storing niet aan zijn rit kan beginnen
+      // is een groter probleem dan een dag langer zonder nummer in de tabel.
+      setCourierPhoneOk(status.known ? status.hasPhone : true);
     })();
     return () => { cancelled = true; };
   }, [session]);
@@ -1284,6 +1307,18 @@ CREATE POLICY "Allow public access" ON institutions FOR ALL USING (true);`;
       <PatientView
         packages={packages}
         onBack={() => setShowPatientView(false)}
+      />
+    );
+  }
+
+  // ── Render: koerier zonder telefoonnummer ────────────────────────
+  // Zolang de controle loopt (null) gaat de app gewoon open: wie zijn nummer al
+  // heeft, hoort hier niets van te merken.
+  if (session?.user.role === UserRole.COURIER && courierPhoneOk === false) {
+    return (
+      <PhoneNumberGate
+        courierName={session.user.name}
+        onSaved={() => setCourierPhoneOk(true)}
       />
     );
   }
