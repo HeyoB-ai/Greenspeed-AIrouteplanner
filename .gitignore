@@ -25,3 +25,6 @@ Thumbs.db
 
 # Supabase CLI-werkmap (versiecache), hoort niet in de repo
 supabase/.temp/
+
+# Uitgedeelde wachtwoorden van de BENU-koeriers — hoort nooit in de repo
+benu_wachtwoorden.csv
