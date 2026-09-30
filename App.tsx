@@ -401,30 +401,6 @@ const App: React.FC = () => {
     if (existing) setSession(existing);
   }, []);
 
-  // Heeft de koerier een standplaats, dan is dat de apotheek waarvoor hij scant
-  // en hoeft hij de keuze niet elke keer opnieuw te maken. Bewust hier en niet in
-  // handleLogin: die vuurt alleen bij een verse login, terwijl een verlaadde
-  // pagina via de restore hierboven binnenkomt — en juist dan zag hij de picker.
-  //
-  // Alleen overnemen als de koerier ook tóegang heeft tot die apotheek. Een
-  // standplaats buiten courier_pharmacy_access zou hem laten scannen voor een
-  // apotheek die niet in `pharmacies` zit, en dan blijft de naam in de kop leeg.
-  //
-  // courierPharmacyIds hoort in de dependency-array: die lijst begint leeg en
-  // wordt pas gevuld na `await getCourierPharmacies()` hieronder. Zonder de
-  // dependency draait dit effect één keer, tegen een lege lijst, en valt de
-  // standplaats bij een verse login altijd af.
-  //
-  // De setter in functie-vorm met `prev === null`: een keuze die de koerier
-  // vandaag zelf maakte wordt niet overschreven als de lijst later nog bijwerkt.
-  useEffect(() => {
-    const standplaats = session?.user.home_pharmacy_id;
-    if (!standplaats) return;
-    setActiveScanPharmacyId(prev =>
-      (prev === null && courierPharmacyIds.includes(standplaats)) ? standplaats : prev
-    );
-  }, [session?.user.home_pharmacy_id, courierPharmacyIds]);
-
   // Load data once session exists (or for patient view)
   useEffect(() => {
     if (!session && !showPatientView) return;
