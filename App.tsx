@@ -401,6 +401,20 @@ const App: React.FC = () => {
     if (existing) setSession(existing);
   }, []);
 
+  // Heeft de koerier een standplaats, dan is dat de apotheek waarvoor hij scant
+  // en hoeft hij de keuze niet elke keer opnieuw te maken. Bewust hier en niet in
+  // handleLogin: die vuurt alleen bij een verse login, terwijl een verlaadde
+  // pagina via de restore hierboven binnenkomt — en juist dan zag hij de picker.
+  //
+  // De setter in functie-vorm, zodat de huidige waarde niet uit de closure
+  // gelezen wordt: een al gemaakte keuze van vandaag blijft staan, en
+  // activeScanPharmacyId hoeft geen dependency te zijn.
+  useEffect(() => {
+    const standplaats = session?.user.home_pharmacy_id;
+    if (!standplaats) return;
+    setActiveScanPharmacyId(prev => prev ?? standplaats);
+  }, [session?.user.home_pharmacy_id]);
+
   // Load data once session exists (or for patient view)
   useEffect(() => {
     if (!session && !showPatientView) return;

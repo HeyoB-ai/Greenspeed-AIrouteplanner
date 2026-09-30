@@ -21,6 +21,9 @@ export interface AuthUser {
   pharmacyIds?:  string[];  // alle apotheken die deze admin beheert
                             // undefined of leeg = geen beperking (alleen superuser)
   groupId?:      string;    // groep/regio waar een supervisor bij hoort
+  // Standplaats uit de planner (planner-migratie 018). Snake_case omdat het veld
+  // één-op-één de kolomnaam volgt; de rest van deze interface is camelCase.
+  home_pharmacy_id?: string | null;
   courierId?:    string;
   passwordHash?: string;
   // Toegang tot de planner-app, los van de primaire rol (migratie 016). Een

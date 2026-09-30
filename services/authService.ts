@@ -81,6 +81,9 @@ function profileToAuthUser(userId: string, profile: Record<string, any>): AuthUs
     pharmacyIds: pharmacyIds.length > 0 ? pharmacyIds : undefined,
     pharmacyId:  pharmacyIds[0],
     groupId:     profile.group_id ?? undefined,
+    // De login-query doet select('*'), dus de standplaats komt al mee. Hij gaat
+    // mee in de lokale sessie, zodat een verlaadde pagina hem ook nog heeft.
+    home_pharmacy_id: profile.home_pharmacy_id ?? null,
     courierId:   profile.role === 'courier' ? userId : undefined,
     // De login-query doet select('*'), dus is_planner komt al mee; hier alleen
     // de naamgeving. `=== true` omdat de kolom op een database zonder migratie
