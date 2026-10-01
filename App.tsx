@@ -903,6 +903,12 @@ const App: React.FC = () => {
     try {
       const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
 
+      if (selectedPackages.length === 0) {
+        console.warn('[Route] Geen pakketten gevonden voor geselecteerde IDs — mogelijk stale state', selectedIds);
+        setIsOptimizing(false);
+        return;
+      }
+
       const stops = selectedPackages.map(p => ({
         id:          p.id,
         street:      p.address.street,
@@ -928,6 +934,11 @@ const App: React.FC = () => {
           : (pharmacies.find(p => p.id === startFrom) ?? currentPharmacy);
         if (startPharmacy?.address) {
           startAddress = `${startPharmacy.address}, Netherlands`;
+        } else if (startPharmacy?.street && startPharmacy?.postalCode) {
+          // Nieuwere apotheken hebben geen samengesteld `address` meer maar losse
+          // velden. Zonder deze tak bleef startAddress null en vertrok de route
+          // zonder startpunt.
+          startAddress = `${startPharmacy.street} ${startPharmacy.houseNumber ?? ''}, ${startPharmacy.postalCode} ${startPharmacy.city ?? ''}, Netherlands`;
         }
       }
 
@@ -940,6 +951,8 @@ const App: React.FC = () => {
           : (pharmacies.find(p => p.id === returnTo) ?? currentPharmacy);
         if (endPharmacy?.address) {
           endAddress = `${endPharmacy.address}, Netherlands`;
+        } else if (endPharmacy?.street && endPharmacy?.postalCode) {
+          endAddress = `${endPharmacy.street} ${endPharmacy.houseNumber ?? ''}, ${endPharmacy.postalCode} ${endPharmacy.city ?? ''}, Netherlands`;
         }
       }
 
@@ -959,24 +972,31 @@ const App: React.FC = () => {
       const indexMap = new Map() as Map<string, number>;
       orderedIds.forEach((id, i) => indexMap.set(id, i + 1));
 
-      const toSync: Package[] = [];
-      const updatedPackages = packages.map(pkg => {
-        if (!indexMap.has(pkg.id)) return pkg;
-        const pos = indexMap.get(pkg.id)!;
-        const updated = {
-          ...pkg,
-          status:       PackageStatus.ASSIGNED,
-          routeIndex:   pos,
-          displayIndex: pos,
-          orderIndex:   pos - 1, // 0-gebaseerd voor overzicht-sort
-        };
-        toSync.push(updated);
-        return updated;
+      const metRoutepositie = (pkg: Package, pos: number): Package => ({
+        ...pkg,
+        status:       PackageStatus.ASSIGNED,
+        routeIndex:   pos,
+        displayIndex: pos,
+        orderIndex:   pos - 1, // 0-gebaseerd voor overzicht-sort
       });
+
+      // toSync wordt hier gebouwd en niet in de setPackages-updater: die draait
+      // React pas bij de volgende render en mag hem meer dan één keer aanroepen.
+      // Een push daarbinnen zou de regels hieronder een lege — of dubbele — lijst
+      // geven, en dan gaat de route wel het scherm op maar nooit de server in.
+      const toSync: Package[] = selectedPackages
+        .filter(pkg => indexMap.has(pkg.id))
+        .map(pkg => metRoutepositie(pkg, indexMap.get(pkg.id)!));
 
       console.log('Gesynchroniseerd:', toSync.map(p => `stop ${p.routeIndex}: ${p.address.street} ${p.address.houseNumber}`));
 
-      setPackages(updatedPackages);
+      // Functionele vorm: tussen het begin van deze callback en dit punt zitten
+      // meerdere awaits (GPS, geocoding, de optimalisatie zelf). In die tijd kan
+      // een scan of een realtime-update de lijst hebben gewijzigd; `packages` uit
+      // de closure is dan verouderd en zou die wijzigingen overschrijven.
+      setPackages(prev => prev.map(pkg =>
+        indexMap.has(pkg.id) ? metRoutepositie(pkg, indexMap.get(pkg.id)!) : pkg
+      ));
       const routeSync = await db.syncMultiplePackages(toSync);
       if (routeSync && !routeSync.synced) {
         setToast('Let op: de route is lokaal bijgewerkt maar NIET op de server opgeslagen. Controleer je verbinding en login.');
