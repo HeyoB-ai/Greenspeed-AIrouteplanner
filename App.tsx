@@ -855,10 +855,15 @@ const App: React.FC = () => {
     // kunnen prima hetzelfde afleveradres hebben.
     // Alleen pakketten van vandaag — routes van gisteren mogen niet triggeren.
     const todayStr = new Date().toLocaleDateString('sv'); // YYYY-MM-DD lokale tijd
+    // Alleen de eigen pakketten: een pakket van een collega op hetzelfde adres
+    // gaf deze koerier anders een "tweede pakket"-waarschuwing die niet over hem
+    // ging. Scant iemand zonder courierId (apotheek, beheer), dan is de
+    // vergelijking undefined === undefined en telt diens eigen reeks mee.
     const sameAddressCount = currentPackages.filter(p =>
       OPEN_STATUSES.includes(p.status) &&
       addressKey(p.address) === key &&
-      new Date(p.createdAt ?? 0).toLocaleDateString('sv') === todayStr
+      new Date(p.createdAt ?? 0).toLocaleDateString('sv') === todayStr &&
+      p.courierId === courierId
     ).length + 1;
 
     // Let op: dit telt uit packagesRef (stand vóór deze scan) + 1, dus los van
@@ -897,14 +902,24 @@ const App: React.FC = () => {
     startFrom: string = 'pharmacy',
     returnTo: string = 'pharmacy'
   ) => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0) {
+      setToast('Geen pakketten geselecteerd.');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
     setIsOptimizing(true);
 
     try {
-      const selectedPackages = packages.filter(p => selectedIds.includes(p.id));
+      // Uit de ref en niet uit de closure: deze callback wordt alleen herbouwd
+      // bij een andere apotheek, dus `packages` zou hier de stand van toen zijn.
+      // Een koerier die scant en meteen de route start zag zijn verse pakketten
+      // anders niet terug in selectedPackages — lege stoplijst, stille terugval.
+      const selectedPackages = packagesRef.current.filter(p => selectedIds.includes(p.id));
 
       if (selectedPackages.length === 0) {
-        console.warn('[Route] Geen pakketten gevonden voor geselecteerde IDs — mogelijk stale state', selectedIds);
+        console.warn('[Route] Geen pakketten gevonden voor IDs:', selectedIds);
+        setToast('Pakketten niet gevonden — probeer opnieuw.');
+        setTimeout(() => setToast(null), 3000);
         setIsOptimizing(false);
         return;
       }
@@ -964,7 +979,7 @@ const App: React.FC = () => {
       console.log('Geselecteerde IDs:', selectedIds);
       console.log('Geoptimaliseerde volgorde:', orderedIds);
       orderedIds.forEach((id, i) => {
-        const pkg = packages.find(p => p.id === id);
+        const pkg = packagesRef.current.find(p => p.id === id);
         if (pkg) console.log(`Stop ${i + 1}: ${pkg.address.street} ${pkg.address.houseNumber}`);
       });
 
@@ -1009,7 +1024,7 @@ const App: React.FC = () => {
     } finally {
       setIsOptimizing(false);
     }
-  }, [packages, pharmacies, currentPharmacy]);
+  }, [pharmacies, currentPharmacy]); // packages via packagesRef, dus geen dependency
 
   const handleInstitutionRoute = useCallback(async (
     selected: Institution[],
