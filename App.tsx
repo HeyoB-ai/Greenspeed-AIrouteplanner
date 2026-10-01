@@ -1069,6 +1069,10 @@ const App: React.FC = () => {
           : (pharmacies.find(p => p.id === startFrom) ?? activePharmacy);
         if (startPharmacy?.address) {
           startAddress = `${startPharmacy.address}, Netherlands`;
+        } else if (startPharmacy?.street && startPharmacy?.postalCode) {
+          // Zie handleOptimizeRoute: nieuwere apotheken hebben geen samengesteld
+          // `address` meer maar losse velden.
+          startAddress = `${startPharmacy.street} ${startPharmacy.houseNumber ?? ''}, ${startPharmacy.postalCode} ${startPharmacy.city ?? ''}, Netherlands`;
         }
       }
 
@@ -1081,6 +1085,8 @@ const App: React.FC = () => {
           : (pharmacies.find(p => p.id === returnTo) ?? activePharmacy);
         if (endPharmacy?.address) {
           endAddress = `${endPharmacy.address}, Netherlands`;
+        } else if (endPharmacy?.street && endPharmacy?.postalCode) {
+          endAddress = `${endPharmacy.street} ${endPharmacy.houseNumber ?? ''}, ${endPharmacy.postalCode} ${endPharmacy.city ?? ''}, Netherlands`;
         }
       }
 
